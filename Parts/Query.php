@@ -176,7 +176,7 @@ class Query implements \Iterator, \Countable
         if (!is_null($this->order)) {
             $sql .= ' ORDER BY ' . $this->order;
         }
-        if (!is_null($this->limit)) {
+        if (!is_null($this->limit) && empty($this->with)) {
             $sql .= ' LIMIT ' . $this->limit;
             if (!is_null($this->offset)) {
                 $sql .= ' OFFSET ' . $this->offset;
@@ -197,11 +197,11 @@ class Query implements \Iterator, \Countable
             $stmt->bindValue(++$i, $param);
         }
         $stmt->execute();
-        $rows = $stmt->fetchAll();
-        if (empty($rows)) {
-            return array();
-        }
         if (empty($this->with)) {
+            $rows = $stmt->fetchAll();
+            if (empty($rows)) {
+                return array();
+            }
             if ($this->single || count($rows) == 1) {
                 return new Row($this->table, current($rows));
             } else {
@@ -217,11 +217,11 @@ class Query implements \Iterator, \Countable
                 return $return;
             }
         } else {
-            return $this->process($rows);
+            return $this->process($stmt);
         }
     }
 
-    private function process(array $rows)
+    private function process($statement)
     {
         $table_fields = array();
         $relations_fields = array();
@@ -240,10 +240,20 @@ class Query implements \Iterator, \Countable
         $last_pk = NULL;
         $relation_last_pks = array();
         $relations = array();
-        foreach ($rows as $row) {
+        $row_num = -1;
+        $fetched = 0;
+        while ($row = $statement->fetch()) {
             if ($last_pk != $row[$table_fields[$pk_field]]) {
+                if ($this->limit && $fetched == $this->limit) {
+                    break;
+                }
                 $rowdata = $this->getFieldsFromRow($row, $table_fields);
                 $last_pk = $rowdata[$pk_field];
+                ++$row_num;
+                if ($this->offset && $row_num < $this->offset) {
+                    continue;
+                }
+                ++$fetched;
                 $return[$last_pk] = new Row($this->table, $rowdata);
                 $relations[$last_pk] = array();
             }
