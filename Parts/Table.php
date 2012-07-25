@@ -147,7 +147,11 @@ class Table implements \ArrayAccess, \Iterator
         if (!isset($this->loaded_records[$offset])) {
             $query = new Query($this);
             $condition = sprintf('%s = ?', $this->descriptor->primary_key);
-            $this->loaded_records[$offset] = $query->where($condition, $offset)->get();
+            $record = $query->where($condition, $offset)->get();
+            if (empty($record)) {
+                throw new \OutOfBoundsException('Record not exists: ' . $offset);
+            }
+            $this->loaded_records[$offset] = $record;
         }
         return $this->loaded_records[$offset];
     }
