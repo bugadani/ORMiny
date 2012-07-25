@@ -247,14 +247,14 @@ class Query implements \Iterator, \Countable
                 if ($this->limit && $fetched == $this->limit) {
                     break;
                 }
+                if ($this->single && $fetched == 1) {
+                    break;
+                }
                 $rowdata = $this->getFieldsFromRow($row, $table_fields);
                 $last_pk = $rowdata[$pk_field];
                 ++$row_num;
                 if ($this->offset && $row_num < $this->offset) {
                     continue;
-                }
-                if ($this->single && $fetched == 1) {
-                    break;
                 }
                 ++$fetched;
                 $return[$last_pk] = new Row($this->table, $rowdata);
