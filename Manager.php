@@ -36,30 +36,11 @@ class Manager
     public $table_format = '%s';
     public $foreign_key = '%s_id';
     public $connection;
-    public $cache_lifetime = 3600;
-    private $cache;
     private $tables = array();
 
-    public function __construct(\PDO $connection, iCacheDriver $cache = NULL)
+    public function __construct(\PDO $connection)
     {
         $this->connection = $connection;
-        $this->cache = $cache;
-        if (!is_null($cache) && $cache->has('orm.tables')) {
-            foreach ($cache->get('orm.tables') as $name => $table) {
-                $this->addTable($table, $name);
-            }
-        }
-    }
-
-    public function __desctruct()
-    {
-        if (!is_null($this->cache)) {
-            $arr = array();
-            foreach ($this->tables as $name => $table) {
-                $arr[$name] = $table->descriptor;
-            }
-            $this->cache->store('orm.tables', $arr, $this->cache_lifetime);
-        }
     }
 
     private function processManyManyRelation($name)
@@ -100,7 +81,6 @@ class Manager
     {
         if (!empty($this->tables)) {
             //Let's assume that the DB is already discovered (e.g. comes from cache)
-            echo derp;
             return;
         }
         $tables = $this->connection->query('SHOW TABLES')->fetchAll();
