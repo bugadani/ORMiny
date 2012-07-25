@@ -26,7 +26,10 @@
 
 namespace Modules\ORM;
 
-use \Miny\Cache\iCacheDriver;
+use \Modules\Cache\iCacheDriver;
+use \Modules\ORM\Parts\Relation;
+use \Modules\ORM\Parts\Table;
+use \Modules\ORM\Parts\TableDescriptor;
 
 class Manager
 {

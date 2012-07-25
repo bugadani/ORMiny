@@ -30,12 +30,12 @@ use \Miny\Application\Application;
 
 class Module extends \Miny\Application\Module
 {
-    public function init(Application $app)
+    public function init(Application $app, $source = '&db', $auto_discover = true)
     {
-        $app->add('orm', __NAMESPACE__ . '\Manager')
-                ->setArguments('&db')
-                ->addMethodCall('discover')
-                ->setProperty('table_format', 'miny_%s');
+        $orm = $app->add('orm', __NAMESPACE__ . '\Manager')->setArguments($source);
+        if ($auto_discover) {
+            $orm->addMethodCall('discover');
+        }
     }
 
 }
