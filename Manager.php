@@ -36,6 +36,7 @@ class Manager
     public $table_format = '%s';
     public $foreign_key = '%s_id';
     public $connection;
+    public $cache_lifetime = 3600;
     private $cache;
     private $tables = array();
 
@@ -51,7 +52,7 @@ class Manager
     public function __destruct()
     {
         if (!is_null($this->cache)) {
-            $this->cache->store('orm.tables', $this->tables);
+            $this->cache->store('orm.tables', $this->tables, $this->cache_lifetime);
         }
     }
 
