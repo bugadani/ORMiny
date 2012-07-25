@@ -45,14 +45,20 @@ class Manager
         $this->connection = $connection;
         $this->cache = $cache;
         if (!is_null($cache) && $cache->has('orm.tables')) {
-            $this->tables = $cache->get('orm.tables');
+            foreach ($cache->get('orm.tables') as $name => $table) {
+                $this->addTable($table, $name);
+            }
         }
     }
 
-    public function __destruct()
+    public function __desctruct()
     {
         if (!is_null($this->cache)) {
-            $this->cache->store('orm.tables', $this->tables, $this->cache_lifetime);
+            $arr = array();
+            foreach ($this->tables as $name => $table) {
+                $arr[$name] = $table->descriptor;
+            }
+            $this->cache->store('orm.tables', $arr, $this->cache_lifetime);
         }
     }
 
@@ -94,6 +100,7 @@ class Manager
     {
         if (!empty($this->tables)) {
             //Let's assume that the DB is already discovered (e.g. comes from cache)
+            echo derp;
             return;
         }
         $tables = $this->connection->query('SHOW TABLES')->fetchAll();
