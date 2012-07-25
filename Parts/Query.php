@@ -253,6 +253,9 @@ class Query implements \Iterator, \Countable
                 if ($this->offset && $row_num < $this->offset) {
                     continue;
                 }
+                if ($this->single && $fetched == 1) {
+                    break;
+                }
                 ++$fetched;
                 $return[$last_pk] = new Row($this->table, $rowdata);
                 $relations[$last_pk] = array();
