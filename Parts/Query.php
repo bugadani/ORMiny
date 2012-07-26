@@ -151,7 +151,7 @@ class Query implements \Iterator, \Countable
                 $join_pattern = ' LEFT JOIN %1$s ON (%1$s.%2$s = %3$s.%4$s)';
                 $foreign_key = $this->table->getForeignKey($name);
 
-                if ($relation->getType() == Relation::MANY_MANY) {
+                if ($relation == TableDescriptor::RELATION_MANY_MANY) {
                     $join_table = $this->table->getJoinTable($name);
 
                     $table .= sprintf($join_pattern, $join_table, $table_join_field, $table_name, $primary_key);
@@ -261,8 +261,9 @@ class Query implements \Iterator, \Countable
                 $relations[$last_pk] = array();
             }
             foreach ($this->with as $name) {
-                $relation = $this->table->descriptor->getRelation($name);
-                $relation_pk = $relation->getTable()->getPrimaryKey();
+                $relation_type = $this->table->descriptor->getRelation($name);
+                $relation_table = $this->table->getRelatedTable($name);
+                $relation_pk = $relation_table->getPrimaryKey();
                 $relation_pk_alias = $relations_fields[$name][$relation_pk];
 
                 $relation_pk_value = $row[$relation_pk_alias] ? : NULL;
@@ -281,8 +282,8 @@ class Query implements \Iterator, \Countable
 
                 $relation_last_pks[$name] = $relation_pk_value;
                 $data = $this->getFieldsFromRow($row, $relations_fields[$name]);
-                $relation_row = new Row($relation->getTable(), $data);
-                if ($relation->getType() == Relation::BELONGS_TO) {
+                $relation_row = new Row($relation_table, $data);
+                if ($relation_type == TableDescriptor::RELATION_BELONGS_TO) {
                     //no need to store it in $relations - assign directly
                     $return[$last_pk]->$name = $relation_row;
                 } else {

@@ -28,6 +28,10 @@ namespace Modules\ORM\Parts;
 
 class TableDescriptor
 {
+    const RELATION_HAS = 0;
+    const RELATION_BELONGS_TO = 1;
+    const RELATION_MANY_MANY = 2;
+
     public $name;
     public $primary_key = 'id';
     public $fields = array();

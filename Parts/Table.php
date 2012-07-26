@@ -32,16 +32,12 @@ class Table implements \ArrayAccess, \Iterator
 {
     public $manager;
     public $descriptor;
-    public $related_tables = array();
     private $loaded_records = array();
 
     public function __construct(Manager $manager, TableDescriptor $descriptor)
     {
         $this->manager = $manager;
         $this->descriptor = $descriptor;
-        foreach ($descriptor->relations as $relation) {
-            $this->related_tables[$relation] = $this->manager->$relation;
-        }
     }
 
     public function newRow(array $data = array())
@@ -66,12 +62,15 @@ class Table implements \ArrayAccess, \Iterator
 
     public function getRelatedTable($relation)
     {
-        return $this->descriptor->getRelation($relation)->getTable();
+        if (!isset($this->descriptor->relations[$relation])) {
+            throw new \InvalidArgumentException('Not related: ' . $relation);
+        }
+        return $this->manager->$relation;
     }
 
     public function getJoinTable($relation)
     {
-        $table = $this->descriptor->getRelation($relation)->getTable();
+        $table = $this->getRelatedTable($relation);
         return sprintf($this->manager->table_format, $this->descriptor->name . '_' . $table->descriptor->name);
     }
 

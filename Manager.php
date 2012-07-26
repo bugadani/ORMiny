@@ -36,14 +36,17 @@ class Manager
     public $table_format = '%s';
     public $foreign_key = '%s_id';
     public $connection;
+    public $cache_lifetime = 3600;
     private $tables = array();
+    private $cache;
 
-    public function __construct(\PDO $connection)
+    public function __construct(\PDO $connection, iCacheDriver $cache = NULL)
     {
         $this->connection = $connection;
+        $this->cache = $cache;
     }
 
-    private function processManyManyRelation($name)
+    private function processManyManyRelation($name, array $descriptors)
     {
         if (strpos($name, '_') === false) {
             return;
@@ -52,15 +55,15 @@ class Manager
         $parts_count = count($parts);
         $joins_tables = false;
         if ($parts_count == 2) {
-            if (isset($this->tables[$parts[0]], $this->tables[$parts[1]])) {
+            if (isset($descriptors[$parts[0]], $descriptors[$parts[1]])) {
                 $joins_tables = array($parts[0], $parts[1]);
             }
         } else {
             for ($i = 1; $i < $parts_count; ++$i) {
                 $table1 = implode('_', array_slice($parts, 0, $i));
-                if (isset($this->tables[$table1])) {
+                if (isset($descriptors[$table1])) {
                     $table2 = implode('_', array_slice($parts, $i));
-                    if (isset($this->tables[$table2])) {
+                    if (isset($descriptors[$table2])) {
                         $joins_tables = array($table1, $table2);
                         break;
                     }
@@ -68,61 +71,63 @@ class Manager
             }
         }
         if ($joins_tables) {
-            list($table1_name, $table2_name) = $joins_tables;
-            $table1 = $this->tables[$table1_name];
-            $table2 = $this->tables[$table2_name];
+            list($table1, $table2) = $joins_tables;
 
-            $table1->descriptor->relations[$table2_name] = new Relation($table2, Relation::MANY_MANY);
-            $table2->descriptor->relations[$table1_name] = new Relation($table1, Relation::MANY_MANY);
+            $descriptors[$table1]->relations[$table2] = TableDescriptor::RELATION_MANY_MANY;
+            $descriptors[$table2]->relations[$table1] = TableDescriptor::RELATION_MANY_MANY;
         }
     }
 
     public function discover()
     {
-        if (!empty($this->tables)) {
-            //Let's assume that the DB is already discovered (e.g. comes from cache)
-            return;
-        }
-        $tables = $this->connection->query('SHOW TABLES')->fetchAll();
-        $table_ids = array();
-        foreach ($tables as $name) {
-            $name = current($name);
-            list($id) = sscanf($name, $this->table_format);
-            $td = new TableDescriptor;
-            $td->name = $id;
-            $this->addTable($td, $id);
-            $table_ids[$id] = $name;
-        }
+        if (!is_null($this->cache) && $this->cache->has('orm.tables')) {
+            $descriptors = $this->cache->get('orm.tables');
+        } else {
+            $tables = $this->connection->query('SHOW TABLES')->fetchAll();
+            $table_ids = array();
+            $descriptors = array();
+            foreach ($tables as $name) {
+                $name = current($name);
+                list($id) = sscanf($name, $this->table_format);
+                $td = new TableDescriptor;
+                $td->name = $id;
+                $descriptors[$id] = $td;
+                $table_ids[$id] = $name;
+            }
 
-        $foreign_pattern = '/' . str_replace('%s', '(.*)', $this->foreign_key) . '/';
+            $foreign_pattern = '/' . str_replace('%s', '(.*)', $this->foreign_key) . '/';
 
-        foreach ($table_ids as $name => $table_name) {
-            $this->processManyManyRelation($name);
-            $stmt = $this->connection->query('DESCRIBE ' . $table_name);
-            $td = $this->tables[$name]->descriptor;
+            foreach ($table_ids as $name => $table_name) {
+                $this->processManyManyRelation($name, $descriptors);
+                $stmt = $this->connection->query('DESCRIBE ' . $table_name);
+                $td = $descriptors[$name];
 
-            foreach ($stmt->fetchAll() as $field) {
-                $td->fields[] = $field['Field'];
-                if ($field['Key'] == 'PRI') {
-                    $td->primary_key = $field['Field'];
-                }
+                foreach ($stmt->fetchAll() as $field) {
+                    $td->fields[] = $field['Field'];
+                    if ($field['Key'] == 'PRI') {
+                        $td->primary_key = $field['Field'];
+                    }
 
-                $matches = array();
-                if (preg_match($foreign_pattern, $field['Field'], $matches)) {
-                    $referenced_table = $matches[1];
-                    $referencing_table = $name;
-                    if (isset($this->tables[$referenced_table])) {
-                        $referenced = $this->tables[$referenced_table];
-                        $referencing = $this->tables[$referencing_table];
+                    $matches = array();
+                    if (preg_match($foreign_pattern, $field['Field'], $matches)) {
+                        $referenced_table = $matches[1];
+                        $referencing_table = $name;
+                        if (isset($descriptors[$referenced_table])) {
+                            $referenced = $descriptors[$referenced_table];
+                            $referencing = $descriptors[$referencing_table];
 
-                        $referenced_relation = new Relation($referenced, Relation::HAS);
-                        $referencing_relation = new Relation($referencing, Relation::BELONGS_TO);
-
-                        $referencing->descriptor->relations[$referenced_table] = $referenced_relation;
-                        $referenced->descriptor->relations[$referencing_table] = $referencing_relation;
+                            $referencing->relations[$referenced_table] = TableDescriptor::RELATION_HAS;
+                            $referenced->relations[$referencing_table] = TableDescriptor::RELATION_BELONGS_TO;
+                        }
                     }
                 }
             }
+            if (!is_null($this->cache)) {
+                $this->cache->store('orm.tables', $descriptors, $this->cache_lifetime);
+            }
+        }
+        foreach ($descriptors as $name => $td) {
+            $this->addTable($td, $name);
         }
     }
 
