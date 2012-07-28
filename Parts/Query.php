@@ -242,7 +242,7 @@ class Query implements \Iterator, \Countable
         $relations = array();
         $row_num = -1;
         $fetched = 0;
-        while ($row = $statement->fetch()) {
+        while ($row = $statement->fetch(\PDO::FETCH_ASSOC)) {
             if ($last_pk != $row[$table_fields[$pk_field]]) {
                 if ($this->limit && $fetched == $this->limit) {
                     break;
@@ -292,8 +292,10 @@ class Query implements \Iterator, \Countable
             }
         }
         foreach ($relations as $pk => $array) {
-            foreach ($array as $name => $data) {
-                $return[$pk]->$name = $data;
+            if (isset($return[$pk])) {
+                foreach ($array as $name => $data) {
+                    $return[$pk]->$name = $data;
+                }
             }
         }
         if ($this->single) {
