@@ -21,14 +21,18 @@
  * @copyright 2012 Dániel Buga <daniel@bugadani.hu>
  * @license   http://www.gnu.org/licenses/gpl.txt
  *            GNU General Public License
- * @version   1.0
+ * @version   1.0-dev
  */
 
 namespace Modules\ORM\Parts;
 
-use \Modules\ORM\Manager;
+use ArrayAccess;
+use InvalidArgumentException;
+use Iterator;
+use Modules\ORM\Manager;
+use OutOfBoundsException;
 
-class Table implements \ArrayAccess, \Iterator
+class Table implements ArrayAccess, Iterator
 {
     public $manager;
     public $descriptor;
@@ -63,7 +67,7 @@ class Table implements \ArrayAccess, \Iterator
     public function getRelatedTable($relation)
     {
         if (!isset($this->descriptor->relations[$relation])) {
-            throw new \InvalidArgumentException('Not related: ' . $relation);
+            throw new InvalidArgumentException('Not related: ' . $relation);
         }
         return $this->manager->$relation;
     }
@@ -134,6 +138,7 @@ class Table implements \ArrayAccess, \Iterator
         $sql = sprintf($pattern, $this->getTableName(), $condition);
         $stmt = $this->manager->connection->prepare($sql);
         $stmt->execute($parameters);
+        //TODO: delete rows with HAS relation
     }
 
     public function offsetExists($offset)
@@ -148,7 +153,7 @@ class Table implements \ArrayAccess, \Iterator
             $condition = sprintf('%s = ?', $this->descriptor->primary_key);
             $record = $query->where($condition, $offset)->get();
             if (empty($record)) {
-                throw new \OutOfBoundsException('Record not exists: ' . $offset);
+                throw new OutOfBoundsException('Record not exists: ' . $offset);
             }
             $this->loaded_records[$offset] = $record;
         }
@@ -159,12 +164,12 @@ class Table implements \ArrayAccess, \Iterator
     {
         if ($row instanceof Row) {
             if ($row->getTable() != $this) {
-                throw new \InvalidArgumentException('Cannot save row: table mismatch.');
+                throw new InvalidArgumentException('Cannot save row: table mismatch.');
             }
         } elseif (is_array($row)) {
             $row = new Row($this, $row);
         } else {
-            throw new \InvalidArgumentException('Value should be a Row or an array');
+            throw new InvalidArgumentException('Value should be a Row or an array');
         }
 
         $row[$this->getPrimaryKey()] = $offset;

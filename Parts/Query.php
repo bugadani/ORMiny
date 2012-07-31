@@ -21,12 +21,16 @@
  * @copyright 2012 Dániel Buga <daniel@bugadani.hu>
  * @license   http://www.gnu.org/licenses/gpl.txt
  *            GNU General Public License
- * @version   1.0
+ * @version   1.0-dev
  */
 
 namespace Modules\ORM\Parts;
 
-class Query implements \Iterator, \Countable
+use Countable;
+use Iterator;
+use PDO;
+
+class Query implements Iterator, Countable
 {
     private $table;
     private $with;
@@ -242,7 +246,7 @@ class Query implements \Iterator, \Countable
         $relations = array();
         $row_num = -1;
         $fetched = 0;
-        while ($row = $statement->fetch(\PDO::FETCH_ASSOC)) {
+        while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
             if ($last_pk != $row[$table_fields[$pk_field]]) {
                 if ($this->limit && $fetched == $this->limit) {
                     break;

@@ -21,12 +21,17 @@
  * @copyright 2012 Dániel Buga <daniel@bugadani.hu>
  * @license   http://www.gnu.org/licenses/gpl.txt
  *            GNU General Public License
- * @version   1.0
+ * @version   1.0-dev
  */
 
 namespace Modules\ORM\Parts;
 
-class Row implements \ArrayAccess, \IteratorAggregate
+use ArrayAccess;
+use ArrayIterator;
+use IteratorAggregate;
+use OutOfBoundsException;
+
+class Row implements ArrayAccess, IteratorAggregate
 {
     private $table;
     private $data;
@@ -58,7 +63,7 @@ class Row implements \ArrayAccess, \IteratorAggregate
         if (!isset($this->related[$related])) {
             $foreign_key = $this->table->getForeignKey($related);
             if (!isset($this->data[$foreign_key])) {
-                throw new \OutOfBoundsException('Foreign key is not set: ' . $foreign_key);
+                throw new OutOfBoundsException('Foreign key is not set: ' . $foreign_key);
             }
             $this->related[$related] = $this->table->getRelated($related, $this->data[$foreign_key]);
         }
@@ -83,7 +88,7 @@ class Row implements \ArrayAccess, \IteratorAggregate
     public function offsetGet($offset)
     {
         if (!isset($this->data[$offset])) {
-            throw new \OutOfBoundsException('Key not set: ' . $offset);
+            throw new OutOfBoundsException('Key not set: ' . $offset);
         }
         return $this->data[$offset];
     }
@@ -105,7 +110,7 @@ class Row implements \ArrayAccess, \IteratorAggregate
 
     public function getIterator()
     {
-        return new \ArrayIterator($this->data);
+        return new ArrayIterator($this->data);
     }
 
     public function toArray()

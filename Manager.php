@@ -21,15 +21,16 @@
  * @copyright 2012 Dániel Buga <daniel@bugadani.hu>
  * @license   http://www.gnu.org/licenses/gpl.txt
  *            GNU General Public License
- * @version   1.0
+ * @version   1.0-dev
  */
 
 namespace Modules\ORM;
 
-use \Modules\Cache\iCacheDriver;
-use \Modules\ORM\Parts\Relation;
-use \Modules\ORM\Parts\Table;
-use \Modules\ORM\Parts\TableDescriptor;
+use Modules\Cache\iCacheDriver;
+use Modules\ORM\Parts\Table;
+use Modules\ORM\Parts\TableDescriptor;
+use OutOfBoundsException;
+use PDO;
 
 class Manager
 {
@@ -40,7 +41,7 @@ class Manager
     private $tables = array();
     private $cache;
 
-    public function __construct(\PDO $connection, iCacheDriver $cache = NULL)
+    public function __construct(PDO $connection, iCacheDriver $cache = NULL)
     {
         $this->connection = $connection;
         $this->cache = $cache;
@@ -142,7 +143,7 @@ class Manager
     public function __get($table)
     {
         if (!isset($this->tables[$table])) {
-            throw new \OutOfBoundsException('Table not exists: ' . $table);
+            throw new OutOfBoundsException('Table not exists: ' . $table);
         }
         return $this->tables[$table];
     }
