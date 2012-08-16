@@ -108,6 +108,7 @@ class Table implements ArrayAccess, Iterator
         $sql = sprintf($pattern, $this->getTableName(), $fields, $placeholders);
         $stmt = $this->manager->connection->prepare($sql);
         $stmt->execute($data);
+        //todo: related beszúrás
     }
 
     public function update($pk, array $data)
@@ -123,6 +124,7 @@ class Table implements ArrayAccess, Iterator
         $sql = sprintf($pattern, $this->getTableName(), implode(', ', $fields), $this->getPrimaryKey());
         $stmt = $this->manager->connection->prepare($sql);
         $stmt->execute($data);
+        //todo: related update
     }
 
     public function delete($pk)
