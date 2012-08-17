@@ -75,6 +75,11 @@ class Table implements ArrayAccess, Iterator
         } else {
             $this->update($row[$pk], $row->getChangedValues());
         }
+//        foreach ($this->descriptor->relations as $relation => $type) {
+//            if ($type == TableDescriptor::RELATION_HAS) {
+//                $this->save($row->$relation);
+//            }
+//        }
     }
 
     public function insert(array $data)
@@ -90,11 +95,13 @@ class Table implements ArrayAccess, Iterator
         $pattern = 'INSERT INTO %s (%s) VALUES (%s)';
         $sql = sprintf($pattern, $this->getTableName(), $field_list, $placeholders);
         $this->manager->connection->prepare($sql)->execute($record_data);
-        //TODO: insert related rows if necessary
     }
 
     public function update($pk, array $data)
     {
+        if (empty($data)) {
+            return;
+        }
         $data = array_intersect_key($data, array_flip($this->descriptor->fields));
         $fields = array();
         foreach (array_keys($data) as $key) {
@@ -105,13 +112,25 @@ class Table implements ArrayAccess, Iterator
 
         $sql = sprintf($pattern, $this->getTableName(), implode(', ', $fields), $this->getPrimaryKey());
         $this->manager->connection->prepare($sql)->execute($data);
-        //TODO: update related rows if necessary
     }
 
     public function delete($pk)
     {
         $condition = sprintf('%s = :pk', $this->getPrimaryKey());
         $this->deleteRows($condition, array('pk' => $pk));
+
+//        foreach ($this->descriptor->relations as $relation => $type) {
+//            if ($type == TableDescriptor::RELATION_HAS) {
+//                $related = $row->$relation;
+//                if (is_array($related)) {
+//                    foreach ($related as $row) {
+//                        $row->delete();
+//                    }
+//                } else {
+//                    $related->delete();
+//                }
+//            }
+//        }
     }
 
     public function deleteRows($condition, array $parameters = NULL)
@@ -120,7 +139,7 @@ class Table implements ArrayAccess, Iterator
 
         $sql = sprintf($pattern, $this->getTableName(), $condition);
         $this->manager->connection->prepare($sql)->execute($parameters);
-        //TODO: delete related rows if necessary
+        //TODO: step 1: fetch rows to delete, step 2: delete rows and related rows (and related rows...)
     }
 
     public function offsetExists($offset)
