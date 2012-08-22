@@ -147,7 +147,7 @@ class Table implements ArrayAccess, Iterator
 
         $placeholders = implode(', ', array_fill(0, count($deleted_ids), '?'));
 
-        $this->manager->connection->beginTranslation();
+        $this->manager->connection->beginTransaction();
         try {
             foreach ($relations_to_delete as $relation) {
                 $table = $this->getRelatedTable($relation);
