@@ -14,6 +14,8 @@ use InvalidArgumentException;
 use Iterator;
 use Modules\ORM\Manager;
 use OutOfBoundsException;
+use PDO;
+use PDOException;
 
 class Table implements ArrayAccess, Iterator
 {
@@ -118,28 +120,46 @@ class Table implements ArrayAccess, Iterator
     {
         $condition = sprintf('%s = :pk', $this->getPrimaryKey());
         $this->deleteRows($condition, array('pk' => $pk));
-
-//        foreach ($this->descriptor->relations as $relation => $type) {
-//            if ($type == TableDescriptor::RELATION_HAS) {
-//                $related = $row->$relation;
-//                if (is_array($related)) {
-//                    foreach ($related as $row) {
-//                        $row->delete();
-//                    }
-//                } else {
-//                    $related->delete();
-//                }
-//            }
-//        }
     }
 
     public function deleteRows($condition, array $parameters = NULL)
     {
-        $pattern = 'DELETE FROM %s WHERE %s';
-
-        $sql = sprintf($pattern, $this->getTableName(), $condition);
+        $relations_to_delete = array();
+        foreach ($this->descriptor->relations as $name => $type) {
+            if ($type == TableDescriptor::RELATION_HAS) {
+                $relations_to_delete[] = $name;
+            }
+        }
+        if (!empty($relations_to_delete)) {
+            $sql = sprintf('SELECT %s FROM %s WHERE %s', $this->getPrimaryKey(), $this->getTableName(), $condition);
+            $stmt = $this->manager->connection->prepare($sql);
+            $stmt->execute($parameters);
+            $deleted_ids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+        } else {
+            $deleted_ids = array();
+        }
+        $sql = sprintf('DELETE FROM %s WHERE %s', $this->getTableName(), $condition);
         $this->manager->connection->prepare($sql)->execute($parameters);
-        //TODO: step 1: fetch rows to delete, step 2: delete rows and related rows (and related rows...)
+
+        if (empty($deleted_ids)) {
+            return;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($deleted_ids), '?'));
+
+        $this->manager->connection->beginTranslation();
+        try {
+            foreach ($relations_to_delete as $relation) {
+                $table = $this->getRelatedTable($relation);
+                $foreign_key = $table->getForeignKey($this->descriptor->name);
+                $condition = sprintf('%s IN(%s)', $foreign_key, $placeholders);
+                $table->deleteRows($condition, $deleted_ids);
+            }
+            $this->manager->connection->commit();
+        } catch (PDOException $e) {
+            $this->manager->connection->rollback();
+            throw $e;
+        }
     }
 
     public function offsetExists($offset)
