@@ -187,7 +187,7 @@ class Query implements Iterator, Countable
         if (empty($this->with)) {
             $rows = $stmt->fetchAll();
             if (empty($rows)) {
-                return array();
+                return $this->single ? false : array();
             }
             if ($this->single || count($rows) == 1) {
                 return new Row($this->table, current($rows));
