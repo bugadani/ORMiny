@@ -18,7 +18,7 @@ class Module extends \Miny\Application\Module
         $orm = $app->add('orm', __NAMESPACE__ . '\Manager')
                 ->setArguments($app['orm']['data_source'], $app['orm']['table_cache'])
                 ->setProperty('table_format', $app['orm']['table_name_format']);
-        if ($app['orm']['auto_discover']) {
+        if ($app['orm']['auto_discovery']) {
             $orm->addMethodCall('discover');
         }
     }

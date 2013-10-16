@@ -16,22 +16,47 @@ use OutOfBoundsException;
 
 class Row implements ArrayAccess, IteratorAggregate
 {
+    /**
+     * @var \Modules\ORM\Parts\Table
+     */
     private $table;
+
+    /**
+     * @var array
+     */
     private $data;
-    private $related;
+
+    /**
+     * @var array
+     */
+    private $related = array();
+
+    /**
+     * @var array
+     */
     private $changed = array();
 
+    /**
+     * @param \Modules\ORM\Parts\Table $table
+     * @param array $data
+     */
     public function __construct(Table $table, array $data = array())
     {
         $this->table = $table;
         $this->data = $data;
     }
 
+    /**
+     * @return \Modules\ORM\Parts\Table
+     */
     public function getTable()
     {
         return $this->table;
     }
 
+    /**
+     * @return array
+     */
     public function getChangedValues()
     {
         $return = array();
@@ -53,6 +78,9 @@ class Row implements ArrayAccess, IteratorAggregate
         return $this->related[$related];
     }
 
+    /**
+     * @param bool $force_insert
+     */
     public function save($force_insert = false)
     {
         $this->table->save($this, $force_insert);
@@ -63,6 +91,7 @@ class Row implements ArrayAccess, IteratorAggregate
         $this->table->delete($this->data[$this->table->getPrimaryKey()]);
     }
 
+    //ArrayAccess methods
     public function offsetExists($offset)
     {
         return isset($this->data[$offset]);
@@ -91,11 +120,15 @@ class Row implements ArrayAccess, IteratorAggregate
         $this->offsetSet($offset, NULL);
     }
 
+    //IteratorAggregate method
     public function getIterator()
     {
         return new ArrayIterator($this->data);
     }
 
+    /**
+     * @return array
+     */
     public function toArray()
     {
         return $this->data;

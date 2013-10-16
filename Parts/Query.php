@@ -12,9 +12,13 @@ namespace Modules\ORM\Parts;
 use Countable;
 use Iterator;
 use PDO;
+use PDOStatement;
 
 class Query implements Iterator, Countable
 {
+    private static $select_pattern = 'SELECT %s FROM %s';
+    private static $table_name_pattern = '%1$s.%2$s as %3$s_%2$s';
+    private static $join_pattern = ' LEFT JOIN %1$s ON (%1$s.%2$s = %3$s.%4$s)';
     private $table;
     private $with;
     private $columns;
@@ -30,24 +34,40 @@ class Query implements Iterator, Countable
     private $rows = array();
     private $single = false;
 
+    /**
+     *
+     * @param Table $table
+     */
     public function __construct(Table $table)
     {
         $this->table = $table;
         $this->manager = $table->manager;
     }
 
+    /**
+     * @param mixed ...
+     * @return Query
+     */
     public function with()
     {
         $this->with = func_get_args();
         return $this;
     }
 
+    /**
+     * @param mixed ...
+     * @return Query
+     */
     public function select()
     {
         $this->columns = func_get_args();
         return $this;
     }
 
+    /**
+     * @param string $condition,...
+     * @return Query
+     */
     public function where($condition)
     {
         $condition = '(' . $condition . ')';
@@ -63,6 +83,10 @@ class Query implements Iterator, Countable
         return $this;
     }
 
+    /**
+     * @param string $condition,...
+     * @return Query
+     */
     public function having($condition)
     {
         $condition = '(' . $condition . ')';
@@ -78,12 +102,21 @@ class Query implements Iterator, Countable
         return $this;
     }
 
+    /**
+     * @param string $order
+     * @return Query
+     */
     public function order($order)
     {
         $this->order = $order;
         return $this;
     }
 
+    /**
+     * @param int $limit
+     * @param int $offset
+     * @return Query
+     */
     public function limit($limit, $offset = 0)
     {
         $this->limit = $limit;
@@ -91,23 +124,37 @@ class Query implements Iterator, Countable
         return $this;
     }
 
+    /**
+     * @param string $group
+     * @return Query
+     */
     public function group($group)
     {
         $this->group = $group;
         return $this;
     }
 
+    /**
+     * @param bool $lock
+     * @return Query
+     */
     public function lock($lock = true)
     {
         $this->lock = $lock;
         return $this;
     }
 
+    /**
+     * @return string
+     */
     public function __toString()
     {
         return $this->getQuery();
     }
 
+    /**
+     * @return string
+     */
     public function getQuery()
     {
         $table = $this->table->getTableName();
@@ -120,7 +167,7 @@ class Query implements Iterator, Countable
             $table_join_field = $this->table->getForeignKey($descriptor->name);
             $primary_key = $descriptor->primary_key;
             foreach ($columns as $k => $name) {
-                $columns[$k] = $table_name . '.' . $name . ' as ' . $table_id . '_' . $name;
+                $columns[$k] = sprintf(self::$table_name_pattern, $table_name, $name, $table_id);
             }
 
             foreach ($this->with as $name) {
@@ -132,25 +179,24 @@ class Query implements Iterator, Countable
                 $related_primary = $related_descriptor->primary_key;
 
                 foreach ($related_descriptor->fields as $related_field) {
-                    $columns[] = $related_table . '.' . $related_field . ' as ' . $related_table_id . '_' . $related_field;
+                    $columns[] = sprintf(self::$table_name_pattern, $related_table, $related_field, $related_table_id);
                 }
 
-                $join_pattern = ' LEFT JOIN %1$s ON (%1$s.%2$s = %3$s.%4$s)';
                 $foreign_key = $this->table->getForeignKey($name);
 
                 if ($relation == TableDescriptor::RELATION_MANY_MANY) {
                     $join_table = $this->table->getJoinTable($name);
 
-                    $table .= sprintf($join_pattern, $join_table, $table_join_field, $table_name, $primary_key);
-                    $table .= sprintf($join_pattern, $related_table, $related_primary, $join_table, $foreign_key);
+                    $table .= sprintf(self::$join_pattern, $join_table, $table_join_field, $table_name, $primary_key);
+                    $table .= sprintf(self::$join_pattern, $related_table, $related_primary, $join_table, $foreign_key);
                 } else {
-                    $table .= sprintf($join_pattern, $related_table, $related_primary, $table_name, $foreign_key);
+                    $table .= sprintf(self::$join_pattern, $related_table, $related_primary, $table_name, $foreign_key);
                 }
             }
         } else {
             $columns = $this->columns ? : array('*');
         }
-        $sql = sprintf('SELECT %s FROM %s', implode(', ', $columns), $table);
+        $sql = sprintf(self::$select_pattern, implode(', ', $columns), $table);
         if (!is_null($this->where)) {
             $sql .= ' WHERE ' . $this->where;
         }
@@ -169,10 +215,15 @@ class Query implements Iterator, Countable
                 $sql .= ' OFFSET ' . $this->offset;
             }
         }
-        $sql .= $this->lock ? ' FOR UPDATE' : '';
+        if ($this->lock) {
+            $sql .= ' FOR UPDATE';
+        }
         return $sql;
     }
 
+    /**
+     * @return Row
+     */
     public function execute()
     {
         $stmt = $this->table->manager->connection->prepare($this->getQuery());
@@ -208,7 +259,11 @@ class Query implements Iterator, Countable
         }
     }
 
-    private function process($statement)
+    /**
+     * @param PDOStatement $statement
+     * @return array
+     */
+    private function process(PDOStatement $statement)
     {
         $table_fields = array();
         $relations_fields = array();
@@ -291,6 +346,11 @@ class Query implements Iterator, Countable
         return $return;
     }
 
+    /**
+     * @param array $row
+     * @param array $fields
+     * @return array
+     */
     private function getFieldsFromRow(array $row, array $fields)
     {
         $rowdata = array();
@@ -302,12 +362,17 @@ class Query implements Iterator, Countable
         return $rowdata;
     }
 
+    /**
+     * @param bool $single
+     * @return Row
+     */
     public function get($single = true)
     {
         $this->single = $single;
         return $this->execute();
     }
 
+    //Iterator methods
     public function current()
     {
         return current($this->rows);
@@ -340,6 +405,7 @@ class Query implements Iterator, Countable
         return $val !== NULL && $val !== false;
     }
 
+    //Countable method
     public function count()
     {
         if (empty($this->rows)) {

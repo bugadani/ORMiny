@@ -24,12 +24,22 @@ class Manager
     private $tables = array();
     private $cache;
 
+    /**
+     *
+     * @param PDO $connection
+     * @param \Modules\Cache\iCacheDriver $cache
+     */
     public function __construct(PDO $connection, iCacheDriver $cache = NULL)
     {
         $this->connection = $connection;
         $this->cache = $cache;
     }
 
+    /**
+     *
+     * @param string $name
+     * @param array $descriptors
+     */
     private function processManyManyRelation($name, array $descriptors)
     {
         if (strpos($name, '_') === false) {
@@ -115,6 +125,11 @@ class Manager
         }
     }
 
+    /**
+     *
+     * @param \Modules\ORM\Parts\TableDescriptor $table
+     * @param string $name
+     */
     public function addTable(TableDescriptor $table, $name = NULL)
     {
         if (is_null($name)) {
@@ -123,6 +138,12 @@ class Manager
         $this->tables[$name] = new Table($this, $table);
     }
 
+    /**
+     *
+     * @param string $table
+     * @return  \Modules\ORM\Parts\TableDescriptor
+     * @throws OutOfBoundsException
+     */
     public function __get($table)
     {
         if (!isset($this->tables[$table])) {

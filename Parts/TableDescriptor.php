@@ -22,6 +22,11 @@ class TableDescriptor
     public $fields = array();
     public $relations = array();
 
+    /**
+     * @param string $relation
+     * @return int
+     * @throws OutOfBoundsException
+     */
     public function getRelation($relation)
     {
         if (!isset($this->relations[$relation])) {
