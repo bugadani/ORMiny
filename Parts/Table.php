@@ -130,17 +130,16 @@ class Table implements ArrayAccess, Iterator
     public function save(Row $row, $force_insert = false)
     {
         $pk = $this->getPrimaryKey();
-        if (!isset($row[$pk]) || $force_insert) {
-            $this->insert($row->toArray());
-        } else {
-            $this->update($row[$pk], $row->getChangedValues());
-        }
-//TODO
 //        foreach ($this->descriptor->relations as $relation => $type) {
 //            if ($type == TableDescriptor::RELATION_HAS) {
 //                $this->save($row->$relation);
 //            }
 //        }
+        if (!isset($row[$pk]) || $force_insert) {
+            return $this->insert($row->toArray());
+        } else {
+            return $this->update($row[$pk], $row->getChangedValues());
+        }
     }
 
     /**
@@ -149,6 +148,7 @@ class Table implements ArrayAccess, Iterator
     public function insert(array $data)
     {
         $record_data = array_intersect_key($data, array_flip($this->descriptor->fields));
+        $pdo = $this->manager->connection;
         $fields = array();
         foreach (array_keys($record_data) as $key) {
             $fields[$key] = ':' . $key;
@@ -157,13 +157,14 @@ class Table implements ArrayAccess, Iterator
         $field_list = implode(', ', array_keys($fields));
 
         $sql = sprintf(self::$insert_pattern, $this->getTableName(), $field_list, $placeholders);
-        $this->manager->connection->prepare($sql)->execute($record_data);
+        $pdo->prepare($sql)->execute($record_data);
+        return $pdo->lastInsertId();
     }
 
     public function update($pk, array $data)
     {
         if (empty($data)) {
-            return;
+            return $pk;
         }
         $data = array_intersect_key($data, array_flip($this->descriptor->fields));
         $fields = array();
@@ -174,6 +175,7 @@ class Table implements ArrayAccess, Iterator
 
         $sql = sprintf(self::$update_pattern, $this->getTableName(), implode(', ', $fields), $this->getPrimaryKey());
         $this->manager->connection->prepare($sql)->execute($data);
+        return $pk;
     }
 
     /**

@@ -83,7 +83,7 @@ class Row implements ArrayAccess, IteratorAggregate
      */
     public function save($force_insert = false)
     {
-        $this->table->save($this, $force_insert);
+        return $this->table->save($this, $force_insert);
     }
 
     public function delete()
