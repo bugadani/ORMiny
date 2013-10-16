@@ -108,6 +108,12 @@ class Row implements ArrayAccess, IteratorAggregate
     public function offsetSet($offset, $value)
     {
         if (in_array($offset, $this->table->descriptor->fields)) {
+            if(array_key_exists($offset, $this->data)) {
+                if($this->data[$offset] == $value) {
+                    //Don't flag unchanged values as changed.
+                    return;
+                }
+            }
             if (!in_array($offset, $this->changed)) {
                 $this->changed[] = $offset;
             }
