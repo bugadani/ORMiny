@@ -113,6 +113,24 @@ class Table implements ArrayAccess, Iterator
     }
 
     /**
+     * @param string $related
+     * @return string
+     */
+    public function getJoinTableName($related)
+    {
+        $join_table = $this->descriptor->name . '_' . $related;
+        if (!isset($this->manager->$join_table)) {
+            //Let's try the other way around.
+            $join_table = $related . '_' . $this->descriptor->name;
+            if (!isset($this->manager->$join_table)) {
+                $message = sprintf('%s and %s is not related.', $this->descriptor->name, $related);
+                throw new InvalidArgumentException($message);
+            }
+        }
+        return $join_table;
+    }
+
+    /**
      * @param string $relation
      * @param mixed $key
      * @return \Modules\ORM\Parts\Row

@@ -108,6 +108,7 @@ class Manager
                 foreach ($stmt->fetchAll() as $field) {
                     $td->fields[] = $field['Field'];
                     if ($field['Key'] == 'PRI') {
+                        //TODO: support multiple primary keys
                         $td->primary_key = $field['Field'];
                     }
 
@@ -171,7 +172,7 @@ class Manager
 
     /**
      * @param string $table
-     * @return  \Modules\ORM\Parts\TableDescriptor
+     * @return \Modules\ORM\Parts\TableDescriptor
      * @throws OutOfBoundsException
      */
     public function __get($table)
@@ -180,6 +181,15 @@ class Manager
             throw new OutOfBoundsException('Table not exists: ' . $table);
         }
         return $this->tables[$table];
+    }
+
+    /**
+     * @param string $table
+     * @return bool
+     */
+    public function __isset($table)
+    {
+        return isset($this->tables[$table]);
     }
 
 }

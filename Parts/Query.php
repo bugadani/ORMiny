@@ -73,6 +73,9 @@ class Query implements Iterator, Countable
         $condition = '(' . $condition . ')';
         $params = func_get_args();
         array_shift($params);
+        if(is_array($params[0])) {
+            $params = $params[0];
+        }
         if (is_null($this->where)) {
             $this->where = $condition;
             $this->where_params = $params;
@@ -92,6 +95,9 @@ class Query implements Iterator, Countable
         $condition = '(' . $condition . ')';
         $params = func_get_args();
         array_shift($params);
+        if(is_array($params[0])) {
+            $params = $params[0];
+        }
         if (is_null($this->having)) {
             $this->having = $condition;
             $this->having_params = $params;
