@@ -25,12 +25,12 @@ class Table implements ArrayAccess, Iterator
     private static $delete_pattern = 'DELETE FROM %s WHERE %s';
 
     /**
-     * @var \Modules\ORM\Manager
+     * @var Manager
      */
     public $manager;
 
     /**
-     * @var \Modules\ORM\Parts\TableDescriptor
+     * @var TableDescriptor
      */
     public $descriptor;
 
@@ -40,8 +40,8 @@ class Table implements ArrayAccess, Iterator
     private $loaded_records = array();
 
     /**
-     * @param \Modules\ORM\Manager $manager
-     * @param \Modules\ORM\Parts\TableDescriptor $descriptor
+     * @param Manager $manager
+     * @param TableDescriptor $descriptor
      */
     public function __construct(Manager $manager, TableDescriptor $descriptor)
     {
@@ -56,8 +56,17 @@ class Table implements ArrayAccess, Iterator
     }
 
     /**
+     * __toString returns the table's ID
+     * @return string
+     */
+    public function __toString()
+    {
+        return $this->descriptor->name;
+    }
+
+    /**
      * @param array $data
-     * @return \Modules\ORM\Parts\Row
+     * @return Row
      */
     public function newRow(array $data = array())
     {
@@ -81,17 +90,24 @@ class Table implements ArrayAccess, Iterator
     }
 
     /**
-     * @param string $referenced
+     * @param Table|TableDescriptor|string $referenced
      * @return string
      */
     public function getForeignKey($referenced)
     {
-        return sprintf($this->manager->foreign_key, $referenced);
+        $fk = $this->manager->foreign_key;
+        if ($referenced instanceof Table) {
+            return sprintf($fk, $referenced->descriptor->name);
+        }
+        if ($referenced instanceof TableDescriptor) {
+            return sprintf($fk, $referenced->name);
+        }
+        return sprintf($fk, $referenced);
     }
 
     /**
      * @param string $relation
-     * @return \Modules\ORM\Parts\Table
+     * @return Table
      * @throws InvalidArgumentException
      */
     public function getRelatedTable($relation)
@@ -109,7 +125,7 @@ class Table implements ArrayAccess, Iterator
     public function getJoinTable($relation)
     {
         $table = $this->getRelatedTable($relation);
-        return sprintf($this->manager->table_format, $this->descriptor->name . '_' . $table->descriptor->name);
+        return sprintf($this->manager->table_format, $this . '_' . $table);
     }
 
     /**
@@ -118,12 +134,12 @@ class Table implements ArrayAccess, Iterator
      */
     public function getJoinTableName($related)
     {
-        $join_table = $this->descriptor->name . '_' . $related;
+        $join_table = $this . '_' . $related;
         if (!isset($this->manager->$join_table)) {
             //Let's try the other way around.
-            $join_table = $related . '_' . $this->descriptor->name;
+            $join_table = $related . '_' . $this;
             if (!isset($this->manager->$join_table)) {
-                $message = sprintf('%s and %s is not related.', $this->descriptor->name, $related);
+                $message = sprintf('%s and %s is not related.', $this, $related);
                 throw new InvalidArgumentException($message);
             }
         }
@@ -133,7 +149,7 @@ class Table implements ArrayAccess, Iterator
     /**
      * @param string $relation
      * @param mixed $key
-     * @return \Modules\ORM\Parts\Row
+     * @return Row
      */
     public function getRelated($relation, $key)
     {
@@ -142,7 +158,7 @@ class Table implements ArrayAccess, Iterator
     }
 
     /**
-     * @param \Modules\ORM\Parts\Row $row
+     * @param Row $row
      * @param bool $force_insert
      */
     public function save(Row $row, $force_insert = false)
@@ -219,36 +235,35 @@ class Table implements ArrayAccess, Iterator
                 $relations_to_delete[] = $name;
             }
         }
+        $pdo = $this->manager->connection;
         if (!empty($relations_to_delete)) {
             $sql = sprintf(self::$select_pattern, $this->getPrimaryKey(), $this->getTableName(), $condition);
-            $stmt = $this->manager->connection->prepare($sql);
+            $stmt = $pdo->prepare($sql);
             $stmt->execute($parameters);
             $deleted_ids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
         } else {
             $deleted_ids = array();
         }
-        $sql = sprintf(self::$delete_pattern, $this->getTableName(), $condition);
-        $this->manager->connection->prepare($sql)->execute($parameters);
 
-        if (empty($deleted_ids)) {
-            return;
-        }
+        if (!empty($deleted_ids)) {
+            $placeholders = implode(', ', array_fill(0, count($deleted_ids), '?'));
 
-        $placeholders = implode(', ', array_fill(0, count($deleted_ids), '?'));
-
-        $this->manager->connection->beginTransaction();
-        try {
-            foreach ($relations_to_delete as $relation) {
-                $table = $this->getRelatedTable($relation);
-                $foreign_key = $table->getForeignKey($this->descriptor->name);
-                $condition = sprintf('%s IN(%s)', $foreign_key, $placeholders);
-                $table->deleteRows($condition, $deleted_ids);
+            $pdo->beginTransaction();
+            try {
+                foreach ($relations_to_delete as $relation) {
+                    $table = $this->getRelatedTable($relation);
+                    $foreign_key = $table->getForeignKey($this->descriptor->name);
+                    $condition = sprintf('%s IN(%s)', $foreign_key, $placeholders);
+                    $table->deleteRows($condition, $deleted_ids);
+                }
+                $pdo->commit();
+            } catch (PDOException $e) {
+                $pdo->rollback();
+                throw $e;
             }
-            $this->manager->connection->commit();
-        } catch (PDOException $e) {
-            $this->manager->connection->rollback();
-            throw $e;
         }
+        $sql = sprintf(self::$delete_pattern, $this->getTableName(), $condition);
+        $pdo->prepare($sql)->execute($parameters);
     }
 
     //ArrayAccess methods
@@ -282,7 +297,7 @@ class Table implements ArrayAccess, Iterator
             if ($row->getTable() != $this) {
                 throw new InvalidArgumentException('Cannot save row: table mismatch.');
             }
-        } elseif (is_array($row)) {
+        } else if (is_array($row)) {
             $row = new Row($this, $row);
         } else {
             throw new InvalidArgumentException('Value should be a Row or an array');

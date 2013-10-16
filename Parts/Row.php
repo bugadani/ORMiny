@@ -69,19 +69,18 @@ class Row implements ArrayAccess, IteratorAggregate
     public function __get($related)
     {
         if (!isset($this->related[$related])) {
-            $table = $this->table;
-            $descriptor = $table->descriptor;
+            $table = $this->getTable();
             $related_table = $table->getRelatedTable($related);
-            switch ($descriptor->getRelation($related)) {
+            switch ($table->descriptor->getRelation($related)) {
                 case TableDescriptor::RELATION_HAS:
-                    $foreign_key = $table->getForeignKey($descriptor->name);
+                    $foreign_key = $table->getForeignKey($table);
                     $where = sprintf('`%s` = ?', $foreign_key);
                     $key = $table->getPrimaryKey();
                     $this->related[$related] = $related_table->where($where, $this[$key])->get(false);
                     break;
                 case TableDescriptor::RELATION_BELONGS_TO:
                     $key = $table->getForeignKey($related);
-                    $this->related[$related] = $table->getRelated($related, $this[$key]);
+                    $this->related[$related] = $related_table[$this[$key]];
                     break;
                 case TableDescriptor::RELATION_MANY_MANY:
                     $join_table = $table->getJoinTableName($related);
