@@ -240,7 +240,7 @@ class Query implements Iterator, Countable
             if (empty($rows)) {
                 return $this->single ? false : array();
             }
-            if ($this->single || count($rows) == 1) {
+            if ($this->single) {
                 return new Row($this->table, current($rows));
             } else {
                 $return = array();
