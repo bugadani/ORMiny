@@ -69,11 +69,21 @@ class Row implements ArrayAccess, IteratorAggregate
     public function __get($related)
     {
         if (!isset($this->related[$related])) {
-            $foreign_key = $this->table->getForeignKey($related);
-            if (!isset($this->data[$foreign_key])) {
-                throw new OutOfBoundsException('Foreign key is not set: ' . $foreign_key);
+            $table = $this->table;
+            $descriptor = $table->descriptor;
+            switch ($descriptor->getRelation($related)) {
+                case TableDescriptor::RELATION_HAS:
+                    $foreign_key = $table->getForeignKey($descriptor->name);
+                    $related_table = $table->getRelatedTable($related);
+                    $where = sprintf('`%s` = ?', $foreign_key);
+                    $key = $table->getPrimaryKey();
+                    $this->related[$related] = $related_table->where($where, $this[$key])->get();
+                    break;
+                case TableDescriptor::RELATION_BELONGS_TO:
+                    $key = $table->getForeignKey($related);
+                    $this->related[$related] = $table->getRelated($related, $this[$key]);
+                    break;
             }
-            $this->related[$related] = $this->table->getRelated($related, $this->data[$foreign_key]);
         }
         return $this->related[$related];
     }
@@ -108,8 +118,8 @@ class Row implements ArrayAccess, IteratorAggregate
     public function offsetSet($offset, $value)
     {
         if (in_array($offset, $this->table->descriptor->fields)) {
-            if(array_key_exists($offset, $this->data)) {
-                if($this->data[$offset] == $value) {
+            if (array_key_exists($offset, $this->data)) {
+                if ($this->data[$offset] == $value) {
                     //Don't flag unchanged values as changed.
                     return;
                 }

@@ -98,7 +98,7 @@ class Manager
                 $table_ids[$id] = $name;
             }
 
-            $foreign_pattern = '/' . str_replace('%s', '(.*)', $this->foreign_key) . '/';
+            $foreign_pattern = '/' . str_replace('%s', '(.*?)', $this->foreign_key) . '/';
 
             foreach ($table_ids as $name => $table_name) {
                 $this->processManyManyRelation($name, $descriptors);
