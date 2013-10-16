@@ -14,6 +14,14 @@ use PDOException;
 
 class Utils
 {
+    /**
+     * Calls a callable safeguarded by a transaction that rolls back on errors.
+     * @param \Modules\ORM\Manager $orm
+     * @param callable $callback
+     * @return mixed The value returned from the callback
+     * @throws InvalidArgumentException
+     * @throws PDOException
+     */
     public static function guardDB(Manager $orm, $callback)
     {
         if (!is_callable($callback)) {
