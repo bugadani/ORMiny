@@ -19,10 +19,10 @@ use PDOException;
 
 class Table implements ArrayAccess, Iterator
 {
-    private static $select_pattern = 'SELECT %s FROM %s WHERE %s';
-    private static $insert_pattern = 'INSERT INTO %s (%s) VALUES (%s)';
-    private static $update_pattern = 'UPDATE %s SET %s WHERE %s = :pk';
-    private static $delete_pattern = 'DELETE FROM %s WHERE %s';
+    private static $select_pattern = 'SELECT %s FROM `%s` WHERE %s';
+    private static $insert_pattern = 'INSERT INTO `%s` (%s) VALUES (%s)';
+    private static $update_pattern = 'UPDATE `%s` SET %s WHERE %s = :pk';
+    private static $delete_pattern = 'DELETE FROM `%s` WHERE %s';
 
     /**
      * @var Manager

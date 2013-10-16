@@ -101,12 +101,12 @@ class Row implements ArrayAccess, IteratorAggregate
      */
     public function save($force_insert = false)
     {
-        return $this->table->save($this, $force_insert);
+        return $this->getTable()->save($this, $force_insert);
     }
 
     public function delete()
     {
-        $this->table->delete($this->data[$this->table->getPrimaryKey()]);
+        $this->getTable()->delete($this->data[$this->table->getPrimaryKey()]);
     }
 
     //ArrayAccess methods
