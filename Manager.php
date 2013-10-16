@@ -25,7 +25,6 @@ class Manager
     private $cache;
 
     /**
-     *
      * @param PDO $connection
      * @param \Modules\Cache\iCacheDriver $cache
      */
@@ -36,7 +35,6 @@ class Manager
     }
 
     /**
-     *
      * @param string $name
      * @param array $descriptors
      */
@@ -48,21 +46,33 @@ class Manager
         $parts = explode('_', $name);
         $parts_count = count($parts);
         $joins_tables = false;
-        if ($parts_count == 2) {
-            if (isset($descriptors[$parts[0]], $descriptors[$parts[1]])) {
-                $joins_tables = array($parts[0], $parts[1]);
-            }
-        } else {
-            for ($i = 1; $i < $parts_count; ++$i) {
-                $table1 = implode('_', array_slice($parts, 0, $i));
-                if (isset($descriptors[$table1])) {
-                    $table2 = implode('_', array_slice($parts, $i));
-                    if (isset($descriptors[$table2])) {
-                        $joins_tables = array($table1, $table2);
-                        break;
+        switch ($parts_count) {
+            case 1:
+                //Well, no luch here. One table name part can't make two tables.
+                return;
+            case 2:
+                //If the 2 parts represent existing table names use them
+                if (isset($descriptors[$parts[0]], $descriptors[$parts[1]])) {
+                    $joins_tables = array($parts[0], $parts[1]);
+                }
+                break;
+            default:
+                //We're iterating through the table name parts
+                for ($i = 1; $i < $parts_count; ++$i) {
+                    $table1 = implode('_', array_slice($parts, 0, $i));
+                    //If we've found an existing table let's assume it is one of the related ones
+                    if (isset($descriptors[$table1])) {
+                        //Check if the other table exists
+                        $table2 = implode('_', array_slice($parts, $i));
+                        if (isset($descriptors[$table2])) {
+                            //If the other table is indeed an existing one,
+                            //we can assume it is the other related table
+                            $joins_tables = array($table1, $table2);
+                            break;
+                        }
                     }
                 }
-            }
+                break;
         }
         if ($joins_tables) {
             list($table1, $table2) = $joins_tables;
@@ -74,9 +84,8 @@ class Manager
 
     public function discover()
     {
-        if (!is_null($this->cache) && $this->cache->has('orm.tables')) {
-            $descriptors = $this->cache->get('orm.tables');
-        } else {
+        $descriptors = $this->loadTables();
+        if ($descriptors === false) {
             $tables = $this->connection->query('SHOW TABLES')->fetchAll();
             $table_ids = array();
             $descriptors = array();
@@ -116,9 +125,7 @@ class Manager
                     }
                 }
             }
-            if (!is_null($this->cache)) {
-                $this->cache->store('orm.tables', $descriptors, $this->cache_lifetime);
-            }
+            $this->storeTables($descriptors);
         }
         foreach ($descriptors as $name => $td) {
             $this->addTable($td, $name);
@@ -126,7 +133,31 @@ class Manager
     }
 
     /**
-     *
+     * @param array $descriptors
+     */
+    private function storeTables(array $descriptors)
+    {
+        if (is_null($this->cache)) {
+            return;
+        }
+        $this->cache->store('orm.tables', $descriptors, $this->cache_lifetime);
+    }
+
+    /**
+     * @return bool|array
+     */
+    private function loadTables()
+    {
+        if (is_null($this->cache)) {
+            return false;
+        }
+        if (!$this->cache->has('orm.tables')) {
+            return false;
+        }
+        return $this->cache->get('orm.tables');
+    }
+
+    /**
      * @param \Modules\ORM\Parts\TableDescriptor $table
      * @param string $name
      */
@@ -139,7 +170,6 @@ class Manager
     }
 
     /**
-     *
      * @param string $table
      * @return  \Modules\ORM\Parts\TableDescriptor
      * @throws OutOfBoundsException
