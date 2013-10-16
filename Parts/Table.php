@@ -234,7 +234,12 @@ class Table implements ArrayAccess, Iterator
     //ArrayAccess methods
     public function offsetExists($offset)
     {
-        return $this->offsetGet($offset) !== false;
+        try {
+            $this->offsetGet($offset);
+            return true;
+        } catch (OutOfBoundsException $ex) {
+            return false;
+        }
     }
 
     public function offsetGet($offset)
