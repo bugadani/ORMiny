@@ -35,4 +35,25 @@ class TableDescriptor
         return $this->relations[$relation];
     }
 
+    public function __toString()
+    {
+        $return = 'Primary key: ' . $this->primary_key . "\n\t";
+        $return .= 'Fields: ' . implode(', ', $this->fields) . "\n\t";
+        $return .= 'Relations:';
+        foreach ($this->relations as $name => $type) {
+            switch ($type) {
+                case self::RELATION_HAS:
+                    $return .= "\n\t\tHas " . $name;
+                    break;
+                case self::RELATION_BELONGS_TO:
+                    $return .= "\n\t\tBelongs to " . $name;
+                    break;
+                case self::RELATION_MANY_MANY:
+                    $return .= "\n\t\tIn many-many type relationship with " . $name;
+                    break;
+            }
+        }
+        return $return;
+    }
+
 }
