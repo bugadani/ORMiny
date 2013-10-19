@@ -32,7 +32,7 @@ class Query implements Iterator, Countable
     private $offset;
     private $lock = false;
     private $rows = array();
-    private $single = false;
+    private $query;
 
     /**
      *
@@ -50,6 +50,10 @@ class Query implements Iterator, Countable
      */
     public function with()
     {
+        if (isset($this->rows)) {
+            unset($this->rows);
+            unset($this->query);
+        }
         $this->with = func_get_args();
         return $this;
     }
@@ -60,6 +64,10 @@ class Query implements Iterator, Countable
      */
     public function select()
     {
+        if (isset($this->rows)) {
+            unset($this->rows);
+            unset($this->query);
+        }
         $this->columns = func_get_args();
         return $this;
     }
@@ -70,6 +78,10 @@ class Query implements Iterator, Countable
      */
     public function where($condition)
     {
+        if (isset($this->rows)) {
+            unset($this->rows);
+            unset($this->query);
+        }
         $condition = '(' . $condition . ')';
         $params = func_get_args();
         array_shift($params);
@@ -92,6 +104,10 @@ class Query implements Iterator, Countable
      */
     public function having($condition)
     {
+        if (isset($this->rows)) {
+            unset($this->rows);
+            unset($this->query);
+        }
         $condition = '(' . $condition . ')';
         $params = func_get_args();
         array_shift($params);
@@ -114,6 +130,10 @@ class Query implements Iterator, Countable
      */
     public function order($order)
     {
+        if (isset($this->rows)) {
+            unset($this->rows);
+            unset($this->query);
+        }
         $this->order = $order;
         return $this;
     }
@@ -125,6 +145,10 @@ class Query implements Iterator, Countable
      */
     public function limit($limit, $offset = 0)
     {
+        if (isset($this->rows)) {
+            unset($this->rows);
+            unset($this->query);
+        }
         $this->limit = $limit;
         $this->offset = $offset;
         return $this;
@@ -136,6 +160,10 @@ class Query implements Iterator, Countable
      */
     public function group($group)
     {
+        if (isset($this->rows)) {
+            unset($this->rows);
+            unset($this->query);
+        }
         $this->group = $group;
         return $this;
     }
@@ -146,6 +174,10 @@ class Query implements Iterator, Countable
      */
     public function lock($lock = true)
     {
+        if (isset($this->rows)) {
+            unset($this->rows);
+            unset($this->query);
+        }
         $this->lock = $lock;
         return $this;
     }
@@ -163,6 +195,9 @@ class Query implements Iterator, Countable
      */
     public function getQuery()
     {
+        if (isset($this->query)) {
+            return $this->query;
+        }
         $table = $this->table->getTableName();
         if (!empty($this->with)) {
             $descriptor = $this->table->descriptor;
@@ -203,34 +238,37 @@ class Query implements Iterator, Countable
             $columns = $this->columns ? : array('*');
         }
         $sql = sprintf(self::$select_pattern, implode(', ', $columns), $table);
-        if (!is_null($this->where)) {
+        if (isset($this->where)) {
             $sql .= ' WHERE ' . $this->where;
         }
-        if (!is_null($this->group)) {
+        if (isset($this->group)) {
             $sql .= ' GROUP BY ' . $this->group;
         }
-        if (!is_null($this->having)) {
+        if (isset($this->having)) {
             $sql .= ' HAVING ' . $this->having;
         }
-        if (!is_null($this->order)) {
+        if (isset($this->order)) {
             $sql .= ' ORDER BY ' . $this->order;
         }
-        if (!is_null($this->limit) && empty($this->with)) {
+        if (isset($this->limit) && empty($this->with)) {
+            //Only set limit and offset if we don't query relations. If we do, we'll deal with them later
             $sql .= ' LIMIT ' . $this->limit;
-            if (!is_null($this->offset)) {
+            if (isset($this->offset)) {
                 $sql .= ' OFFSET ' . $this->offset;
             }
         }
         if ($this->lock) {
             $sql .= ' FOR UPDATE';
         }
-        return $sql;
+        $this->query = $sql;
+        return $this->query;
     }
 
     /**
+     * @param bool $single
      * @return Row
      */
-    public function execute()
+    public function execute($single)
     {
         $query = $this->getQuery();
         $orm = $this->table->manager;
@@ -254,9 +292,9 @@ class Query implements Iterator, Countable
             $rows = $stmt->fetchAll();
             $orm->log('Results: ' . count($rows));
             if (empty($rows)) {
-                return $this->single ? false : array();
+                return $single ? false : array();
             }
-            if ($this->single) {
+            if ($single) {
                 return new Row($this->table, current($rows));
             } else {
                 $return = array();
@@ -271,21 +309,23 @@ class Query implements Iterator, Countable
                 return $return;
             }
         } else {
-            return $this->process($stmt);
+            return $this->process($stmt, $single);
         }
     }
 
     /**
      * @param PDOStatement $statement
+     * @param bool $single
      * @return array
      */
-    private function process(PDOStatement $statement)
+    private function process(PDOStatement $statement, $single)
     {
         $table_fields = array();
         $relations_fields = array();
-        $table = $this->table->descriptor->name;
-        $pk_field = $this->table->descriptor->primary_key;
-        foreach ($this->table->descriptor->fields as $name) {
+        $descriptor = $this->table->descriptor;
+        $table = $descriptor->name;
+        $pk_field = $descriptor->primary_key;
+        foreach ($descriptor->fields as $name) {
             $table_fields[$name] = $table . '_' . $name;
         }
         foreach ($this->with as $name) {
@@ -312,7 +352,7 @@ class Query implements Iterator, Countable
                 if ($this->limit && $fetched == $this->limit) {
                     break;
                 }
-                if ($this->single && $fetched == 1) {
+                if ($single && $fetched == 1) {
                     break;
                 }
                 $rowdata = $this->getFieldsFromRow($row, $table_fields);
@@ -322,7 +362,7 @@ class Query implements Iterator, Countable
                 $relations[$last_pk] = array();
             }
             foreach ($this->with as $name) {
-                $relation_type = $this->table->descriptor->getRelation($name);
+                $relation_type = $descriptor->getRelation($name);
                 $relation_table = $this->table->getRelatedTable($name);
                 $relation_pk = $relation_table->getPrimaryKey();
                 $relation_pk_alias = $relations_fields[$name][$relation_pk];
@@ -360,7 +400,7 @@ class Query implements Iterator, Countable
             }
         }
         $this->table->manager->log('Results: ' . count($return));
-        if ($this->single) {
+        if ($single) {
             $return = current($return);
         }
         return $return;
@@ -384,12 +424,23 @@ class Query implements Iterator, Countable
 
     /**
      * @param bool $single
-     * @return Row
+     * @return Row|array
      */
     public function get($single = true)
     {
-        $this->single = $single;
-        return $this->execute();
+        if ($single) {
+            if (isset($this->rows)) {
+                reset($this->rows);
+                return current($this->rows);
+            } else {
+                return $this->execute($single);
+            }
+        } else {
+            if (!isset($this->rows)) {
+                $this->rows = $this->execute($single);
+            }
+            return $this->rows;
+        }
     }
 
     //Iterator methods
@@ -410,8 +461,8 @@ class Query implements Iterator, Countable
 
     public function rewind()
     {
-        if (empty($this->rows)) {
-            $this->rows = $this->execute();
+        if (!isset($this->rows)) {
+            $this->rows = $this->execute(false);
             if (!is_array($this->rows)) {
                 $this->rows = array($this->rows);
             }
@@ -428,8 +479,8 @@ class Query implements Iterator, Countable
     //Countable method
     public function count()
     {
-        if (empty($this->rows)) {
-            $this->rows = $this->execute();
+        if (!isset($this->rows)) {
+            $this->rows = $this->execute(false);
             if (!is_array($this->rows)) {
                 $this->rows = array($this->rows);
             }
