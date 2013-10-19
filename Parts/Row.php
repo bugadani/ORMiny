@@ -117,8 +117,8 @@ class Row implements ArrayAccess, IteratorAggregate
 
     public function offsetGet($offset)
     {
-        if (!isset($this->data[$offset])) {
-            throw new OutOfBoundsException('Key not set: ' . $offset);
+        if (!array_key_exists($offset, $this->data)) {
+            throw new OutOfBoundsException(sprintf('Key "%s" is not set', $offset));
         }
         return $this->data[$offset];
     }
