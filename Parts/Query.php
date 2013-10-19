@@ -201,18 +201,17 @@ class Query implements Iterator, Countable
         $table = $this->table->getTableName();
         if (!empty($this->with)) {
             $descriptor = $this->table->descriptor;
-            $table_id = $descriptor->name;
             $table_name = $table;
-            $columns = $this->columns ? : $this->table->descriptor->fields;
-
             $table_join_field = $this->table->getForeignKey($descriptor->name);
             $primary_key = $descriptor->primary_key;
-            foreach ($columns as $k => $name) {
-                $columns[$k] = sprintf(self::$table_name_pattern, $table_name, $name, $table_id);
+
+            $table_columns = $this->columns ? : $this->table->descriptor->fields;
+            $columns = array();
+            foreach ($table_columns as $name) {
+                $columns[] = sprintf(self::$table_name_pattern, $table_name, $name, $descriptor->name);
             }
 
             foreach ($this->with as $name) {
-                $relation = $descriptor->getRelation($name);
                 $related = $this->table->getRelatedTable($name);
                 $related_descriptor = $related->descriptor;
                 $related_table = $related->getTableName();
@@ -223,7 +222,7 @@ class Query implements Iterator, Countable
                     $columns[] = sprintf(self::$table_name_pattern, $related_table, $related_field, $related_table_id);
                 }
 
-                switch ($relation) {
+                switch ($descriptor->getRelation($name)) {
                     case TableDescriptor::RELATION_MANY_MANY:
                         $join_table = $this->table->getJoinTable($name);
 
@@ -277,7 +276,7 @@ class Query implements Iterator, Countable
      * @param bool $single
      * @return Row
      */
-    public function execute($single)
+    public function execute($single = false)
     {
         $query = $this->getQuery();
         $orm = $this->table->manager;
@@ -329,20 +328,22 @@ class Query implements Iterator, Countable
      */
     private function process(PDOStatement $statement, $single)
     {
-        $table_fields = array();
-        $relations_fields = array();
         $descriptor = $this->table->descriptor;
         $table = $descriptor->name;
-        $pk_field = $descriptor->primary_key;
+
+        $table_fields = array();
         foreach ($descriptor->fields as $name) {
             $table_fields[$name] = $table . '_' . $name;
         }
+
+        $relations_fields = array();
         foreach ($this->with as $name) {
             $relations_fields[$name] = array();
             foreach ($this->table->getRelatedTable($name)->descriptor->fields as $field) {
                 $relations_fields[$name][$field] = $name . '_' . $field;
             }
         }
+        $pk_field = $descriptor->primary_key;
         $return = array();
         $last_pk = NULL;
         $relation_last_pks = array();
