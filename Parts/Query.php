@@ -73,7 +73,7 @@ class Query implements Iterator, Countable
         $condition = '(' . $condition . ')';
         $params = func_get_args();
         array_shift($params);
-        if(is_array($params[0])) {
+        if (is_array($params[0])) {
             $params = $params[0];
         }
         if (is_null($this->where)) {
@@ -95,7 +95,7 @@ class Query implements Iterator, Countable
         $condition = '(' . $condition . ')';
         $params = func_get_args();
         array_shift($params);
-        if(is_array($params[0])) {
+        if (is_array($params[0])) {
             $params = $params[0];
         }
         if (is_null($this->having)) {
@@ -232,17 +232,27 @@ class Query implements Iterator, Countable
      */
     public function execute()
     {
-        $stmt = $this->table->manager->connection->prepare($this->getQuery());
+        $query = $this->getQuery();
+        $orm = $this->table->manager;
+        $orm->log('Executing query: ' . $query);
+        $stmt = $orm->connection->prepare($query);
         $i = 0;
+        $params = array();
         foreach ($this->where_params as $param) {
-            $stmt->bindValue(++$i, $param);
+            $stmt->bindValue( ++$i, $param);
+            $params[] = $param;
         }
         foreach ($this->having_params as $param) {
-            $stmt->bindValue(++$i, $param);
+            $stmt->bindValue( ++$i, $param);
+            $params[] = $param;
+        }
+        if (count($params)) {
+            $orm->log('Query parameters: ' . implode(', ', $params));
         }
         $stmt->execute();
         if (empty($this->with)) {
             $rows = $stmt->fetchAll();
+            $orm->log('Results: ' . count($rows));
             if (empty($rows)) {
                 return $this->single ? false : array();
             }
@@ -288,10 +298,17 @@ class Query implements Iterator, Countable
         $last_pk = NULL;
         $relation_last_pks = array();
         $relations = array();
-        $row_num = -1;
+        $row_num = 0;
         $fetched = 0;
+        //We fetch rows one-by-one because MANY_MANY relation type cannot be limited by LIMIT
         while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
             if ($last_pk != $row[$table_fields[$pk_field]]) {
+                if ($this->offset) {
+                    if ($row_num < $this->offset) {
+                        continue;
+                    }
+                    ++$row_num;
+                }
                 if ($this->limit && $fetched == $this->limit) {
                     break;
                 }
@@ -300,10 +317,6 @@ class Query implements Iterator, Countable
                 }
                 $rowdata = $this->getFieldsFromRow($row, $table_fields);
                 $last_pk = $rowdata[$pk_field];
-                ++$row_num;
-                if ($this->offset && $row_num < $this->offset) {
-                    continue;
-                }
                 ++$fetched;
                 $return[$last_pk] = new Row($this->table, $rowdata);
                 $relations[$last_pk] = array();
@@ -346,6 +359,7 @@ class Query implements Iterator, Countable
                 }
             }
         }
+        $this->table->manager->log('Results: ' . count($return));
         if ($this->single) {
             $return = current($return);
         }

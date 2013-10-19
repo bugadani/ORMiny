@@ -9,6 +9,7 @@
 
 namespace Modules\ORM;
 
+use Miny\Log;
 use Modules\Cache\iCacheDriver;
 use Modules\ORM\Parts\Table;
 use Modules\ORM\Parts\TableDescriptor;
@@ -23,15 +24,24 @@ class Manager
     public $cache_lifetime = 3600;
     private $tables = array();
     private $cache;
+    private $log;
 
     /**
      * @param PDO $connection
      * @param \Modules\Cache\iCacheDriver $cache
      */
-    public function __construct(PDO $connection, iCacheDriver $cache = NULL)
+    public function __construct(PDO $connection, iCacheDriver $cache = NULL, Log $log = NULL)
     {
         $this->connection = $connection;
         $this->cache = $cache;
+        $this->log = $log;
+    }
+
+    public function log($message)
+    {
+        if ($this->log !== NULL) {
+            $this->log->write('ORM: ' . $message, Log::DEBUG);
+        }
     }
 
     /**
@@ -159,7 +169,7 @@ class Manager
     }
 
     /**
-     * @param \Modules\ORM\Parts\TableDescriptor $table
+     * @param TableDescriptor $table
      * @param string $name
      */
     public function addTable(TableDescriptor $table, $name = NULL)
@@ -172,7 +182,7 @@ class Manager
 
     /**
      * @param string $table
-     * @return \Modules\ORM\Parts\TableDescriptor
+     * @return TableDescriptor
      * @throws OutOfBoundsException
      */
     public function __get($table)
