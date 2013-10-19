@@ -18,17 +18,45 @@ use PDO;
 
 class Manager
 {
+    /**
+     * @var string
+     */
     public $table_format = '%s';
+
+    /**
+     * @var string
+     */
     public $foreign_key = '%s_id';
+
+    /**
+     * @var PDO
+     */
     public $connection;
+
+    /**
+     * @var int
+     */
     public $cache_lifetime = 3600;
+
+    /**
+     * @var array
+     */
     private $tables = array();
+
+    /**
+     * @var iCacheDriver
+     */
     private $cache;
+
+    /**
+     * @var Log
+     */
     private $log;
 
     /**
      * @param PDO $connection
-     * @param \Modules\Cache\iCacheDriver $cache
+     * @param iCacheDriver $cache
+     * @param Log $log
      */
     public function __construct(PDO $connection, iCacheDriver $cache = NULL, Log $log = NULL)
     {
@@ -37,6 +65,9 @@ class Manager
         $this->log = $log;
     }
 
+    /**
+     * @param string $message
+     */
     public function log($message)
     {
         if ($this->log !== NULL) {
@@ -92,11 +123,15 @@ class Manager
         }
     }
 
+    /**
+     * Discover database structure.
+     */
     public function discover()
     {
         $descriptors = $this->loadTables();
         if ($descriptors === false) {
-            $tables = $this->connection->query('SHOW TABLES')->fetchAll();
+            $pdo = $this->connection;
+            $tables = $pdo->query('SHOW TABLES')->fetchAll();
             $table_ids = array();
             $descriptors = array();
             foreach ($tables as $name) {
@@ -112,7 +147,7 @@ class Manager
 
             foreach ($table_ids as $name => $table_name) {
                 $this->processManyManyRelation($name, $descriptors);
-                $stmt = $this->connection->query('DESCRIBE ' . $table_name);
+                $stmt = $pdo->query('DESCRIBE ' . $table_name);
                 $td = $descriptors[$name];
 
                 foreach ($stmt->fetchAll() as $field) {
@@ -137,6 +172,9 @@ class Manager
                 }
             }
             $this->storeTables($descriptors);
+            foreach ($descriptors as $td) {
+                $this->log('Table discovered: ' . $table_name . "\n\t" . $td);
+            }
         }
         foreach ($descriptors as $name => $td) {
             $this->addTable($td, $name);
