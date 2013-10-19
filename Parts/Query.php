@@ -223,15 +223,24 @@ class Query implements Iterator, Countable
                     $columns[] = sprintf(self::$table_name_pattern, $related_table, $related_field, $related_table_id);
                 }
 
-                $foreign_key = $this->table->getForeignKey($name);
+                switch ($relation) {
+                    case TableDescriptor::RELATION_MANY_MANY:
+                        $join_table = $this->table->getJoinTable($name);
 
-                if ($relation == TableDescriptor::RELATION_MANY_MANY) {
-                    $join_table = $this->table->getJoinTable($name);
-
-                    $table .= sprintf(self::$join_pattern, $join_table, $table_join_field, $table_name, $primary_key);
-                    $table .= sprintf(self::$join_pattern, $related_table, $related_primary, $join_table, $foreign_key);
-                } else {
-                    $table .= sprintf(self::$join_pattern, $related_table, $related_primary, $table_name, $foreign_key);
+                        $table .= sprintf(self::$join_pattern, $join_table, $table_join_field, $table_name, $primary_key);
+                        $table .= sprintf(self::$join_pattern, $related_table, $related_primary, $join_table,
+                                $foreign_key);
+                        break;
+                    case TableDescriptor::RELATION_HAS:
+                        $related_foreign = $this->table->getForeignKey($table_name);
+                        $table .= sprintf(self::$join_pattern, $related_table, $related_foreign, $table_name,
+                                $primary_key);
+                        break;
+                    case TableDescriptor::RELATION_BELONGS_TO:
+                        $foreign_key = $this->table->getForeignKey($name);
+                        $table .= sprintf(self::$join_pattern, $related_table, $related_primary, $table_name,
+                                $foreign_key);
+                        break;
                 }
             }
         } else {
