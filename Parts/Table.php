@@ -214,6 +214,7 @@ class Table implements ArrayAccess, Iterator
         }
 
         $sql = sprintf(self::$update_pattern, $this->getTableName(), implode(', ', $fields), $condition);
+        $this->manager->log($sql);
         $this->manager->connection->prepare($sql)->execute($parameters);
     }
 
@@ -234,15 +235,20 @@ class Table implements ArrayAccess, Iterator
      */
     public function deleteRows($condition, array $parameters = NULL)
     {
+        $message = sprintf('Deleting rows from %s', $this->descriptor->name);
+        $this->manager->log($message);
         $relations_to_delete = array();
         foreach ($this->descriptor->relations as $name => $type) {
             if ($type == TableDescriptor::RELATION_HAS) {
                 $relations_to_delete[] = $name;
             }
+            $message = sprintf('Also delete rows from %s', implode(', ', $relations_to_delete));
+            $this->manager->log($message);
         }
         $pdo = $this->manager->connection;
         if (!empty($relations_to_delete)) {
             $sql = sprintf(self::$select_pattern, $this->getPrimaryKey(), $this->getTableName(), $condition);
+            $this->manager->log($sql);
             $stmt = $pdo->prepare($sql);
             $stmt->execute($parameters);
             $deleted_ids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
@@ -258,8 +264,8 @@ class Table implements ArrayAccess, Iterator
                 foreach ($relations_to_delete as $relation) {
                     $table = $this->getRelatedTable($relation);
                     $foreign_key = $table->getForeignKey($this->descriptor->name);
-                    $condition = sprintf('%s IN(%s)', $foreign_key, $placeholders);
-                    $table->deleteRows($condition, $deleted_ids);
+                    $rel_condition = sprintf('%s IN(%s)', $foreign_key, $placeholders);
+                    $table->deleteRows($rel_condition, $deleted_ids);
                 }
                 $pdo->commit();
             } catch (PDOException $e) {
@@ -268,6 +274,7 @@ class Table implements ArrayAccess, Iterator
             }
         }
         $sql = sprintf(self::$delete_pattern, $this->getTableName(), $condition);
+        $this->manager->log($sql);
         $pdo->prepare($sql)->execute($parameters);
     }
 
