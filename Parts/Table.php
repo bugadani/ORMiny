@@ -242,6 +242,8 @@ class Table implements ArrayAccess, Iterator
             if ($type == TableDescriptor::RELATION_HAS) {
                 $relations_to_delete[] = $name;
             }
+        }
+        if (!empty($relations_to_delete)) {
             $message = sprintf('Also delete rows from %s', implode(', ', $relations_to_delete));
             $this->manager->log($message);
         }
