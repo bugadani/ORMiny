@@ -21,7 +21,7 @@ class Table implements ArrayAccess, Iterator
 {
     private static $select_pattern = 'SELECT %s FROM `%s` WHERE %s';
     private static $insert_pattern = 'INSERT INTO `%s` (%s) VALUES (%s)';
-    private static $update_pattern = 'UPDATE `%s` SET %s WHERE %s = :pk';
+    private static $update_pattern = 'UPDATE `%s` SET %s WHERE %s';
     private static $delete_pattern = 'DELETE FROM `%s` WHERE %s';
 
     /**
@@ -197,19 +197,24 @@ class Table implements ArrayAccess, Iterator
 
     public function update($pk, array $data)
     {
-        if (empty($data)) {
-            return $pk;
+        if (!empty($data)) {
+            $condition = sprintf('%s = :pk', $this->getPrimaryKey());
+            $this->updateRows($condition, array('pk' => $pk), $data);
         }
+        return $pk;
+    }
+
+    public function updateRows($condition, array $parameters, array $data)
+    {
         $data = array_intersect_key($data, array_flip($this->descriptor->fields));
         $fields = array();
-        foreach (array_keys($data) as $key) {
+        foreach ($data as $key => $value) {
             $fields[] = sprintf('%1$s = :%1$s', $key);
+            $parameters[$key] = $value;
         }
-        $data['pk'] = $pk;
 
-        $sql = sprintf(self::$update_pattern, $this->getTableName(), implode(', ', $fields), $this->getPrimaryKey());
-        $this->manager->connection->prepare($sql)->execute($data);
-        return $pk;
+        $sql = sprintf(self::$update_pattern, $this->getTableName(), implode(', ', $fields), $condition);
+        $this->manager->connection->prepare($sql)->execute($parameters);
     }
 
     /**
