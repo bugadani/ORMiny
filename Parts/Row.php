@@ -72,7 +72,7 @@ class Row implements ArrayAccess, IteratorAggregate
         return $return;
     }
 
-    public function __get($related)
+    public function &__get($related)
     {
         if (!isset($this->related[$related])) {
             $table = $this->getTable();

@@ -403,12 +403,11 @@ class Query implements Iterator, Countable
                 if ($relation_type == TableDescriptor::RELATION_BELONGS_TO) {
                     $return[$last_pk]->$name = $relation_row;
                 } else {
-                    $array = array($relation_pk_value => $relation_row);
                     if (!isset($return[$last_pk]->$name)) {
-                        $return[$last_pk]->$name = $array;
-                    } else {
-                        $return[$last_pk]->$name += $array;
+                        $return[$last_pk]->$name = array();
                     }
+                    $var = &$return[$last_pk]->$name;
+                    $var[$relation_pk_value] = $relation_row;
                 }
             }
         }
