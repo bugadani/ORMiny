@@ -299,6 +299,10 @@ class Query implements Iterator, Countable
             $single = $this->limit == 1;
         }
         $stmt->execute();
+        if ($stmt->rowCount() == 0) {
+            $orm->log('Results: 0');
+            return $single ? false : array();
+        }
         if (empty($this->with)) {
             $rows = $stmt->fetchAll();
             $orm->log('Results: ' . count($rows));
