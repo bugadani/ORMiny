@@ -24,7 +24,7 @@ class Row implements ArrayAccess, IteratorAggregate
     /**
      * @var array
      */
-    private $data;
+    private $data = array();
 
     /**
      * @var array
@@ -43,7 +43,13 @@ class Row implements ArrayAccess, IteratorAggregate
     public function __construct(Table $table, array $data = array())
     {
         $this->table = $table;
-        $this->data = $data;
+        //Set existing field keys.
+        foreach ($table->descriptor->fields as $field) {
+            $this->data[$field] = null;
+        }
+        foreach ($data as $field => $value) {
+            $this->data[$field] = $value;
+        }
     }
 
     /**
