@@ -222,6 +222,7 @@ class Query implements Iterator, Countable
                     $columns[] = sprintf(self::$table_name_pattern, $related_table, $related_field, $related_table_id);
                 }
 
+                $foreign_key = $this->table->getForeignKey($name);
                 switch ($descriptor->getRelation($name)) {
                     case TableDescriptor::RELATION_MANY_MANY:
                         $join_table = $this->table->getJoinTable($name);
@@ -236,7 +237,6 @@ class Query implements Iterator, Countable
                                 $primary_key);
                         break;
                     case TableDescriptor::RELATION_BELONGS_TO:
-                        $foreign_key = $this->table->getForeignKey($name);
                         $table .= sprintf(self::$join_pattern, $related_table, $related_primary, $table_name,
                                 $foreign_key);
                         break;
@@ -294,6 +294,9 @@ class Query implements Iterator, Countable
         }
         if (count($params)) {
             $orm->log('Query parameters: ' . implode(', ', $params));
+        }
+        if (isset($this->limit)) {
+            $single = $this->limit == 1;
         }
         $stmt->execute();
         if (empty($this->with)) {
