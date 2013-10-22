@@ -412,6 +412,7 @@ class Query implements Iterator, Countable
                 }
             }
         }
+        $statement->closeCursor();
         $this->table->manager->log('Results: ' . count($return));
         if ($single) {
             $return = current($return);
