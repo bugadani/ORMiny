@@ -358,7 +358,6 @@ class Query implements Iterator, Countable
         $return = array();
         $last_pk = NULL;
         $relation_last_pks = array();
-        $relations = array();
         $row_num = 0;
         $fetched = 0;
         //We fetch rows one-by-one because MANY_MANY relation type cannot be limited by LIMIT
@@ -380,7 +379,6 @@ class Query implements Iterator, Countable
                 $last_pk = $rowdata[$pk_field];
                 ++$fetched;
                 $return[$last_pk] = new Row($this->table, $rowdata);
-                $relations[$last_pk] = array();
             }
             foreach ($this->with as $name) {
                 $relation_type = $relation_data[$name]['type'];
@@ -403,13 +401,14 @@ class Query implements Iterator, Countable
                 $data = $this->getFieldsFromRow($row, $relation_fields);
                 $relation_row = new Row($relation_table, $data);
                 if ($relation_type == TableDescriptor::RELATION_BELONGS_TO) {
-                    //no need to store it in $relations - assign directly
                     $return[$last_pk]->$name = $relation_row;
                 } else {
+                    $array = array($relation_pk_value => $relation_row);
                     if (!isset($return[$last_pk]->$name)) {
-                        $return[$last_pk]->$name = array();
+                        $return[$last_pk]->$name = $array;
+                    } else {
+                        $return[$last_pk]->$name += $array;
                     }
-                    $return[$last_pk]->$name[$relation_pk_value] = $relation_row;
                 }
             }
         }
