@@ -96,6 +96,11 @@ class Row implements ArrayAccess, IteratorAggregate
         return $this->related[$related];
     }
 
+    public function __set($related, $value)
+    {
+        $this->related[$related] = $value;
+    }
+
     /**
      * @param bool $force_insert
      */

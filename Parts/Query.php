@@ -261,7 +261,7 @@ class Query implements Iterator, Countable
         if (isset($this->limit) && empty($this->with)) {
             //Only set limit and offset if we don't query relations. If we do, we'll deal with them later
             $sql .= ' LIMIT ' . $this->limit;
-            if (isset($this->offset)) {
+            if (isset($this->offset) && $this->offset != 0) {
                 $sql .= ' OFFSET ' . $this->offset;
             }
         }
@@ -307,21 +307,19 @@ class Query implements Iterator, Countable
             }
             if ($single) {
                 return new Row($this->table, current($rows));
-            } else {
-                $return = array();
-                $pkfield = $this->table->getPrimaryKey();
-                foreach ($rows as $row) {
-                    if (isset($row[$pkfield])) {
-                        $return[$row[$pkfield]] = new Row($this->table, $row);
-                    } else {
-                        $return[] = new Row($this->table, $row);
-                    }
-                }
-                return $return;
             }
-        } else {
-            return $this->process($stmt, $single);
+            $return = array();
+            $pkfield = $this->table->getPrimaryKey();
+            foreach ($rows as $row) {
+                if (isset($row[$pkfield])) {
+                    $return[$row[$pkfield]] = new Row($this->table, $row);
+                } else {
+                    $return[] = new Row($this->table, $row);
+                }
+            }
+            return $return;
         }
+        return $this->process($stmt, $single);
     }
 
     /**
@@ -339,12 +337,18 @@ class Query implements Iterator, Countable
             $table_fields[$name] = $table . '_' . $name;
         }
 
-        $relations_fields = array();
+        $relation_data = array();
         foreach ($this->with as $name) {
-            $relations_fields[$name] = array();
-            foreach ($this->table->getRelatedTable($name)->descriptor->fields as $field) {
-                $relations_fields[$name][$field] = $name . '_' . $field;
+            $relation_table = $this->table->getRelatedTable($name);
+            $relation_data[$name] = array(
+                'fields' => array(),
+                'table'  => $relation_table,
+                'type'   => $descriptor->getRelation($name),
+            );
+            foreach ($relation_table->descriptor->fields as $field) {
+                $relation_data[$name]['fields'][$field] = $name . '_' . $field;
             }
+            $relation_data[$name]['primary_key_alias'] = $relation_data[$name]['fields'][$relation_table->getPrimaryKey()];
         }
         $pk_field = $descriptor->primary_key;
         $return = array();
@@ -375,40 +379,33 @@ class Query implements Iterator, Countable
                 $relations[$last_pk] = array();
             }
             foreach ($this->with as $name) {
-                $relation_type = $descriptor->getRelation($name);
-                $relation_table = $this->table->getRelatedTable($name);
-                $relation_pk = $relation_table->getPrimaryKey();
-                $relation_pk_alias = $relations_fields[$name][$relation_pk];
+                $relation_type = $relation_data[$name]['type'];
+                $relation_table = $relation_data[$name]['table'];
+                $relation_pk_alias = $relation_data[$name]['primary_key_alias'];
+                $relation_fields = $relation_data[$name]['fields'];
 
-                $relation_pk_value = $row[$relation_pk_alias] ? : NULL;
-
-                if (isset($relation_last_pks[$name]) && $relation_last_pks[$name] == $relation_pk_value) {
+                if ($row[$relation_pk_alias]) {
+                    $relation_pk_value = $row[$relation_pk_alias];
+                } else {
                     continue;
                 }
 
-                if (!isset($relations[$last_pk][$name])) {
-                    $relations[$last_pk][$name] = array();
-                }
-
-                if (empty($relation_pk_value)) {
+                if (isset($relation_last_pks[$name]) && $relation_last_pks[$name] == $relation_pk_value) {
+                    //This row is present multiple times and we have already processed it.
                     continue;
                 }
 
                 $relation_last_pks[$name] = $relation_pk_value;
-                $data = $this->getFieldsFromRow($row, $relations_fields[$name]);
+                $data = $this->getFieldsFromRow($row, $relation_fields);
                 $relation_row = new Row($relation_table, $data);
                 if ($relation_type == TableDescriptor::RELATION_BELONGS_TO) {
                     //no need to store it in $relations - assign directly
                     $return[$last_pk]->$name = $relation_row;
                 } else {
-                    $relations[$last_pk][$name][$relation_pk_value] = $relation_row;
-                }
-            }
-        }
-        foreach ($relations as $pk => $array) {
-            if (isset($return[$pk])) {
-                foreach ($array as $name => $data) {
-                    $return[$pk]->$name = $data;
+                    if (!isset($return[$last_pk]->$name)) {
+                        $return[$last_pk]->$name = array();
+                    }
+                    $return[$last_pk]->$name[$relation_pk_value] = $relation_row;
                 }
             }
         }
