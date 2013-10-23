@@ -10,14 +10,15 @@
 namespace Modules\ORM;
 
 use InvalidArgumentException;
+use Modules\ORM\Parts\Table;
 use PDOException;
 
 class Utils
 {
     /**
      * Calls a callable safeguarded by a transaction that rolls back on errors.
-     * @param \Modules\ORM\Manager $orm
-     * @param callable $callback
+     * @param Manager $orm
+     * @param callback $callback
      * @return mixed The value returned from the callback
      * @throws InvalidArgumentException
      * @throws PDOException
@@ -42,6 +43,21 @@ class Utils
             $orm->connection->rollback();
             throw $e;
         }
+    }
+
+    /**
+     * @param Table $table
+     * @param array $rows
+     */
+    public static function batchInsert(Table $table, array $rows)
+    {
+        $orm = $table->manager;
+
+        self::guardDB($orm, function(array $rows)use($table) {
+            foreach ($rows as $row) {
+                $table->insert($row);
+            }
+        }, $rows);
     }
 
 }
