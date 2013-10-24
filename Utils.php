@@ -16,14 +16,13 @@ use PDOException;
 class Utils
 {
     /**
-     * Calls a callable safeguarded by a transaction that rolls back on errors.
+     * Calls a callback in a transaction.
      * @param Manager $orm
      * @param callback $callback
      * @return mixed The value returned from the callback
      * @throws InvalidArgumentException
-     * @throws PDOException
      */
-    public static function guardDB(Manager $orm, $callback)
+    public static function inTransaction(Manager $orm, $callback)
     {
         if (!is_callable($callback)) {
             throw new InvalidArgumentException('Callback is not callable.');
@@ -35,10 +34,23 @@ class Utils
             $params = $params[0];
         }
         $orm->connection->beginTransaction();
+        $return = call_user_func_array($callback, $params);
+        $orm->connection->commit();
+        return $return;
+    }
+
+    /**
+     * Calls a callback safeguarded by a transaction that rolls back on errors.
+     * @param Manager $orm
+     * @param callback $callback
+     * @return mixed The value returned from the callback
+     * @throws InvalidArgumentException
+     * @throws PDOException
+     */
+    public static function guardDB(Manager $orm, $callback)
+    {
         try {
-            $return = call_user_func_array($callback, $params);
-            $orm->connection->commit();
-            return $return;
+            return self::inTransaction($orm, $callback);
         } catch (PDOException $e) {
             $orm->connection->rollback();
             throw $e;
@@ -51,13 +63,12 @@ class Utils
      */
     public static function batchInsert(Table $table, array $rows)
     {
-        $orm = $table->manager;
-
-        self::guardDB($orm, function(array $rows)use($table) {
+        $callback = function(array $rows)use($table) {
             foreach ($rows as $row) {
                 $table->insert($row);
             }
-        }, $rows);
+        };
+        self::inTransaction($table->manager, $callback, $rows);
     }
 
 }
