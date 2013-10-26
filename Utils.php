@@ -50,7 +50,13 @@ class Utils
     public static function guardDB(Manager $orm, $callback)
     {
         try {
-            return self::inTransaction($orm, $callback);
+            $params = func_get_args();
+            array_shift($params);
+            array_shift($params);
+            if (is_array($params[0])) {
+                $params = $params[0];
+            }
+            return self::inTransaction($orm, $callback, $params);
         } catch (PDOException $e) {
             $orm->connection->rollback();
             throw $e;
