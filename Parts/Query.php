@@ -293,7 +293,7 @@ class Query implements Iterator, Countable
             $params[] = $param;
         }
         if (count($params)) {
-            $orm->log('Query parameters: ' . implode(', ', $params));
+            $orm->log('Query parameters: "' . implode('", "', $params) . '"');
         }
         if (isset($this->limit)) {
             $single = $this->limit == 1;
