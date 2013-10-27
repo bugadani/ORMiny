@@ -74,7 +74,7 @@ class Utils
                 $table->insert($row);
             }
         };
-        self::inTransaction($table->manager, $callback, $rows);
+        self::inTransaction($table->manager, $callback, array($rows));
     }
 
 }

@@ -91,11 +91,17 @@ class Row implements ArrayAccess, IteratorAggregate
                 case TableDescriptor::RELATION_MANY_MANY:
                     $join_table = $table->getJoinTableName($related);
                     //query the join table for the ids - this in turn fills up the record with the join table data
-                    $ids = array_keys($this->$join_table);
-                    //query the related table for records
-                    $qms = array_fill(0, count($ids), '?');
-                    $where = sprintf('`%s` IN(%s)', $related_table->getPrimaryKey(), implode(',', $qms));
-                    $this->related[$related] = $related_table->where($where, $ids)->get(false);
+                    $ids = array();
+                    $fk = $table->getForeignKey($related);
+                    foreach($this->$join_table as $join_record) {
+                        $ids[] = $join_record[$fk];
+                    }
+                    if (count($ids) > 0) {
+                        //query the related table for records
+                        $qms = array_fill(0, count($ids), '?');
+                        $where = sprintf('`%s` IN(%s)', $related_table->getPrimaryKey(), implode(',', $qms));
+                        $this->related[$related] = $related_table->where($where, $ids)->get(false);
+                    }
                     break;
             }
         }

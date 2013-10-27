@@ -20,7 +20,7 @@ use PDOException;
 class Table implements ArrayAccess, Iterator
 {
     private static $select_pattern = 'SELECT %s FROM `%s` WHERE %s';
-    private static $insert_pattern = 'INSERT INTO `%s` (%s) VALUES (%s)';
+    private static $insert_pattern = 'INSERT INTO `%s` (`%s`) VALUES (%s)';
     private static $update_pattern = 'UPDATE `%s` SET %s WHERE %s';
     private static $delete_pattern = 'DELETE FROM `%s` WHERE %s';
 
@@ -184,13 +184,19 @@ class Table implements ArrayAccess, Iterator
         $record_data = array_intersect_key($data, array_flip($this->descriptor->fields));
         $pdo = $this->manager->connection;
         $fields = array();
-        foreach (array_keys($record_data) as $key) {
+        $log_fields = array();
+        foreach ($record_data as $key => $data) {
             $fields[$key] = ':' . $key;
+            $log_fields[] = sprintf(':%s = "%s"', $key, $data);
         }
         $placeholders = implode(', ', $fields);
-        $field_list = implode(', ', array_keys($fields));
+        $field_list = implode('`, `', array_keys($fields));
 
         $sql = sprintf(self::$insert_pattern, $this->getTableName(), $field_list, $placeholders);
+
+        $this->manager->log('Executing query: ' . $sql);
+        $this->manager->log('Parameters: ' . implode(', ', $log_fields));
+
         $pdo->prepare($sql)->execute($record_data);
         return $pdo->lastInsertId();
     }
