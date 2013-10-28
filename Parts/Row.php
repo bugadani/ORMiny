@@ -72,38 +72,59 @@ class Row implements ArrayAccess, IteratorAggregate
         return $return;
     }
 
-    public function &__get($related)
+    private function getRelatedRows($related, $condition)
     {
-        if (!isset($this->related[$related])) {
-            $table = $this->getTable();
-            $related_table = $table->getRelatedTable($related);
-            switch ($table->descriptor->getRelation($related)) {
-                case TableDescriptor::RELATION_HAS:
+        $table = $this->getTable();
+        $related_table = $table->getRelatedTable($related);
+        switch ($table->descriptor->getRelation($related)) {
+            case TableDescriptor::RELATION_HAS: {
                     $foreign_key = $table->getForeignKey($table);
                     $where = sprintf('`%s` = ?', $foreign_key);
+                    if ($condition) {
+                        $where .= ' AND ' . $condition;
+                    }
                     $key = $table->getPrimaryKey();
-                    $this->related[$related] = $related_table->where($where, $this[$key])->get(false);
-                    break;
-                case TableDescriptor::RELATION_BELONGS_TO:
+                    return $related_table->where($where, $this[$key])->get(false);
+                }
+            case TableDescriptor::RELATION_BELONGS_TO: {
                     $key = $table->getForeignKey($related);
-                    $this->related[$related] = $related_table[$this[$key]];
-                    break;
-                case TableDescriptor::RELATION_MANY_MANY:
+                    $where = sprintf('`%s` = ?', $related_table->getPrimaryKey());
+                    if ($condition) {
+                        $where .= ' AND ' . $condition;
+                    }
+                    return $related_table->where($where, $this[$key])->get();
+                }
+            case TableDescriptor::RELATION_MANY_MANY: {
                     $join_table = $table->getJoinTableName($related);
                     //query the join table for the ids - this in turn fills up the record with the join table data
                     $ids = array();
                     $fk = $table->getForeignKey($related);
-                    foreach($this->$join_table as $join_record) {
+                    foreach ($this->$join_table as $join_record) {
                         $ids[] = $join_record[$fk];
                     }
                     if (count($ids) > 0) {
                         //query the related table for records
                         $qms = array_fill(0, count($ids), '?');
                         $where = sprintf('`%s` IN(%s)', $related_table->getPrimaryKey(), implode(',', $qms));
-                        $this->related[$related] = $related_table->where($where, $ids)->get(false);
+                        if ($condition) {
+                            $where .= ' AND ' . $condition;
+                        }
+                        return $related_table->where($where, $ids)->get(false);
                     }
-                    break;
-            }
+                }
+        }
+    }
+
+    public function __call($related, $args)
+    {
+        $where = implode(' AND ', $args);
+        return $this->getRelatedRows($related, $where);
+    }
+
+    public function &__get($related)
+    {
+        if (!isset($this->related[$related])) {
+            $this->related[$related] = $this->getRelatedRows($related);
         }
         return $this->related[$related];
     }

@@ -219,9 +219,13 @@ class Table implements ArrayAccess, Iterator
             $parameters[$key] = $value;
         }
 
-        $sql = sprintf(self::$update_pattern, $this->getTableName(), implode(', ', $fields), $condition);
-        $this->manager->log($sql);
-        $this->manager->connection->prepare($sql)->execute($parameters);
+        if (count($fields) > 0) {
+            $sql = sprintf(self::$update_pattern, $this->getTableName(), implode(', ', $fields), $condition);
+            $this->manager->log($sql);
+            $this->manager->connection->prepare($sql)->execute($parameters);
+        } else {
+            $this->manager->log('Update cancelled. No valid fields were set.');
+        }
     }
 
     /**
