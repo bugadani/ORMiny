@@ -208,7 +208,11 @@ class Query implements Iterator, Countable
             $table_columns = $this->columns ? : $this->table->descriptor->fields;
             $columns = array();
             foreach ($table_columns as $name) {
-                $columns[] = sprintf(self::$table_name_pattern, $table_name, $name, $descriptor->name);
+                if (strpos($name, '(') === false) {
+                    $columns[] = sprintf(self::$table_name_pattern, $table_name, $name, $descriptor->name);
+                } else {
+                    $columns[] = $name;
+                }
             }
 
             foreach ($this->with as $name) {
