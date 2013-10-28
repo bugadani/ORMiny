@@ -72,7 +72,7 @@ class Row implements ArrayAccess, IteratorAggregate
         return $return;
     }
 
-    private function getRelatedRows($related, $condition)
+    private function getRelatedRows($related, $condition = NULL)
     {
         $table = $this->getTable();
         $related_table = $table->getRelatedTable($related);
@@ -115,7 +115,7 @@ class Row implements ArrayAccess, IteratorAggregate
         }
     }
 
-    public function __call($related, $args)
+    public function __call($related, array $args)
     {
         $where = implode(' AND ', $args);
         return $this->getRelatedRows($related, $where);
