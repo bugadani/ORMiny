@@ -18,10 +18,11 @@ class Query implements Iterator, Countable
 {
     private static $select_pattern = 'SELECT %s FROM %s';
     private static $table_name_pattern = '%1$s.%2$s as %3$s_%2$s';
-    private static $join_pattern = ' LEFT JOIN %1$s ON (%1$s.%2$s = %3$s.%4$s)';
+    private static $join_pattern = ' LEFT JOIN %1$s ON (%1$s.%2$s = %3$s.%4$s%5$s)';
     private $table;
     private $with;
     private $columns;
+    private $selected_extra_fields = array();
     private $where;
     private $where_params = array();
     private $having;
@@ -213,9 +214,22 @@ class Query implements Iterator, Countable
                 } else {
                     $columns[] = $name;
                 }
+                if (!in_array($name, $this->table->descriptor->fields)) {
+                    if (strpos($name, ' as ')) {
+                        list(, $alias) = explode(' as ', $name, 2);
+                        $this->selected_extra_fields[$alias] = $alias;
+                    }
+                }
             }
 
             foreach ($this->with as $name) {
+                if (is_array($name)) {
+                    $condition = $name;
+                    $name = array_shift($condition);
+                    $join_condition = sprintf(' AND (%s)', implode(') AND (', $condition));
+                } else {
+                    $join_condition = '';
+                }
                 $related = $this->table->getRelatedTable($name);
                 $related_descriptor = $related->descriptor;
                 $related_table = $related->getTableName();
@@ -231,18 +245,19 @@ class Query implements Iterator, Countable
                     case TableDescriptor::RELATION_MANY_MANY:
                         $join_table = $this->table->getJoinTable($name);
 
-                        $table .= sprintf(self::$join_pattern, $join_table, $table_join_field, $table_name, $primary_key);
+                        $table .= sprintf(self::$join_pattern, $join_table, $table_join_field, $table_name,
+                                $primary_key, '');
                         $table .= sprintf(self::$join_pattern, $related_table, $related_primary, $join_table,
-                                $foreign_key);
+                                $foreign_key, '');
                         break;
                     case TableDescriptor::RELATION_HAS:
                         $related_foreign = $this->table->getForeignKey($table_name);
                         $table .= sprintf(self::$join_pattern, $related_table, $related_foreign, $table_name,
-                                $primary_key);
+                                $primary_key, $join_condition);
                         break;
                     case TableDescriptor::RELATION_BELONGS_TO:
                         $table .= sprintf(self::$join_pattern, $related_table, $related_primary, $table_name,
-                                $foreign_key);
+                                $foreign_key, $join_condition);
                         break;
                 }
             }
@@ -347,6 +362,9 @@ class Query implements Iterator, Countable
 
         $relation_data = array();
         foreach ($this->with as $name) {
+            if (is_array($name)) {
+                $name = $name[0];
+            }
             $relation_table = $this->table->getRelatedTable($name);
             $relation_data[$name] = array(
                 'fields' => array(),
@@ -364,6 +382,9 @@ class Query implements Iterator, Countable
         $relation_last_pks = array();
         $row_num = 0;
         $fetched = 0;
+
+        $query_fields = array_merge($table_fields, $this->selected_extra_fields);
+
         //We fetch rows one-by-one because MANY_MANY relation type cannot be limited by LIMIT
         while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
             if ($last_pk != $row[$table_fields[$pk_field]]) {
@@ -379,12 +400,15 @@ class Query implements Iterator, Countable
                 if ($single && $fetched == 1) {
                     break;
                 }
-                $rowdata = $this->getFieldsFromRow($row, $table_fields);
+                $rowdata = $this->getFieldsFromRow($row, $query_fields);
                 $last_pk = $rowdata[$pk_field];
                 ++$fetched;
                 $return[$last_pk] = new Row($this->table, $rowdata);
             }
             foreach ($this->with as $name) {
+                if (is_array($name)) {
+                    $name = $name[0];
+                }
                 $relation_type = $relation_data[$name]['type'];
                 $relation_table = $relation_data[$name]['table'];
                 $relation_pk_alias = $relation_data[$name]['primary_key_alias'];
