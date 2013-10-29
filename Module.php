@@ -9,11 +9,11 @@
 
 namespace Modules\ORM;
 
-use Miny\Application\Application;
+use Miny\Application\BaseApplication;
 
 class Module extends \Miny\Application\Module
 {
-    public function init(Application $app)
+    public function init(BaseApplication $app)
     {
         $orm = $app->add('orm', __NAMESPACE__ . '\Manager')
                 ->setArguments($app['orm']['data_source'], $app['orm']['table_cache'], '&log')
