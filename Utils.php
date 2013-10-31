@@ -74,6 +74,7 @@ class Utils
                 $table->insert($row);
             }
         };
+        $table->manager->log(sprintf('Inserting %d rows', count($rows)));
         self::inTransaction($table->manager, $callback, array($rows));
     }
 
