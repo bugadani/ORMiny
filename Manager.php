@@ -173,7 +173,7 @@ class Manager
             }
             $this->storeTables($descriptors);
             foreach ($descriptors as $td) {
-                $this->log('Table discovered: ' . $table_name . "\n\t" . $td);
+                $this->log('Table discovered: ' . $td->name . "\n\t" . $td);
             }
         }
         foreach ($descriptors as $name => $td) {
