@@ -271,18 +271,11 @@ class Table implements ArrayAccess, Iterator
         if (!empty($deleted_ids)) {
             $placeholders = implode(', ', array_fill(0, count($deleted_ids), '?'));
 
-            $pdo->beginTransaction();
-            try {
-                foreach ($relations_to_delete as $relation) {
-                    $table = $this->getRelatedTable($relation);
-                    $foreign_key = $table->getForeignKey($this->descriptor->name);
-                    $rel_condition = sprintf('%s IN(%s)', $foreign_key, $placeholders);
-                    $table->deleteRows($rel_condition, $deleted_ids);
-                }
-                $pdo->commit();
-            } catch (PDOException $e) {
-                $pdo->rollback();
-                throw $e;
+            foreach ($relations_to_delete as $relation) {
+                $table = $this->getRelatedTable($relation);
+                $foreign_key = $table->getForeignKey($this->descriptor->name);
+                $rel_condition = sprintf('%s IN(%s)', $foreign_key, $placeholders);
+                $table->deleteRows($rel_condition, $deleted_ids);
             }
         }
         $sql = sprintf(self::$delete_pattern, $this->getTableName(), $condition);
