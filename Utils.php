@@ -9,9 +9,9 @@
 
 namespace Modules\ORM;
 
+use Exception;
 use InvalidArgumentException;
 use Modules\ORM\Parts\Table;
-use PDOException;
 
 class Utils
 {
@@ -45,7 +45,7 @@ class Utils
      * @param callback $callback
      * @return mixed The value returned from the callback
      * @throws InvalidArgumentException
-     * @throws PDOException
+     * @throws Exception
      */
     public static function guardDB(Manager $orm, $callback)
     {
@@ -57,7 +57,7 @@ class Utils
                 $params = $params[0];
             }
             return self::inTransaction($orm, $callback, $params);
-        } catch (PDOException $e) {
+        } catch (Exception $e) {
             $orm->connection->rollback();
             throw $e;
         }
