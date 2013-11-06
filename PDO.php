@@ -8,60 +8,36 @@ class PDO extends PHP_PDO
 {
     protected $transaction_count = 0;
 
-    private function transactionActive()
-    {
-        return $this->transaction_count > 0;
-    }
-
-    private function reset()
-    {
-        $this->transaction_count = 0;
-    }
-
-    private function increment()
-    {
-        $this->transaction_count++;
-    }
-
-    private function decrement()
-    {
-        $this->transaction_count--;
-        if ($this->transaction_count < 0) {
-            $this->transaction_count = 0;
-        }
-    }
-
     public function beginTransaction()
     {
-        if (!$this->transactionActive()) {
-            $return = true;
-        } else {
+        $return = true;
+        if ($this->transaction_count == 0) {
             $return = parent::beginTransaction();
         }
 
-        $this->increment();
+        $this->transaction_count++;
         return $return;
     }
 
     public function commit()
     {
-        $this->decrement();
-        if ($this->transactionActive()) {
-            $return = true;
-        } else {
+        $return = true;
+        $this->transaction_count--;
+        if ($this->transaction_count == 0) {
             $return = parent::commit();
+        } else if ($this->transaction_count < 0) {
+            $this->transaction_count = 0;
         }
         return $return;
     }
 
-    public function rollback()
+    public function rollBack()
     {
-        if ($this->transactionActive()) {
-            $return = parent::rollback();
-        } else {
-            $return = true;
+        $return = true;
+        if ($this->transaction_count > 0) {
+            $return = parent::rollBack();
         }
-        $this->reset();
+        $this->transaction_count = 0;
         return $return;
     }
 
