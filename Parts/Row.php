@@ -17,7 +17,7 @@ use OutOfBoundsException;
 class Row implements ArrayAccess, IteratorAggregate
 {
     /**
-     * @var \Modules\ORM\Parts\Table
+     * @var Table
      */
     private $table;
 
@@ -37,7 +37,7 @@ class Row implements ArrayAccess, IteratorAggregate
     private $changed = array();
 
     /**
-     * @param \Modules\ORM\Parts\Table $table
+     * @param Table $table
      * @param array $data
      */
     public function __construct(Table $table, array $data = array())
@@ -53,7 +53,7 @@ class Row implements ArrayAccess, IteratorAggregate
     }
 
     /**
-     * @return \Modules\ORM\Parts\Table
+     * @return Table
      */
     public function getTable()
     {
