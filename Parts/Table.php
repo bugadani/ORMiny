@@ -78,7 +78,7 @@ class Table implements ArrayAccess, Iterator
      */
     public function getTableName()
     {
-        return sprintf($this->manager->table_format, $this->descriptor->name);
+        return sprintf($this->manager->getTableNameFormat(), $this->descriptor->name);
     }
 
     /**
@@ -95,7 +95,7 @@ class Table implements ArrayAccess, Iterator
      */
     public function getForeignKey($referenced)
     {
-        $fk = $this->manager->foreign_key;
+        $fk = $this->manager->getForeignKeyFormat();
         if ($referenced instanceof Table) {
             return sprintf($fk, $referenced->descriptor->name);
         }
@@ -125,7 +125,7 @@ class Table implements ArrayAccess, Iterator
     public function getJoinTable($relation)
     {
         $table = $this->getRelatedTable($relation);
-        return sprintf($this->manager->table_format, $this . '_' . $table);
+        return sprintf($this->manager->getTableNameFormat(), $this . '_' . $table);
     }
 
     /**

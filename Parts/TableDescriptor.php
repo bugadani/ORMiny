@@ -22,6 +22,11 @@ class TableDescriptor
     public $fields = array();
     public $relations = array();
 
+    public function __construct($name)
+    {
+        $this->name = $name;
+    }
+
     /**
      * @param string $relation
      * @return int
