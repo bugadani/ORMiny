@@ -1,5 +1,4 @@
 <?php
-
 /**
  * This file is part of the Miny framework.
  * (c) Dániel Buga <daniel@bugadani.hu>
@@ -11,7 +10,6 @@ namespace Modules\ORM;
 
 use Modules\Cache\iCacheDriver;
 use Modules\ORM\Parts\TableDescriptor;
-use PDO;
 
 /**
  * DatabaseDiscovery is a database structure discovery class.
