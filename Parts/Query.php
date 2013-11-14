@@ -414,6 +414,12 @@ class Query implements Iterator, Countable
                 $relation_pk_alias = $relation_data[$name]['primary_key_alias'];
                 $relation_fields = $relation_data[$name]['fields'];
 
+                if ($relation_type !== TableDescriptor::RELATION_BELONGS_TO) {
+                    if (!isset($return[$last_pk]->$name)) {
+                        $return[$last_pk]->$name = array();
+                    }
+                }
+
                 if ($row[$relation_pk_alias]) {
                     $relation_pk_value = $row[$relation_pk_alias];
                 } else {
@@ -431,9 +437,6 @@ class Query implements Iterator, Countable
                 if ($relation_type == TableDescriptor::RELATION_BELONGS_TO) {
                     $return[$last_pk]->$name = $relation_row;
                 } else {
-                    if (!isset($return[$last_pk]->$name)) {
-                        $return[$last_pk]->$name = array();
-                    }
                     $var = &$return[$last_pk]->$name;
                     $var[$relation_pk_value] = $relation_row;
                 }
