@@ -304,11 +304,11 @@ class Query implements Iterator, Countable
         $i = 0;
         $params = array();
         foreach ($this->where_params as $param) {
-            $stmt->bindValue( ++$i, $param);
+            $stmt->bindValue(++$i, $param);
             $params[] = $param;
         }
         foreach ($this->having_params as $param) {
-            $stmt->bindValue( ++$i, $param);
+            $stmt->bindValue(++$i, $param);
             $params[] = $param;
         }
         if (count($params)) {
@@ -316,7 +316,10 @@ class Query implements Iterator, Countable
         }
         if (isset($this->limit)) {
             $single = $this->limit == 1;
+        } else if ($single) {
+            $this->limit = 1;
         }
+        $orm->log('Single row requested: ' . ($single ? 'yes' : 'no'));
         $stmt->execute();
         if ($stmt->rowCount() == 0) {
             $orm->log('Results: 0');
@@ -388,21 +391,16 @@ class Query implements Iterator, Countable
         //We fetch rows one-by-one because MANY_MANY relation type cannot be limited by LIMIT
         while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
             if ($last_pk != $row[$table_fields[$pk_field]]) {
-                if ($this->offset) {
-                    if ($row_num < $this->offset) {
+                if (isset($this->offset)) {
+                    if ($row_num++ < $this->offset) {
                         continue;
                     }
-                    ++$row_num;
                 }
-                if ($this->limit && $fetched == $this->limit) {
-                    break;
-                }
-                if ($single && $fetched == 1) {
+                if (isset($this->limit) && $fetched++ == $this->limit) {
                     break;
                 }
                 $rowdata = $this->getFieldsFromRow($row, $query_fields);
                 $last_pk = $rowdata[$pk_field];
-                ++$fetched;
                 $return[$last_pk] = new Row($this->table, $rowdata);
             }
             foreach ($this->with as $name) {
