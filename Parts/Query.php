@@ -387,22 +387,29 @@ class Query implements Iterator, Countable
         $fetched = 0;
 
         $query_fields = array_merge($table_fields, $this->selected_extra_fields);
+        $row_skipped = false;
 
         //We fetch rows one-by-one because MANY_MANY relation type cannot be limited by LIMIT
         while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
-            if ($last_pk != $row[$table_fields[$pk_field]]) {
+            if ($last_pk !== $row[$table_fields[$pk_field]]) {
+                $last_pk = $row[$table_fields[$pk_field]];
+
                 if (isset($this->offset)) {
-                    if ($row_num++ < $this->offset) {
-                        continue;
+                    $row_skipped = ($row_num++ < $this->offset);
+                }
+                if (!$row_skipped) {
+                    if (isset($this->limit) && $fetched++ == $this->limit) {
+                        break;
                     }
+                    $rowdata = $this->getFieldsFromRow($row, $query_fields);
+                    $return[$last_pk] = new Row($this->table, $rowdata);
                 }
-                if (isset($this->limit) && $fetched++ == $this->limit) {
-                    break;
-                }
-                $rowdata = $this->getFieldsFromRow($row, $query_fields);
-                $last_pk = $rowdata[$pk_field];
-                $return[$last_pk] = new Row($this->table, $rowdata);
             }
+
+            if ($row_skipped) {
+                continue;
+            }
+
             foreach ($this->with as $name) {
                 if (is_array($name)) {
                     $name = $name[0];
