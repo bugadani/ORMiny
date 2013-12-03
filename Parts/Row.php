@@ -198,7 +198,7 @@ class Row implements ArrayAccess, IteratorAggregate
      */
     public function toArray()
     {
-        return $this->data;
+        return array_merge($this->data, $this->related);
     }
 
 }
