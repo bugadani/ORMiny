@@ -2,9 +2,7 @@
 
 namespace Modules\ORM;
 
-use PDO as PHP_PDO;
-
-class PDO extends PHP_PDO
+class PDO extends \PDO
 {
     protected $transaction_count = 0;
 

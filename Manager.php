@@ -13,7 +13,6 @@ use Miny\Log;
 use Modules\ORM\Parts\Table;
 use Modules\ORM\Parts\TableDescriptor;
 use OutOfBoundsException;
-use PDO;
 
 class Manager
 {
