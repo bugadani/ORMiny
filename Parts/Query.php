@@ -484,12 +484,11 @@ class Query implements Iterator, Countable
             } else {
                 return $this->execute($single);
             }
-        } else {
-            if (!isset($this->rows)) {
-                $this->rows = $this->execute($single);
-            }
-            return $this->rows;
         }
+        if (!isset($this->rows)) {
+            $this->rows = $this->execute($single);
+        }
+        return $this->rows;
     }
 
     //Iterator methods
@@ -530,9 +529,6 @@ class Query implements Iterator, Countable
     {
         if (!isset($this->rows)) {
             $this->rows = $this->execute(false);
-            if (!is_array($this->rows)) {
-                $this->rows = array($this->rows);
-            }
         }
         return count($this->rows);
     }
