@@ -8,7 +8,7 @@
 
 namespace Modules\ORM;
 
-use Modules\Cache\iCacheDriver;
+use Modules\Cache\AbstractCacheDriver;
 use Modules\ORM\Parts\TableDescriptor;
 
 /**
@@ -51,7 +51,7 @@ class DatabaseDiscovery implements iDatabaseDescriptor
      * @param PDO $db
      * @param iCacheDriver $cache
      */
-    public function __construct(PDO $db, iCacheDriver $cache = NULL)
+    public function __construct(PDO $db, AbstractCacheDriver $cache = NULL)
     {
         $this->connection = $db;
         $this->cache = $cache;
