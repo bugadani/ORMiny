@@ -27,9 +27,7 @@ class Utils
         if (!is_callable($callback)) {
             throw new InvalidArgumentException('Callback is not callable.');
         }
-        $params = func_get_args();
-        array_shift($params);
-        array_shift($params);
+        $params = array_slice(func_get_args(), 2);
         if (is_array($params[0])) {
             $params = $params[0];
         }
@@ -50,9 +48,7 @@ class Utils
     public static function guardDB(Manager $orm, $callback)
     {
         try {
-            $params = func_get_args();
-            array_shift($params);
-            array_shift($params);
+            $params = array_slice(func_get_args(), 2);
             if (is_array($params[0])) {
                 $params = $params[0];
             }
@@ -74,7 +70,7 @@ class Utils
                 $table->insert($row);
             }
         };
-        $table->manager->log(sprintf('Inserting %d rows', count($rows)));
+        $table->manager->log('Inserting %d rows', count($rows));
         self::inTransaction($table->manager, $callback, array($rows));
     }
 

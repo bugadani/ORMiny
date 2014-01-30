@@ -84,8 +84,7 @@ class Query implements Iterator, Countable
             unset($this->query);
         }
         $condition = '(' . $condition . ')';
-        $params = func_get_args();
-        array_shift($params);
+        $params = array_slice(func_get_args(), 1);
         if (isset($params[0]) && is_array($params[0])) {
             $params = $params[0];
         }
@@ -110,8 +109,7 @@ class Query implements Iterator, Countable
             unset($this->query);
         }
         $condition = '(' . $condition . ')';
-        $params = func_get_args();
-        array_shift($params);
+        $params = array_slice(func_get_args(), 1);
         if (isset($params[0]) && is_array($params[0])) {
             $params = $params[0];
         }
@@ -299,7 +297,7 @@ class Query implements Iterator, Countable
     {
         $query = $this->getQuery();
         $orm = $this->table->manager;
-        $orm->log('Executing query: ' . $query);
+        $orm->log('Executing query: %s', $query);
         $stmt = $orm->connection->prepare($query);
         $i = 0;
         $params = array();
@@ -312,14 +310,14 @@ class Query implements Iterator, Countable
             $params[] = $param;
         }
         if (count($params)) {
-            $orm->log('Query parameters: "' . implode('", "', $params) . '"');
+            $orm->log('Query parameters: "%s"', implode('", "', $params));
         }
         if (isset($this->limit)) {
             $single = $this->limit == 1;
         } else if ($single) {
             $this->limit = 1;
         }
-        $orm->log('Single row requested: ' . ($single ? 'yes' : 'no'));
+        $orm->log('Single row requested: %s', ($single ? 'yes' : 'no'));
         $stmt->execute();
         if ($stmt->rowCount() == 0) {
             $orm->log('Results: 0');
@@ -327,7 +325,7 @@ class Query implements Iterator, Countable
         }
         if (empty($this->with)) {
             $rows = $stmt->fetchAll();
-            $orm->log('Results: ' . count($rows));
+            $orm->log('Results: %d', count($rows));
             if (empty($rows)) {
                 return $single ? false : array();
             }
@@ -448,7 +446,7 @@ class Query implements Iterator, Countable
             }
         }
         $statement->closeCursor();
-        $this->table->manager->log('Results: ' . count($return));
+        $this->table->manager->log('Results: %d', count($return));
         if ($single) {
             $return = current($return);
         }

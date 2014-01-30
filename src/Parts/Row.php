@@ -141,6 +141,8 @@ class Row implements ArrayAccess, IteratorAggregate
 
     /**
      * @param bool $force_insert
+     *
+     * @return int
      */
     public function save($force_insert = false)
     {

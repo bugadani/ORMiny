@@ -38,7 +38,7 @@ class DatabaseDiscovery implements iDatabaseDescriptor
     public $cache_lifetime = 3600;
 
     /**
-     * @var iCacheDriver
+     * @var AbstractCacheDriver
      */
     private $cache;
 
@@ -48,13 +48,13 @@ class DatabaseDiscovery implements iDatabaseDescriptor
     private $tables;
 
     /**
-     * @param PDO $db
-     * @param iCacheDriver $cache
+     * @param PDO                                $db
+     * @param \Modules\Cache\AbstractCacheDriver $cache
      */
-    public function __construct(PDO $db, AbstractCacheDriver $cache = NULL)
+    public function __construct(PDO $db, AbstractCacheDriver $cache = null)
     {
         $this->connection = $db;
-        $this->cache = $cache;
+        $this->cache      = $cache;
     }
 
     /**
@@ -83,7 +83,7 @@ class DatabaseDiscovery implements iDatabaseDescriptor
     }
 
     /**
-     * @param string $name
+     * @param string            $name
      * @param TableDescriptor[] $descriptors
      */
     private function processManyManyRelation($name, array $descriptors)
@@ -91,8 +91,8 @@ class DatabaseDiscovery implements iDatabaseDescriptor
         if (strpos($name, '_') === false) {
             return;
         }
-        $parts = explode('_', $name);
-        $parts_count = count($parts);
+        $parts        = explode('_', $name);
+        $parts_count  = count($parts);
         $joins_tables = false;
         switch ($parts_count) {
             case 1:

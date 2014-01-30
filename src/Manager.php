@@ -9,7 +9,7 @@
 
 namespace Modules\ORM;
 
-use Miny\Log;
+use Miny\Log\Log;
 use Modules\ORM\Parts\Table;
 use Modules\ORM\Parts\TableDescriptor;
 use OutOfBoundsException;
@@ -60,7 +60,8 @@ class Manager
     public function log($message)
     {
         if ($this->log !== NULL) {
-            $this->log->write('ORM: ' . $message, Log::DEBUG);
+            $args = array_slice(func_get_args(), 1);
+            $this->log->write(Log::DEBUG, 'ORM', $message, $args);
         }
     }
 

@@ -40,12 +40,12 @@ class Table implements ArrayAccess, Iterator
     private $loaded_records = array();
 
     /**
-     * @param Manager $manager
+     * @param Manager         $manager
      * @param TableDescriptor $descriptor
      */
     public function __construct(Manager $manager, TableDescriptor $descriptor)
     {
-        $this->manager = $manager;
+        $this->manager    = $manager;
         $this->descriptor = $descriptor;
     }
 
@@ -57,6 +57,7 @@ class Table implements ArrayAccess, Iterator
 
     /**
      * __toString returns the table's ID
+     *
      * @return string
      */
     public function __toString()
@@ -66,6 +67,7 @@ class Table implements ArrayAccess, Iterator
 
     /**
      * @param array $data
+     *
      * @return Row
      */
     public function newRow(array $data = array())
@@ -91,6 +93,7 @@ class Table implements ArrayAccess, Iterator
 
     /**
      * @param Table|TableDescriptor|string $referenced
+     *
      * @return string
      */
     public function getForeignKey($referenced)
@@ -107,6 +110,7 @@ class Table implements ArrayAccess, Iterator
 
     /**
      * @param string $relation
+     *
      * @return Table
      * @throws InvalidArgumentException
      */
@@ -120,6 +124,7 @@ class Table implements ArrayAccess, Iterator
 
     /**
      * @param string $relation
+     *
      * @return string
      */
     public function getJoinTable($relation)
@@ -130,6 +135,8 @@ class Table implements ArrayAccess, Iterator
 
     /**
      * @param string $related
+     *
+     * @throws \InvalidArgumentException
      * @return string
      */
     public function getJoinTableName($related)
@@ -148,7 +155,8 @@ class Table implements ArrayAccess, Iterator
 
     /**
      * @param string $relation
-     * @param mixed $key
+     * @param mixed  $key
+     *
      * @return Row
      */
     public function getRelated($relation, $key)
@@ -158,8 +166,10 @@ class Table implements ArrayAccess, Iterator
     }
 
     /**
-     * @param Row $row
+     * @param Row  $row
      * @param bool $force_insert
+     *
+     * @return int
      */
     public function save(Row $row, $force_insert = false)
     {
@@ -178,19 +188,21 @@ class Table implements ArrayAccess, Iterator
 
     /**
      * @param array $data
+     *
+     * @return int
      */
     public function insert(array $data)
     {
         $record_data = array_intersect_key($data, array_flip($this->descriptor->fields));
-        $pdo = $this->manager->connection;
-        $fields = array();
-        $log_fields = array();
+        $pdo         = $this->manager->connection;
+        $fields      = array();
+        $log_fields  = array();
         foreach ($record_data as $key => $data) {
             $fields[$key] = ':' . $key;
             $log_fields[] = sprintf(':%s = "%s"', $key, $data);
         }
         $placeholders = implode(', ', $fields);
-        $field_list = implode('`, `', array_keys($fields));
+        $field_list   = implode('`, `', array_keys($fields));
 
         $sql = sprintf(self::$insert_pattern, $this->getTableName(), $field_list, $placeholders);
 
@@ -212,10 +224,10 @@ class Table implements ArrayAccess, Iterator
 
     public function updateRows($condition, array $parameters, array $data)
     {
-        $data = array_intersect_key($data, array_flip($this->descriptor->fields));
+        $data   = array_intersect_key($data, array_flip($this->descriptor->fields));
         $fields = array();
         foreach ($data as $key => $value) {
-            $fields[] = sprintf('%1$s = :%1$s', $key);
+            $fields[]         = sprintf('%1$s = :%1$s', $key);
             $parameters[$key] = $value;
         }
 
@@ -230,7 +242,7 @@ class Table implements ArrayAccess, Iterator
 
     /**
      *
-     * @param type $pk
+     * @param mixed $pk
      */
     public function delete($pk)
     {
@@ -240,10 +252,11 @@ class Table implements ArrayAccess, Iterator
 
     /**
      * @param string $condition
-     * @param array $parameters
+     * @param array  $parameters
+     *
      * @throws PDOException
      */
-    public function deleteRows($condition, array $parameters = NULL)
+    public function deleteRows($condition, array $parameters = null)
     {
         $message = sprintf('Deleting rows from %s', $this->descriptor->name);
         $this->manager->log($message);
@@ -272,8 +285,8 @@ class Table implements ArrayAccess, Iterator
             $placeholders = implode(', ', array_fill(0, count($deleted_ids), '?'));
 
             foreach ($relations_to_delete as $relation) {
-                $table = $this->getRelatedTable($relation);
-                $foreign_key = $table->getForeignKey($this->descriptor->name);
+                $table         = $this->getRelatedTable($relation);
+                $foreign_key   = $table->getForeignKey($this->descriptor->name);
                 $rel_condition = sprintf('%s IN(%s)', $foreign_key, $placeholders);
                 $table->deleteRows($rel_condition, $deleted_ids);
             }
@@ -297,9 +310,9 @@ class Table implements ArrayAccess, Iterator
     public function offsetGet($offset)
     {
         if (!isset($this->loaded_records[$offset])) {
-            $query = new Query($this);
+            $query     = new Query($this);
             $condition = sprintf('%s = ?', $this->descriptor->primary_key);
-            $record = $query->where($condition, $offset)->get();
+            $record    = $query->where($condition, $offset)->get();
             if (empty($record)) {
                 throw new OutOfBoundsException('Record does not exist: ' . $offset);
             }
@@ -348,10 +361,10 @@ class Table implements ArrayAccess, Iterator
     public function rewind()
     {
         if (empty($this->loaded_records)) {
-            $query = new Query($this);
+            $query                = new Query($this);
             $this->loaded_records = $query->execute();
             if (!is_array($this->loaded_records)) {
-                $pk = $this->loaded_records[$this->getPrimaryKey()];
+                $pk                   = $this->loaded_records[$this->getPrimaryKey()];
                 $this->loaded_records = array($pk => $this->loaded_records);
             }
         }
@@ -361,7 +374,7 @@ class Table implements ArrayAccess, Iterator
     public function valid()
     {
         $val = key($this->loaded_records);
-        return $val !== NULL && $val !== false;
+        return $val !== null && $val !== false;
     }
 
 }
