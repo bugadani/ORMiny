@@ -31,7 +31,12 @@ class Module extends \Miny\Modules\Module
 
         $container->addAlias(
             '\\PDO',
+            __NAMESPACE__ . '\\PDO'
+        );
+
+        $container->addAlias(
             __NAMESPACE__ . '\\PDO',
+            null,
             array(
                 '@orm:pdo:dsn',
                 '@orm:pdo:username',
