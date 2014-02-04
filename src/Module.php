@@ -13,18 +13,36 @@ use Miny\Application\BaseApplication;
 
 class Module extends \Miny\Modules\Module
 {
+    public function defaultConfiguration()
+    {
+        return array(
+            'orm' => array(
+                'database_descriptor' => __NAMESPACE__ . '\\DatabaseDiscovery',
+                'table_name_format'   => 'miny_%s'
+            )
+        );
+    }
+
 
     public function init(BaseApplication $app)
     {
-        $factory = $app->getFactory();
-        $factory->add('pdo', __NAMESPACE__ . '\PDO')
-                ->setArguments('@orm:pdo:dsn', '@orm:pdo:username', '@orm:pdo:password', '@orm:pdo:options');
+        $factory    = $app->getContainer();
+        $parameters = $app->getParameterContainer();
 
-        $factory->add('db_auto_discovery', __NAMESPACE__ . '\DatabaseDiscovery')
-                ->setArguments('&pdo', '@orm:table_cache')
-                ->setProperty('table_format', '@orm:table_name_format');
+        $factory->addAlias('\PDO', __NAMESPACE__ . '\PDO', array(
+                '@orm:pdo:dsn',
+                '@orm:pdo:username',
+                '@orm:pdo:password',
+                '@orm:pdo:options'
+            ));
 
-        $factory->add('orm', __NAMESPACE__ . '\Manager')
-                ->setArguments('&pdo', '@orm:database', '&log');
+        $factory->addCallback(
+            __NAMESPACE__ . '\DatabaseDiscovery',
+            function (DatabaseDiscovery $discovery) use ($parameters) {
+                $discovery->table_format = $parameters['orm']['table_name_format'];
+            }
+        );
+
+        $factory->addAlias(__NAMESPACE__ . '\iDatabaseDescriptor', $parameters['orm']['database_descriptor']);
     }
 }
