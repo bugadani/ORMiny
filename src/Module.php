@@ -26,23 +26,27 @@ class Module extends \Miny\Modules\Module
 
     public function init(BaseApplication $app)
     {
-        $factory    = $app->getContainer();
+        $container  = $app->getContainer();
         $parameters = $app->getParameterContainer();
 
-        $factory->addAlias('\PDO', __NAMESPACE__ . '\PDO', array(
+        $container->addAlias(
+            '\\PDO',
+            __NAMESPACE__ . '\\PDO',
+            array(
                 '@orm:pdo:dsn',
                 '@orm:pdo:username',
                 '@orm:pdo:password',
                 '@orm:pdo:options'
-            ));
+            )
+        );
 
-        $factory->addCallback(
-            __NAMESPACE__ . '\DatabaseDiscovery',
+        $container->addCallback(
+            __NAMESPACE__ . '\\DatabaseDiscovery',
             function (DatabaseDiscovery $discovery) use ($parameters) {
                 $discovery->table_format = $parameters['orm']['table_name_format'];
             }
         );
 
-        $factory->addAlias(__NAMESPACE__ . '\iDatabaseDescriptor', $parameters['orm']['database_descriptor']);
+        $container->addAlias(__NAMESPACE__ . '\\iDatabaseDescriptor', $parameters['orm']['database_descriptor']);
     }
 }
