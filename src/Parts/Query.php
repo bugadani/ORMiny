@@ -401,6 +401,7 @@ class Query implements Iterator, Countable
                     }
                     $rowdata = $this->getFieldsFromRow($row, $query_fields);
                     $return[$last_pk] = new Row($this->table, $rowdata);
+                    $relation_last_pks = array();
                 }
             }
 
