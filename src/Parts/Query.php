@@ -20,8 +20,8 @@ class Query implements Iterator, Countable
     private static $table_name_pattern = '%1$s.%2$s as %3$s_%2$s';
     private static $join_pattern = ' LEFT JOIN %1$s ON (%1$s.%2$s = %3$s.%4$s%5$s)';
     private $table;
-    private $with;
-    private $columns;
+    private $with = array();
+    private $columns = array();
     private $selected_extra_fields = array();
     private $where;
     private $where_params = array();
@@ -41,12 +41,13 @@ class Query implements Iterator, Countable
      */
     public function __construct(Table $table)
     {
-        $this->table = $table;
+        $this->table   = $table;
         $this->manager = $table->manager;
     }
 
     /**
      * @param mixed ...
+     *
      * @return Query
      */
     public function with()
@@ -55,12 +56,18 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        $this->with = func_get_args();
+        if (empty($this->with)) {
+            $this->with = func_get_args();
+        } else {
+            $this->with = array_merge($this->with, func_get_args());
+        }
+
         return $this;
     }
 
     /**
      * @param mixed ...
+     *
      * @return Query
      */
     public function select()
@@ -69,12 +76,18 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        $this->columns = func_get_args();
+        if(empty($this->columns)) {
+            $this->columns = func_get_args();
+        } else {
+            $this->columns = array_merge($this->columns, func_get_args());
+        }
+
         return $this;
     }
 
     /**
      * @param string $condition,...
+     *
      * @return Query
      */
     public function where($condition)
@@ -83,23 +96,25 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        $condition = '(' . $condition . ')';
-        $params = array_slice(func_get_args(), 1);
+        $params    = array_slice(func_get_args(), 1);
         if (isset($params[0]) && is_array($params[0])) {
             $params = $params[0];
         }
-        if (is_null($this->where)) {
-            $this->where = $condition;
+        $condition = '(' . $condition . ')';
+        if (!isset($this->where)) {
+            $this->where        = $condition;
             $this->where_params = $params;
         } else {
             $this->where .= ' AND ' . $condition;
             $this->where_params = array_merge($this->where_params, $params);
         }
+
         return $this;
     }
 
     /**
      * @param string $condition,...
+     *
      * @return Query
      */
     public function having($condition)
@@ -108,23 +123,25 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        $condition = '(' . $condition . ')';
-        $params = array_slice(func_get_args(), 1);
+        $params    = array_slice(func_get_args(), 1);
         if (isset($params[0]) && is_array($params[0])) {
             $params = $params[0];
         }
-        if (is_null($this->having)) {
-            $this->having = $condition;
+        $condition = '(' . $condition . ')';
+        if (!isset($this->having)) {
+            $this->having        = $condition;
             $this->having_params = $params;
         } else {
             $this->having .= ' AND ' . $condition;
             $this->having_params = array_merge($this->having_params, $params);
         }
+
         return $this;
     }
 
     /**
      * @param string $order
+     *
      * @return Query
      */
     public function order($order)
@@ -134,12 +151,14 @@ class Query implements Iterator, Countable
             unset($this->query);
         }
         $this->order = $order;
+
         return $this;
     }
 
     /**
      * @param int $limit
      * @param int $offset
+     *
      * @return Query
      */
     public function limit($limit, $offset = 0)
@@ -148,13 +167,15 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        $this->limit = $limit;
+        $this->limit  = $limit;
         $this->offset = $offset;
+
         return $this;
     }
 
     /**
      * @param string $group
+     *
      * @return Query
      */
     public function group($group)
@@ -164,11 +185,13 @@ class Query implements Iterator, Countable
             unset($this->query);
         }
         $this->group = $group;
+
         return $this;
     }
 
     /**
      * @param bool $lock
+     *
      * @return Query
      */
     public function lock($lock = true)
@@ -178,6 +201,7 @@ class Query implements Iterator, Countable
             unset($this->query);
         }
         $this->lock = $lock;
+
         return $this;
     }
 
@@ -199,43 +223,51 @@ class Query implements Iterator, Countable
         }
         $table = $this->table->getTableName();
         if (!empty($this->with)) {
-            $descriptor = $this->table->descriptor;
-            $table_name = $table;
+            $descriptor       = $this->table->descriptor;
+            $table_name       = $table;
             $table_join_field = $this->table->getForeignKey($descriptor->name);
-            $primary_key = $descriptor->primary_key;
+            $primary_key      = $descriptor->primary_key;
 
             $table_columns = $this->columns ? : $this->table->descriptor->fields;
-            $columns = array();
+            $columns       = array();
             foreach ($table_columns as $name) {
                 if (strpos($name, '(') === false) {
-                    $columns[] = sprintf(self::$table_name_pattern, $table_name, $name, $descriptor->name);
+                    $columns[] = sprintf(
+                        self::$table_name_pattern,
+                        $table_name,
+                        $name,
+                        $descriptor->name
+                    );
                 } else {
                     $columns[] = $name;
                 }
-                if (!in_array($name, $this->table->descriptor->fields)) {
-                    if (strpos($name, ' as ')) {
-                        list(, $alias) = explode(' as ', $name, 2);
-                        $this->selected_extra_fields[$alias] = $alias;
-                    }
+                if (!in_array($name, $this->table->descriptor->fields) && strpos($name, ' as ')) {
+                    list(, $alias) = explode(' as ', $name, 2);
+                    $this->selected_extra_fields[$alias] = $alias;
                 }
             }
 
             foreach ($this->with as $name) {
                 if (is_array($name)) {
-                    $condition = $name;
-                    $name = array_shift($condition);
+                    $condition      = $name;
+                    $name           = array_shift($condition);
                     $join_condition = sprintf(' AND (%s)', implode(') AND (', $condition));
                 } else {
                     $join_condition = '';
                 }
-                $related = $this->table->getRelatedTable($name);
+                $related            = $this->table->getRelatedTable($name);
                 $related_descriptor = $related->descriptor;
-                $related_table = $related->getTableName();
-                $related_table_id = $related_descriptor->name;
-                $related_primary = $related_descriptor->primary_key;
+                $related_table      = $related->getTableName();
+                $related_table_id   = $related_descriptor->name;
+                $related_primary    = $related_descriptor->primary_key;
 
                 foreach ($related_descriptor->fields as $related_field) {
-                    $columns[] = sprintf(self::$table_name_pattern, $related_table, $related_field, $related_table_id);
+                    $columns[] = sprintf(
+                        self::$table_name_pattern,
+                        $related_table,
+                        $related_field,
+                        $related_table_id
+                    );
                 }
 
                 $foreign_key = $this->table->getForeignKey($name);
@@ -243,19 +275,43 @@ class Query implements Iterator, Countable
                     case TableDescriptor::RELATION_MANY_MANY:
                         $join_table = $this->table->getJoinTable($name);
 
-                        $table .= sprintf(self::$join_pattern, $join_table, $table_join_field, $table_name,
-                                $primary_key, '');
-                        $table .= sprintf(self::$join_pattern, $related_table, $related_primary, $join_table,
-                                $foreign_key, '');
+                        $table .= sprintf(
+                            self::$join_pattern,
+                            $join_table,
+                            $table_join_field,
+                            $table_name,
+                            $primary_key,
+                            ''
+                        );
+                        $table .= sprintf(
+                            self::$join_pattern,
+                            $related_table,
+                            $related_primary,
+                            $join_table,
+                            $foreign_key,
+                            ''
+                        );
                         break;
                     case TableDescriptor::RELATION_HAS:
                         $related_foreign = $this->table->getForeignKey($table_name);
-                        $table .= sprintf(self::$join_pattern, $related_table, $related_foreign, $table_name,
-                                $primary_key, $join_condition);
+                        $table .= sprintf(
+                            self::$join_pattern,
+                            $related_table,
+                            $related_foreign,
+                            $table_name,
+                            $primary_key,
+                            $join_condition
+                        );
                         break;
                     case TableDescriptor::RELATION_BELONGS_TO:
-                        $table .= sprintf(self::$join_pattern, $related_table, $related_primary, $table_name,
-                                $foreign_key, $join_condition);
+                        $table .= sprintf(
+                            self::$join_pattern,
+                            $related_table,
+                            $related_primary,
+                            $table_name,
+                            $foreign_key,
+                            $join_condition
+                        );
                         break;
                 }
             }
@@ -286,20 +342,22 @@ class Query implements Iterator, Countable
             $sql .= ' FOR UPDATE';
         }
         $this->query = $sql;
+
         return $this->query;
     }
 
     /**
      * @param bool $single
+     *
      * @return Row
      */
     public function execute($single = false)
     {
         $query = $this->getQuery();
-        $orm = $this->table->manager;
+        $orm   = $this->table->manager;
         $orm->log('Executing query: %s', $query);
-        $stmt = $orm->connection->prepare($query);
-        $i = 0;
+        $stmt   = $orm->connection->prepare($query);
+        $i      = 0;
         $params = array();
         foreach ($this->where_params as $param) {
             $stmt->bindValue(++$i, $param);
@@ -314,13 +372,16 @@ class Query implements Iterator, Countable
         }
         if (isset($this->limit)) {
             $single = $this->limit == 1;
-        } else if ($single) {
-            $this->limit = 1;
+        } else {
+            if ($single) {
+                $this->limit = 1;
+            }
         }
         $orm->log('Single row requested: %s', ($single ? 'yes' : 'no'));
         $stmt->execute();
         if ($stmt->rowCount() == 0) {
             $orm->log('Results: 0');
+
             return $single ? false : array();
         }
         if (empty($this->with)) {
@@ -332,7 +393,7 @@ class Query implements Iterator, Countable
             if ($single) {
                 return new Row($this->table, current($rows));
             }
-            $return = array();
+            $return  = array();
             $pkfield = $this->table->getPrimaryKey();
             foreach ($rows as $row) {
                 if (isset($row[$pkfield])) {
@@ -341,20 +402,23 @@ class Query implements Iterator, Countable
                     $return[] = new Row($this->table, $row);
                 }
             }
+
             return $return;
         }
+
         return $this->process($stmt, $single);
     }
 
     /**
      * @param PDOStatement $statement
-     * @param bool $single
+     * @param bool         $single
+     *
      * @return array
      */
     private function process(PDOStatement $statement, $single)
     {
         $descriptor = $this->table->descriptor;
-        $table = $descriptor->name;
+        $table      = $descriptor->name;
 
         $table_fields = array();
         foreach ($descriptor->fields as $name) {
@@ -366,7 +430,7 @@ class Query implements Iterator, Countable
             if (is_array($name)) {
                 $name = $name[0];
             }
-            $relation_table = $this->table->getRelatedTable($name);
+            $relation_table       = $this->table->getRelatedTable($name);
             $relation_data[$name] = array(
                 'fields' => array(),
                 'table'  => $relation_table,
@@ -375,17 +439,18 @@ class Query implements Iterator, Countable
             foreach ($relation_table->descriptor->fields as $field) {
                 $relation_data[$name]['fields'][$field] = $name . '_' . $field;
             }
-            $relation_data[$name]['primary_key_alias'] = $relation_data[$name]['fields'][$relation_table->getPrimaryKey()];
+            $relation_data[$name]['primary_key_alias'] = $relation_data[$name]['fields'][$relation_table->getPrimaryKey(
+            )];
         }
-        $pk_field = $descriptor->primary_key;
-        $return = array();
-        $last_pk = NULL;
+        $pk_field          = $descriptor->primary_key;
+        $return            = array();
+        $last_pk           = null;
         $relation_last_pks = array();
-        $row_num = 0;
-        $fetched = 0;
+        $row_num           = 0;
+        $fetched           = 0;
 
         $query_fields = array_merge($table_fields, $this->selected_extra_fields);
-        $row_skipped = false;
+        $row_skipped  = false;
 
         //We fetch rows one-by-one because MANY_MANY relation type cannot be limited by LIMIT
         while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
@@ -399,8 +464,8 @@ class Query implements Iterator, Countable
                     if (isset($this->limit) && $fetched++ == $this->limit) {
                         break;
                     }
-                    $rowdata = $this->getFieldsFromRow($row, $query_fields);
-                    $return[$last_pk] = new Row($this->table, $rowdata);
+                    $rowdata           = $this->getFieldsFromRow($row, $query_fields);
+                    $return[$last_pk]  = new Row($this->table, $rowdata);
                     $relation_last_pks = array();
                 }
             }
@@ -413,10 +478,10 @@ class Query implements Iterator, Countable
                 if (is_array($name)) {
                     $name = $name[0];
                 }
-                $relation_type = $relation_data[$name]['type'];
-                $relation_table = $relation_data[$name]['table'];
+                $relation_type     = $relation_data[$name]['type'];
+                $relation_table    = $relation_data[$name]['table'];
                 $relation_pk_alias = $relation_data[$name]['primary_key_alias'];
-                $relation_fields = $relation_data[$name]['fields'];
+                $relation_fields   = $relation_data[$name]['fields'];
 
                 if ($relation_type !== TableDescriptor::RELATION_BELONGS_TO) {
                     if (!isset($return[$last_pk]->$name)) {
@@ -436,12 +501,12 @@ class Query implements Iterator, Countable
                 }
 
                 $relation_last_pks[$name] = $relation_pk_value;
-                $data = $this->getFieldsFromRow($row, $relation_fields);
-                $relation_row = new Row($relation_table, $data);
+                $data                     = $this->getFieldsFromRow($row, $relation_fields);
+                $relation_row             = new Row($relation_table, $data);
                 if ($relation_type == TableDescriptor::RELATION_BELONGS_TO) {
                     $return[$last_pk]->$name = $relation_row;
                 } else {
-                    $var = &$return[$last_pk]->$name;
+                    $var                     = & $return[$last_pk]->$name;
                     $var[$relation_pk_value] = $relation_row;
                 }
             }
@@ -451,12 +516,14 @@ class Query implements Iterator, Countable
         if ($single) {
             $return = current($return);
         }
+
         return $return;
     }
 
     /**
      * @param array $row
      * @param array $fields
+     *
      * @return array
      */
     private function getFieldsFromRow(array $row, array $fields)
@@ -467,11 +534,13 @@ class Query implements Iterator, Countable
                 $rowdata[$field] = $row[$alias];
             }
         }
+
         return $rowdata;
     }
 
     /**
      * @param bool $single
+     *
      * @return Row|array
      */
     public function get($single = true)
@@ -479,6 +548,7 @@ class Query implements Iterator, Countable
         if ($single) {
             if (isset($this->rows)) {
                 reset($this->rows);
+
                 return current($this->rows);
             } else {
                 return $this->execute($single);
@@ -487,6 +557,7 @@ class Query implements Iterator, Countable
         if (!isset($this->rows)) {
             $this->rows = $this->execute($single);
         }
+
         return $this->rows;
     }
 
@@ -520,7 +591,8 @@ class Query implements Iterator, Countable
     public function valid()
     {
         $val = key($this->rows);
-        return $val !== NULL && $val !== false;
+
+        return $val !== null && $val !== false;
     }
 
     //Countable method
@@ -529,6 +601,7 @@ class Query implements Iterator, Countable
         if (!isset($this->rows)) {
             $this->rows = $this->execute(false);
         }
+
         return count($this->rows);
     }
 
