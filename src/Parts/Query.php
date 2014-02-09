@@ -11,6 +11,7 @@ namespace Modules\ORM\Parts;
 
 use Countable;
 use Iterator;
+use Modules\ORM\Manager;
 use PDO;
 use PDOStatement;
 
@@ -76,7 +77,7 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        if(empty($this->columns)) {
+        if (empty($this->columns)) {
             $this->columns = func_get_args();
         } else {
             $this->columns = array_merge($this->columns, func_get_args());
@@ -96,7 +97,7 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        $params    = array_slice(func_get_args(), 1);
+        $params = array_slice(func_get_args(), 1);
         if (isset($params[0]) && is_array($params[0])) {
             $params = $params[0];
         }
@@ -123,7 +124,7 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        $params    = array_slice(func_get_args(), 1);
+        $params = array_slice(func_get_args(), 1);
         if (isset($params[0]) && is_array($params[0])) {
             $params = $params[0];
         }
@@ -228,92 +229,34 @@ class Query implements Iterator, Countable
             $table_join_field = $this->table->getForeignKey($descriptor->name);
             $primary_key      = $descriptor->primary_key;
 
-            $table_columns = $this->columns ? : $this->table->descriptor->fields;
-            $columns       = array();
-            foreach ($table_columns as $name) {
-                if (strpos($name, '(') === false) {
-                    $columns[] = sprintf(
-                        self::$table_name_pattern,
-                        $table_name,
-                        $name,
-                        $descriptor->name
-                    );
-                } else {
-                    $columns[] = $name;
-                }
-                if (!in_array($name, $this->table->descriptor->fields) && strpos($name, ' as ')) {
-                    list(, $alias) = explode(' as ', $name, 2);
-                    $this->selected_extra_fields[$alias] = $alias;
-                }
-            }
+            $columns = $this->addColumnsFromQueriedTable(
+                $this->columns ? : $this->table->descriptor->fields,
+                $table_name,
+                $descriptor
+            );
 
             foreach ($this->with as $name) {
-                if (is_array($name)) {
-                    $condition      = $name;
-                    $name           = array_shift($condition);
-                    $join_condition = sprintf(' AND (%s)', implode(') AND (', $condition));
-                } else {
-                    $join_condition = '';
-                }
                 $related            = $this->table->getRelatedTable($name);
                 $related_descriptor = $related->descriptor;
                 $related_table      = $related->getTableName();
-                $related_table_id   = $related_descriptor->name;
-                $related_primary    = $related_descriptor->primary_key;
+                $columns            = $this->addColumnsFromRelatedTable(
+                    $related_descriptor,
+                    $related_table,
+                    $related_descriptor->name,
+                    $columns
+                );
 
-                foreach ($related_descriptor->fields as $related_field) {
-                    $columns[] = sprintf(
-                        self::$table_name_pattern,
-                        $related_table,
-                        $related_field,
-                        $related_table_id
-                    );
-                }
-
-                $foreign_key = $this->table->getForeignKey($name);
-                switch ($descriptor->getRelation($name)) {
-                    case TableDescriptor::RELATION_MANY_MANY:
-                        $join_table = $this->table->getJoinTable($name);
-
-                        $table .= sprintf(
-                            self::$join_pattern,
-                            $join_table,
-                            $table_join_field,
-                            $table_name,
-                            $primary_key,
-                            ''
-                        );
-                        $table .= sprintf(
-                            self::$join_pattern,
-                            $related_table,
-                            $related_primary,
-                            $join_table,
-                            $foreign_key,
-                            ''
-                        );
-                        break;
-                    case TableDescriptor::RELATION_HAS:
-                        $related_foreign = $this->table->getForeignKey($table_name);
-                        $table .= sprintf(
-                            self::$join_pattern,
-                            $related_table,
-                            $related_foreign,
-                            $table_name,
-                            $primary_key,
-                            $join_condition
-                        );
-                        break;
-                    case TableDescriptor::RELATION_BELONGS_TO:
-                        $table .= sprintf(
-                            self::$join_pattern,
-                            $related_table,
-                            $related_primary,
-                            $table_name,
-                            $foreign_key,
-                            $join_condition
-                        );
-                        break;
-                }
+                $table = $this->buildRelation(
+                    $descriptor,
+                    $name,
+                    $table_join_field,
+                    $table_name,
+                    $primary_key,
+                    $table,
+                    $related_table,
+                    $related_descriptor->primary_key,
+                    $this->table->getForeignKey($name)
+                );
             }
         } else {
             $columns = $this->columns ? : array('*');
@@ -343,7 +286,144 @@ class Query implements Iterator, Countable
         }
         $this->query = $sql;
 
-        return $this->query;
+        return $sql;
+    }
+
+    /**
+     * @param $descriptor
+     * @param $table
+     * @param $table_id
+     * @param $columns
+     *
+     * @return array
+     */
+    protected function addColumnsFromRelatedTable(
+        TableDescriptor $descriptor,
+        $table,
+        $table_id,
+        $columns
+    ) {
+        foreach ($descriptor->fields as $related_field) {
+            $columns[] = sprintf(
+                self::$table_name_pattern,
+                $table,
+                $related_field,
+                $table_id
+            );
+        }
+
+        return $columns;
+    }
+
+    /**
+     * @param $table_columns
+     * @param $table_name
+     * @param $descriptor
+     *
+     * @return array
+     */
+    protected function addColumnsFromQueriedTable(
+        $table_columns,
+        $table_name,
+        $descriptor
+    ) {
+        $columns = array();
+        foreach ($table_columns as $name) {
+            if (strpos($name, '(') === false) {
+                $columns[] = sprintf(
+                    self::$table_name_pattern,
+                    $table_name,
+                    $name,
+                    $descriptor->name
+                );
+            } else {
+                $columns[] = $name;
+            }
+            if (!in_array($name, $this->table->descriptor->fields) && strpos($name, ' as ')) {
+                list(, $alias) = explode(' as ', $name, 2);
+                $this->selected_extra_fields[$alias] = $alias;
+            }
+        }
+
+        return $columns;
+    }
+
+    /**
+     * @param TableDescriptor $descriptor
+     * @param                 $name
+     * @param                 $table_join_field
+     * @param                 $table_name
+     * @param                 $primary_key
+     * @param                 $table
+     * @param                 $related_table
+     * @param                 $related_primary
+     * @param                 $foreign_key
+     *
+     * @return string
+     */
+    protected function buildRelation(
+        TableDescriptor $descriptor,
+        $name,
+        $table_join_field,
+        $table_name,
+        $primary_key,
+        $table,
+        $related_table,
+        $related_primary,
+        $foreign_key
+    ) {
+        if (is_array($name)) {
+            $condition      = $name;
+            $name           = array_shift($condition);
+            $join_condition = sprintf(' AND (%s)', implode(') AND (', $condition));
+        } else {
+            $join_condition = '';
+        }
+        switch ($descriptor->getRelation($name)) {
+            case TableDescriptor::RELATION_MANY_MANY:
+                $join_table = $this->table->getJoinTable($name);
+
+                $table .= sprintf(
+                    self::$join_pattern,
+                    $join_table,
+                    $table_join_field,
+                    $table_name,
+                    $primary_key,
+                    ''
+                );
+                $table .= sprintf(
+                    self::$join_pattern,
+                    $related_table,
+                    $related_primary,
+                    $join_table,
+                    $foreign_key,
+                    ''
+                );
+                break;
+            case TableDescriptor::RELATION_HAS:
+                $related_foreign = $this->table->getForeignKey($table_name);
+                $table .= sprintf(
+                    self::$join_pattern,
+                    $related_table,
+                    $related_foreign,
+                    $table_name,
+                    $primary_key,
+                    $join_condition
+                );
+                break;
+            case TableDescriptor::RELATION_BELONGS_TO:
+                $table .= sprintf(
+                    self::$join_pattern,
+                    $related_table,
+                    $related_primary,
+                    $table_name,
+                    $foreign_key,
+                    $join_condition
+                );
+                break;
+        }
+
+        return $table;
     }
 
     /**
@@ -356,7 +436,33 @@ class Query implements Iterator, Countable
         $query = $this->getQuery();
         $orm   = $this->table->manager;
         $orm->log('Executing query: %s', $query);
-        $stmt   = $orm->connection->prepare($query);
+        $stmt = $orm->connection->prepare($query);
+        $this->bindParameters($stmt, $orm);
+        if (isset($this->limit)) {
+            $single = $this->limit == 1;
+        } elseif ($single) {
+            $this->limit = 1;
+        }
+        $orm->log('%s row requested', ($single ? 'Single' : 'Multiple'));
+        $stmt->execute();
+        if ($stmt->rowCount() == 0) {
+            $orm->log('Results: 0');
+
+            return $single ? false : array();
+        }
+        if (empty($this->with)) {
+            return $this->processResults($single, $stmt, $orm);
+        }
+
+        return $this->processResultsWithRelatedRecords($stmt, $single);
+    }
+
+    /**
+     * @param PDOStatement $stmt
+     * @param Manager      $orm
+     */
+    protected function bindParameters(PDOStatement $stmt, Manager $orm)
+    {
         $i      = 0;
         $params = array();
         foreach ($this->where_params as $param) {
@@ -370,43 +476,36 @@ class Query implements Iterator, Countable
         if (count($params)) {
             $orm->log('Query parameters: "%s"', implode('", "', $params));
         }
-        if (isset($this->limit)) {
-            $single = $this->limit == 1;
-        } else {
-            if ($single) {
-                $this->limit = 1;
-            }
-        }
-        $orm->log('Single row requested: %s', ($single ? 'yes' : 'no'));
-        $stmt->execute();
-        if ($stmt->rowCount() == 0) {
-            $orm->log('Results: 0');
+    }
 
+    /**
+     * @param bool         $single
+     * @param PDOStatement $stmt
+     * @param Manager      $orm
+     *
+     * @return array|bool|Row
+     */
+    protected function processResults($single, $stmt, $orm)
+    {
+        $rows = $stmt->fetchAll();
+        $orm->log('Results: %d', count($rows));
+        if (empty($rows)) {
             return $single ? false : array();
         }
-        if (empty($this->with)) {
-            $rows = $stmt->fetchAll();
-            $orm->log('Results: %d', count($rows));
-            if (empty($rows)) {
-                return $single ? false : array();
+        if ($single) {
+            return new Row($this->table, current($rows));
+        }
+        $return  = array();
+        $pkField = $this->table->getPrimaryKey();
+        foreach ($rows as $row) {
+            if (isset($row[$pkField])) {
+                $return[$row[$pkField]] = new Row($this->table, $row);
+            } else {
+                $return[] = new Row($this->table, $row);
             }
-            if ($single) {
-                return new Row($this->table, current($rows));
-            }
-            $return  = array();
-            $pkfield = $this->table->getPrimaryKey();
-            foreach ($rows as $row) {
-                if (isset($row[$pkfield])) {
-                    $return[$row[$pkfield]] = new Row($this->table, $row);
-                } else {
-                    $return[] = new Row($this->table, $row);
-                }
-            }
-
-            return $return;
         }
 
-        return $this->process($stmt, $single);
+        return $return;
     }
 
     /**
@@ -415,7 +514,7 @@ class Query implements Iterator, Countable
      *
      * @return array
      */
-    private function process(PDOStatement $statement, $single)
+    private function processResultsWithRelatedRecords(PDOStatement $statement, $single)
     {
         $descriptor = $this->table->descriptor;
         $table      = $descriptor->name;
@@ -425,23 +524,7 @@ class Query implements Iterator, Countable
             $table_fields[$name] = $table . '_' . $name;
         }
 
-        $relation_data = array();
-        foreach ($this->with as $name) {
-            if (is_array($name)) {
-                $name = $name[0];
-            }
-            $relation_table       = $this->table->getRelatedTable($name);
-            $relation_data[$name] = array(
-                'fields' => array(),
-                'table'  => $relation_table,
-                'type'   => $descriptor->getRelation($name),
-            );
-            foreach ($relation_table->descriptor->fields as $field) {
-                $relation_data[$name]['fields'][$field] = $name . '_' . $field;
-            }
-            $relation_data[$name]['primary_key_alias'] = $relation_data[$name]['fields'][$relation_table->getPrimaryKey(
-            )];
-        }
+        $relation_data     = $this->getRelationData($descriptor);
         $pk_field          = $descriptor->primary_key;
         $return            = array();
         $last_pk           = null;
@@ -464,8 +547,10 @@ class Query implements Iterator, Countable
                     if (isset($this->limit) && $fetched++ == $this->limit) {
                         break;
                     }
-                    $rowdata           = $this->getFieldsFromRow($row, $query_fields);
-                    $return[$last_pk]  = new Row($this->table, $rowdata);
+                    $return[$last_pk]  = new Row($this->table, $this->getFieldsFromRow(
+                        $row,
+                        $query_fields
+                    ));
                     $relation_last_pks = array();
                 }
             }
@@ -518,6 +603,34 @@ class Query implements Iterator, Countable
         }
 
         return $return;
+    }
+
+    /**
+     * @param TableDescriptor $descriptor
+     *
+     * @return array
+     */
+    private function getRelationData(TableDescriptor $descriptor)
+    {
+        $relation_data = array();
+        foreach ($this->with as $name) {
+            if (is_array($name)) {
+                $name = $name[0];
+            }
+            $relation_table       = $this->table->getRelatedTable($name);
+            $relation_data[$name] = array(
+                'fields' => array(),
+                'table'  => $relation_table,
+                'type'   => $descriptor->getRelation($name),
+            );
+            foreach ($relation_table->descriptor->fields as $field) {
+                $relation_data[$name]['fields'][$field] = $name . '_' . $field;
+            }
+            $primaryKey                                = $relation_table->getPrimaryKey();
+            $relation_data[$name]['primary_key_alias'] = $relation_data[$name]['fields'][$primaryKey];
+        }
+
+        return $relation_data;
     }
 
     /**
