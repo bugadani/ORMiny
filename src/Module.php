@@ -16,18 +16,16 @@ class Module extends \Miny\Modules\Module
     public function defaultConfiguration()
     {
         return array(
-            'orm' => array(
-                'database_descriptor' => __NAMESPACE__ . '\\DatabaseDiscovery',
-                'table_name_format'   => 'miny_%s'
-            )
+            'database_descriptor' => __NAMESPACE__ . '\\DatabaseDiscovery',
+            'table_name_format'   => 'miny_%s'
         );
     }
 
 
     public function init(BaseApplication $app)
     {
-        $container  = $app->getContainer();
-        $parameters = $app->getParameterContainer();
+        $container = $app->getContainer();
+        $module = $this;
 
         $container->addAlias(
             '\\PDO',
@@ -38,20 +36,23 @@ class Module extends \Miny\Modules\Module
             __NAMESPACE__ . '\\PDO',
             null,
             array(
-                '@orm:pdo:dsn',
-                '@orm:pdo:username',
-                '@orm:pdo:password',
-                '@orm:pdo:options'
+                $this->getConfiguration('pdo:dsn'),
+                $this->getConfiguration('pdo:username'),
+                $this->getConfiguration('pdo:password'),
+                $this->getConfiguration('pdo:options')
             )
         );
 
         $container->addCallback(
             __NAMESPACE__ . '\\DatabaseDiscovery',
-            function (DatabaseDiscovery $discovery) use ($parameters) {
-                $discovery->table_format = $parameters['orm']['table_name_format'];
+            function (DatabaseDiscovery $discovery) use ($module) {
+                $discovery->table_format = $module->getConfiguration('table_name_format');
             }
         );
 
-        $container->addAlias(__NAMESPACE__ . '\\iDatabaseDescriptor', $parameters['orm']['database_descriptor']);
+        $container->addAlias(
+            __NAMESPACE__ . '\\iDatabaseDescriptor',
+            $module->getConfiguration('database_descriptor')
+        );
     }
 }
