@@ -434,24 +434,23 @@ class Query implements Iterator, Countable
     public function execute($single = false)
     {
         $query = $this->getQuery();
-        $orm   = $this->table->manager;
-        $orm->log('Executing query: %s', $query);
-        $stmt = $orm->connection->prepare($query);
-        $this->bindParameters($stmt, $orm);
+        $this->manager->log('Executing query: %s', $query);
+        $stmt = $this->manager->connection->prepare($query);
+        $this->bindParameters($stmt, $this->manager);
         if (isset($this->limit)) {
             $single = $this->limit == 1;
         } elseif ($single) {
             $this->limit = 1;
         }
-        $orm->log('%s row requested', ($single ? 'Single' : 'Multiple'));
+        $this->manager->log('%s row requested', ($single ? 'Single' : 'Multiple'));
         $stmt->execute();
         if ($stmt->rowCount() == 0) {
-            $orm->log('Results: 0');
+            $this->manager->log('Results: 0');
 
             return $single ? false : array();
         }
         if (empty($this->with)) {
-            return $this->processResults($single, $stmt, $orm);
+            return $this->processResults($single, $stmt, $this->manager);
         }
 
         return $this->processResultsWithRelatedRecords($stmt, $single);
@@ -526,7 +525,7 @@ class Query implements Iterator, Countable
 
         $relation_data     = $this->getRelationData($descriptor);
         $pk_field          = $descriptor->primary_key;
-        $return            = array();
+        $records           = array();
         $last_pk           = null;
         $relation_last_pks = array();
         $row_num           = 0;
@@ -547,7 +546,7 @@ class Query implements Iterator, Countable
                     if (isset($this->limit) && $fetched++ == $this->limit) {
                         break;
                     }
-                    $return[$last_pk]  = new Row($this->table, $this->getFieldsFromRow(
+                    $records[$last_pk] = new Row($this->table, $this->getFieldsFromRow(
                         $row,
                         $query_fields
                     ));
@@ -555,54 +554,74 @@ class Query implements Iterator, Countable
                 }
             }
 
-            if ($row_skipped) {
-                continue;
-            }
-
-            foreach ($this->with as $name) {
-                if (is_array($name)) {
-                    $name = $name[0];
-                }
-                $relation_type     = $relation_data[$name]['type'];
-                $relation_table    = $relation_data[$name]['table'];
-                $relation_pk_alias = $relation_data[$name]['primary_key_alias'];
-                $relation_fields   = $relation_data[$name]['fields'];
-
-                if ($relation_type !== TableDescriptor::RELATION_BELONGS_TO) {
-                    if (!isset($return[$last_pk]->$name)) {
-                        $return[$last_pk]->$name = array();
-                    }
-                }
-
-                if ($row[$relation_pk_alias]) {
-                    $relation_pk_value = $row[$relation_pk_alias];
-                } else {
-                    continue;
-                }
-
-                if (isset($relation_last_pks[$name]) && $relation_last_pks[$name] == $relation_pk_value) {
-                    //This row is present multiple times and we have already processed it.
-                    continue;
-                }
-
-                $relation_last_pks[$name] = $relation_pk_value;
-                $data                     = $this->getFieldsFromRow($row, $relation_fields);
-                $relation_row             = new Row($relation_table, $data);
-                if ($relation_type == TableDescriptor::RELATION_BELONGS_TO) {
-                    $return[$last_pk]->$name = $relation_row;
-                } else {
-                    $var                     = & $return[$last_pk]->$name;
-                    $var[$relation_pk_value] = $relation_row;
-                }
+            if (!$row_skipped) {
+                $relation_last_pks = $this->processRelatedRecords(
+                    $relation_data,
+                    $records[$last_pk],
+                    $row,
+                    $relation_last_pks
+                );
             }
         }
         $statement->closeCursor();
-        $this->table->manager->log('Results: %d', count($return));
+        $this->table->manager->log('Results: %d', count($records));
         if ($single) {
-            $return = current($return);
+            $records = current($records);
         }
 
-        return $return;
+        return $records;
+    }
+
+    /**
+     * @param $relation_data
+     * @param $return
+     * @param $row
+     * @param $relation_last_pks
+     *
+     * @return mixed
+     */
+    private function processRelatedRecords($relation_data, $return, $row, $relation_last_pks)
+    {
+        foreach ($this->with as $name) {
+            if (is_array($name)) {
+                $name = $name[0];
+            }
+            $relation_type     = $relation_data[$name]['type'];
+            $relation_table    = $relation_data[$name]['table'];
+            $relation_pk_alias = $relation_data[$name]['primary_key_alias'];
+            $relation_fields   = $relation_data[$name]['fields'];
+
+            if ($relation_type !== TableDescriptor::RELATION_BELONGS_TO) {
+                if (!isset($return->$name)) {
+                    $return->$name = array();
+                }
+            }
+
+            if ($row[$relation_pk_alias]) {
+                $relation_pk_value = $row[$relation_pk_alias];
+            } else {
+                continue;
+            }
+
+            if (isset($relation_last_pks[$name]) && $relation_last_pks[$name] == $relation_pk_value) {
+                //This row is present multiple times and we have already processed it.
+                continue;
+            }
+
+            $relation_last_pks[$name] = $relation_pk_value;
+            $relation_row             = new Row($relation_table, $this->getFieldsFromRow(
+                $row,
+                $relation_fields
+            ));
+            if ($relation_type == TableDescriptor::RELATION_BELONGS_TO) {
+                $return->$name = $relation_row;
+            } else {
+                $var                     = & $return->$name;
+                $var[$relation_pk_value] = $relation_row;
+            }
+        }
+
+        return $relation_last_pks;
     }
 
     /**
@@ -663,9 +682,9 @@ class Query implements Iterator, Countable
                 reset($this->rows);
 
                 return current($this->rows);
-            } else {
-                return $this->execute($single);
             }
+
+            return $this->execute($single);
         }
         if (!isset($this->rows)) {
             $this->rows = $this->execute($single);
