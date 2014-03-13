@@ -175,7 +175,6 @@ class SelectQueryBuilder
     }
 
 
-
     /**
      * @param $descriptor
      * @param $table
@@ -203,19 +202,14 @@ class SelectQueryBuilder
     }
 
     /**
-     * @param Table $table
-     * @param       $table_columns
-     * @param       $table_name
-     * @param       $descriptor
+     * @param $table_columns
+     * @param $table_name
+     * @param $descriptor
      *
      * @return array
      */
-    private function addColumnsFromQueriedTable(
-        Table $table,
-        $table_columns,
-        $table_name,
-        $descriptor
-    ) {
+    private function addColumnsFromQueriedTable($table_columns, $table_name, $descriptor)
+    {
         $columns = array();
         foreach ($table_columns as $name) {
             if (strpos($name, '(') === false) {
@@ -228,7 +222,7 @@ class SelectQueryBuilder
             } else {
                 $columns[] = $name;
             }
-            if (!in_array($name, $table->descriptor->fields) && strpos($name, ' as ')) {
+            if (!in_array($name, $this->table->descriptor->fields) && strpos($name, ' as ')) {
                 list(, $alias) = explode(' as ', $name, 2);
                 $this->selected_extra_fields[$alias] = $alias;
             }
@@ -324,14 +318,13 @@ class SelectQueryBuilder
             $table_join_field = $this->table->getForeignKey($descriptor->name);
             $primary_key      = $descriptor->primary_key;
 
-            $columns = $this->addColumnsFromQueriedTable(
-                $this->table,
-                $this->columns ? : $this->table->descriptor->fields,
-                $table_name,
-                $descriptor
-            );
+            $fields  = $this->columns ? : $this->table->descriptor->fields;
+            $columns = $this->addColumnsFromQueriedTable($fields, $table_name, $descriptor);
 
             foreach ($this->with as $name) {
+                if (is_array($name)) {
+                    $name = $name[0];
+                }
                 $related            = $this->table->getRelatedTable($name);
                 $related_descriptor = $related->descriptor;
                 $related_table      = $related->getTableName();
