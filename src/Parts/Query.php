@@ -17,9 +17,6 @@ use PDOStatement;
 
 class Query implements Iterator, Countable
 {
-    private static $select_pattern = 'SELECT %s FROM %s';
-    private static $table_name_pattern = '%1$s.%2$s as %3$s_%2$s';
-    private static $join_pattern = ' LEFT JOIN %1$s ON (%1$s.%2$s = %3$s.%4$s%5$s)';
     private $table;
     private $with = array();
     private $columns = array();
@@ -35,6 +32,7 @@ class Query implements Iterator, Countable
     private $lock = false;
     private $rows = array();
     private $query;
+    private $queryBuilder;
 
     /**
      *
@@ -44,6 +42,7 @@ class Query implements Iterator, Countable
     {
         $this->table   = $table;
         $this->manager = $table->manager;
+        $this->queryBuilder = new SelectQueryBuilder();
     }
 
     /**
@@ -219,211 +218,23 @@ class Query implements Iterator, Countable
      */
     public function getQuery()
     {
-        if (isset($this->query)) {
-            return $this->query;
-        }
-        $table = $this->table->getTableName();
-        if (!empty($this->with)) {
-            $descriptor       = $this->table->descriptor;
-            $table_name       = $table;
-            $table_join_field = $this->table->getForeignKey($descriptor->name);
-            $primary_key      = $descriptor->primary_key;
+        if (!isset($this->query)) {
 
-            $columns = $this->addColumnsFromQueriedTable(
-                $this->columns ? : $this->table->descriptor->fields,
-                $table_name,
-                $descriptor
-            );
+            $this->queryBuilder->setTable($this->table);
+            $this->queryBuilder->setWith($this->with);
+            $this->queryBuilder->setColumns($this->columns);
+            $this->queryBuilder->setWhere($this->where);
+            $this->queryBuilder->setLimit($this->limit);
+            $this->queryBuilder->setOrder($this->order);
+            $this->queryBuilder->setLock($this->lock);
+            $this->queryBuilder->setGroup($this->group);
 
-            foreach ($this->with as $name) {
-                $related            = $this->table->getRelatedTable($name);
-                $related_descriptor = $related->descriptor;
-                $related_table      = $related->getTableName();
-                $columns            = $this->addColumnsFromRelatedTable(
-                    $related_descriptor,
-                    $related_table,
-                    $related_descriptor->name,
-                    $columns
-                );
+            $this->query = $this->queryBuilder->get();
 
-                $table = $this->buildRelation(
-                    $descriptor,
-                    $name,
-                    $table_join_field,
-                    $table_name,
-                    $primary_key,
-                    $table,
-                    $related_table,
-                    $related_descriptor->primary_key,
-                    $this->table->getForeignKey($name)
-                );
-            }
-        } else {
-            $columns = $this->columns ? : array('*');
-        }
-        $sql = sprintf(self::$select_pattern, implode(', ', $columns), $table);
-        if (isset($this->where)) {
-            $sql .= ' WHERE ' . $this->where;
-        }
-        if (isset($this->group)) {
-            $sql .= ' GROUP BY ' . $this->group;
-        }
-        if (isset($this->having)) {
-            $sql .= ' HAVING ' . $this->having;
-        }
-        if (isset($this->order)) {
-            $sql .= ' ORDER BY ' . $this->order;
-        }
-        if (isset($this->limit) && empty($this->with)) {
-            //Only set limit and offset if we don't query relations. If we do, we'll deal with them later
-            $sql .= ' LIMIT ' . $this->limit;
-            if (isset($this->offset) && $this->offset != 0) {
-                $sql .= ' OFFSET ' . $this->offset;
-            }
-        }
-        if ($this->lock) {
-            $sql .= ' FOR UPDATE';
-        }
-        $this->query = $sql;
-
-        return $sql;
-    }
-
-    /**
-     * @param $descriptor
-     * @param $table
-     * @param $table_id
-     * @param $columns
-     *
-     * @return array
-     */
-    protected function addColumnsFromRelatedTable(
-        TableDescriptor $descriptor,
-        $table,
-        $table_id,
-        $columns
-    ) {
-        foreach ($descriptor->fields as $related_field) {
-            $columns[] = sprintf(
-                self::$table_name_pattern,
-                $table,
-                $related_field,
-                $table_id
-            );
+            $this->selected_extra_fields = $this->queryBuilder->getSelectedExtraFields();
         }
 
-        return $columns;
-    }
-
-    /**
-     * @param $table_columns
-     * @param $table_name
-     * @param $descriptor
-     *
-     * @return array
-     */
-    protected function addColumnsFromQueriedTable(
-        $table_columns,
-        $table_name,
-        $descriptor
-    ) {
-        $columns = array();
-        foreach ($table_columns as $name) {
-            if (strpos($name, '(') === false) {
-                $columns[] = sprintf(
-                    self::$table_name_pattern,
-                    $table_name,
-                    $name,
-                    $descriptor->name
-                );
-            } else {
-                $columns[] = $name;
-            }
-            if (!in_array($name, $this->table->descriptor->fields) && strpos($name, ' as ')) {
-                list(, $alias) = explode(' as ', $name, 2);
-                $this->selected_extra_fields[$alias] = $alias;
-            }
-        }
-
-        return $columns;
-    }
-
-    /**
-     * @param TableDescriptor $descriptor
-     * @param                 $name
-     * @param                 $table_join_field
-     * @param                 $table_name
-     * @param                 $primary_key
-     * @param                 $table
-     * @param                 $related_table
-     * @param                 $related_primary
-     * @param                 $foreign_key
-     *
-     * @return string
-     */
-    protected function buildRelation(
-        TableDescriptor $descriptor,
-        $name,
-        $table_join_field,
-        $table_name,
-        $primary_key,
-        $table,
-        $related_table,
-        $related_primary,
-        $foreign_key
-    ) {
-        if (is_array($name)) {
-            $condition      = $name;
-            $name           = array_shift($condition);
-            $join_condition = sprintf(' AND (%s)', implode(') AND (', $condition));
-        } else {
-            $join_condition = '';
-        }
-        switch ($descriptor->getRelation($name)) {
-            case TableDescriptor::RELATION_MANY_MANY:
-                $join_table = $this->table->getJoinTable($name);
-
-                $table .= sprintf(
-                    self::$join_pattern,
-                    $join_table,
-                    $table_join_field,
-                    $table_name,
-                    $primary_key,
-                    ''
-                );
-                $table .= sprintf(
-                    self::$join_pattern,
-                    $related_table,
-                    $related_primary,
-                    $join_table,
-                    $foreign_key,
-                    ''
-                );
-                break;
-            case TableDescriptor::RELATION_HAS:
-                $related_foreign = $this->table->getForeignKey($table_name);
-                $table .= sprintf(
-                    self::$join_pattern,
-                    $related_table,
-                    $related_foreign,
-                    $table_name,
-                    $primary_key,
-                    $join_condition
-                );
-                break;
-            case TableDescriptor::RELATION_BELONGS_TO:
-                $table .= sprintf(
-                    self::$join_pattern,
-                    $related_table,
-                    $related_primary,
-                    $table_name,
-                    $foreign_key,
-                    $join_condition
-                );
-                break;
-        }
-
-        return $table;
+        return $this->query;
     }
 
     /**
