@@ -6,7 +6,8 @@
     "type": "library",
     "require": {
         "php": ">=5.3.3",
-        "miny/framework": "dev-master"
+        "miny/framework": "dev-master",
+        "miny/dbal": "dev-master"
     },
     "authors": [
         {

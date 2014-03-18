@@ -209,7 +209,7 @@ class Table implements ArrayAccess, Iterator
         $this->manager->log('Executing query: ' . $sql);
         $this->manager->log('Parameters: ' . implode(', ', $log_fields));
 
-        $pdo->prepare($sql)->execute($record_data);
+        $pdo->query($sql, $record_data);
         return $pdo->lastInsertId();
     }
 
@@ -234,7 +234,7 @@ class Table implements ArrayAccess, Iterator
         if (count($fields) > 0) {
             $sql = sprintf(self::$update_pattern, $this->getTableName(), implode(', ', $fields), $condition);
             $this->manager->log($sql);
-            $this->manager->connection->prepare($sql)->execute($parameters);
+            $this->manager->connection->query($sql, $parameters);
         } else {
             $this->manager->log('Update cancelled. No valid fields were set.');
         }

@@ -9,6 +9,7 @@
 namespace Modules\ORM;
 
 use Modules\Cache\AbstractCacheDriver;
+use Modules\DBAL\Driver;
 use Modules\ORM\Parts\TableDescriptor;
 
 /**
@@ -48,10 +49,10 @@ class DatabaseDiscovery implements iDatabaseDescriptor
     private $tables;
 
     /**
-     * @param PDO                                $db
-     * @param \Modules\Cache\AbstractCacheDriver $cache
+     * @param Driver              $db
+     * @param AbstractCacheDriver $cache
      */
-    public function __construct(PDO $db, AbstractCacheDriver $cache = null)
+    public function __construct(Driver $db, AbstractCacheDriver $cache = null)
     {
         $this->connection = $db;
         $this->cache      = $cache;
@@ -79,6 +80,7 @@ class DatabaseDiscovery implements iDatabaseDescriptor
         if (!$this->cache->has('orm.tables')) {
             return false;
         }
+
         return $this->cache->get('orm.tables');
     }
 
@@ -130,65 +132,60 @@ class DatabaseDiscovery implements iDatabaseDescriptor
         }
     }
 
-    private function fetchAll($sql)
-    {
-        return $this->connection->query($sql)->fetchAll();
-    }
-
-    private function fetchFields($table)
-    {
-        return $this->fetchAll('DESCRIBE ' . $table);
-    }
-
     /**
      * @return TableDescriptor[]
      */
     private function discover()
     {
         $descriptors = $this->loadTables();
-        if ($descriptors === false) {
-            $table_names = array();
-            $descriptors = array();
+        if ($descriptors !== false) {
+            return $descriptors;
+        }
+        $table_names = array();
+        $descriptors = array();
 
-            $table_id = null;
+        $table_id = null;
 
-            foreach ($this->fetchAll('SHOW TABLES') as $name) {
-                $name = current($name);
-                sscanf($name, $this->getTableNameFormat(), $table_id);
+        $platform          = $this->connection->getPlatform();
+        $tableListingQuery = $platform->getTableListingQuery();
+        foreach ($this->connection->fetchAll($tableListingQuery) as $name) {
+            $name = current($name);
+            sscanf($name, $this->getTableNameFormat(), $table_id);
 
-                $table = new TableDescriptor($table_id);
+            $table = new TableDescriptor($table_id);
 
-                $descriptors[$table_id] = $table;
-                $table_names[$table_id] = $name;
-            }
+            $descriptors[$table_id] = $table;
+            $table_names[$table_id] = $name;
+        }
 
-            $foreign_pattern = '/' . str_replace('%s', '(.*?)', $this->getForeignKeyFormat()) . '/';
+        $foreign_pattern = '/' . str_replace('%s', '(.*?)', $this->getForeignKeyFormat()) . '/';
 
-            foreach ($table_names as $referencing_table => $table_name) {
-                $this->processManyManyRelation($referencing_table, $descriptors);
-                $referencing = $descriptors[$referencing_table];
+        foreach ($table_names as $referencing_table => $table_name) {
+            $this->processManyManyRelation($referencing_table, $descriptors);
+            $referencing = $descriptors[$referencing_table];
 
-                foreach ($this->fetchFields($table_name) as $field) {
-                    $referencing->fields[] = $field['Field'];
-                    if ($field['Key'] == 'PRI') {
-                        //TODO: support multiple primary keys
-                        $referencing->primary_key = $field['Field'];
-                    }
+            $tableDescribingQuery = $platform->getTableDetailingQuery($table_name);
+            foreach ($this->connection->fetchAll($tableDescribingQuery) as $field) {
+                $referencing->fields[] = $field['Field'];
+                if ($field['Key'] == 'PRI') {
+                    //TODO: support multiple primary keys
+                    $referencing->primary_key = $field['Field'];
+                }
 
-                    $matches = array();
-                    if (preg_match($foreign_pattern, $field['Field'], $matches)) {
-                        $referenced_table = $matches[1];
-                        if (isset($descriptors[$referenced_table])) {
-                            $referenced = $descriptors[$referenced_table];
+                $matches = array();
+                if (preg_match($foreign_pattern, $field['Field'], $matches)) {
+                    $referenced_table = $matches[1];
+                    if (isset($descriptors[$referenced_table])) {
+                        $referenced = $descriptors[$referenced_table];
 
-                            $referencing->relations[$referenced_table] = TableDescriptor::RELATION_BELONGS_TO;
-                            $referenced->relations[$referencing_table] = TableDescriptor::RELATION_HAS;
-                        }
+                        $referencing->relations[$referenced_table] = TableDescriptor::RELATION_BELONGS_TO;
+                        $referenced->relations[$referencing_table] = TableDescriptor::RELATION_HAS;
                     }
                 }
             }
-            $this->storeTables($descriptors);
         }
+        $this->storeTables($descriptors);
+
         return $descriptors;
     }
 
@@ -197,6 +194,7 @@ class DatabaseDiscovery implements iDatabaseDescriptor
         if (!isset($this->tables)) {
             $this->tables = $this->discover();
         }
+
         return $this->tables;
     }
 

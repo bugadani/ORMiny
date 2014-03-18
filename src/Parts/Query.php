@@ -11,16 +11,17 @@ namespace Modules\ORM\Parts;
 
 use Countable;
 use Iterator;
+use Modules\DBAL\Driver\Statement;
+use Modules\DBAL\QueryBuilder\Select;
 use Modules\ORM\Manager;
 use PDO;
-use PDOStatement;
 
 class Query implements Iterator, Countable
 {
     private $table;
     private $with = array();
     private $columns = array();
-    private $selected_extra_fields = array();
+    private $selectedExtraFields = array();
     private $where;
     private $where_params = array();
     private $having;
@@ -40,9 +41,9 @@ class Query implements Iterator, Countable
      */
     public function __construct(Table $table)
     {
-        $this->table   = $table;
-        $this->manager = $table->manager;
-        $this->queryBuilder = new SelectQueryBuilder();
+        $this->table        = $table;
+        $this->manager      = $table->manager;
+        $this->queryBuilder = $table->manager->connection->getQueryBuilder();
     }
 
     /**
@@ -140,17 +141,18 @@ class Query implements Iterator, Countable
     }
 
     /**
+     * @param string $field
      * @param string $order
      *
      * @return Query
      */
-    public function order($order)
+    public function order($field, $order = 'ASC')
     {
         if (isset($this->rows)) {
             unset($this->rows);
             unset($this->query);
         }
-        $this->order = $order;
+        $this->order = array($field, $order);
 
         return $this;
     }
@@ -218,23 +220,169 @@ class Query implements Iterator, Countable
      */
     public function getQuery()
     {
-        if (!isset($this->query)) {
-
-            $this->queryBuilder->setTable($this->table);
-            $this->queryBuilder->setWith($this->with);
-            $this->queryBuilder->setColumns($this->columns);
-            $this->queryBuilder->setWhere($this->where);
-            $this->queryBuilder->setLimit($this->limit);
-            $this->queryBuilder->setOrder($this->order);
-            $this->queryBuilder->setLock($this->lock);
-            $this->queryBuilder->setGroup($this->group);
-
-            $this->query = $this->queryBuilder->get();
-
-            $this->selected_extra_fields = $this->queryBuilder->getSelectedExtraFields();
+        if (isset($this->query)) {
+            return $this->query;
         }
 
+        $tableName = $this->table->getTableName();
+        $select    = $this->queryBuilder
+            ->select(array())
+            ->from($tableName);
+
+        if (!empty($this->with)) {
+            $tableDescriptor = $this->table->descriptor;
+
+            $this->addSelectedColumns($select, $tableDescriptor, $tableName);
+
+            foreach ($this->with as $name) {
+                $this->addRelationToQuery(
+                    $select,
+                    $tableDescriptor,
+                    $name,
+                    $tableName
+                );
+            }
+        } else {
+            $select->select($this->columns ? : '*');
+        }
+
+        if (isset($this->where)) {
+            $select->where($this->where);
+        }
+        if (isset($this->group)) {
+            $select->groupBy($this->group);
+        }
+        if (isset($this->having)) {
+            $select->having($this->having);
+        }
+        if (isset($this->order)) {
+            list($field, $order) = $this->order;
+            $select->orderBy($field, $order);
+        }
+        if (isset($this->limit) && empty($this->with)) {
+            $select->setMaxResults($this->limit);
+            if (isset($this->offset) && $this->offset != 0) {
+                $select->setFirstResult($this->offset);
+            }
+        }
+
+        if ($this->lock) {
+            $select->lockForUpdate();
+        }
+
+        $this->query = $select->get();
+
         return $this->query;
+    }
+
+    private function addSelectedColumns(
+        Select $select,
+        TableDescriptor $tableDescriptor,
+        $tableName
+    ) {
+        $columns = array();
+        $tableFields = $tableDescriptor->fields;
+        foreach ($this->columns ? : $tableFields as $name) {
+            if (strpos($name, '(') === false) {
+                $columns[] = sprintf(
+                    '%1$s.%2$s as %3$s_%2$s',
+                    $tableName,
+                    $name,
+                    $tableDescriptor->name
+                );
+            } else {
+                $columns[] = $name;
+            }
+            if (!in_array($name, $tableFields) && strpos($name, ' as ')) {
+                list(, $alias) = explode(' as ', $name, 2);
+                $this->selectedExtraFields[$alias] = $alias;
+            }
+        }
+        $select->addSelect($columns);
+    }
+
+    private function addRelationToQuery(
+        Select $select,
+        TableDescriptor $tableDescriptor,
+        $relatedName,
+        $tableName
+    ) {
+        if (is_array($relatedName)) {
+            $condition     = $relatedName;
+            $relatedName   = array_shift($condition);
+            $joinCondition = sprintf(' AND (%s)', implode(') AND (', $condition));
+        } else {
+            $joinCondition = '';
+        }
+
+        $primaryKey = $tableDescriptor->primary_key;
+
+        $related      = $this->table->getRelatedTable($relatedName);
+        $descriptor   = $related->descriptor;
+        $relatedTable = $related->getTableName();
+
+        $foreignKey        = $this->table->getForeignKey($relatedName);
+        $relatedPrimaryKey = $descriptor->primary_key;
+        foreach ($descriptor->fields as $field) {
+            $column = sprintf(
+                '%s.%s as %s_%s',
+                $relatedTable,
+                $field,
+                $descriptor->name,
+                $field
+            );
+            $select->addSelect($column);
+        }
+
+        switch ($tableDescriptor->getRelation($relatedName)) {
+            case TableDescriptor::RELATION_MANY_MANY:
+                $joinTable = $this->table->getJoinTable($relatedName);
+
+                $condition = sprintf(
+                    '%s.%s = %s.%s',
+                    $tableName,
+                    $primaryKey,
+                    $joinTable,
+                    $this->table->getForeignKey($tableDescriptor->name)
+                );
+                $select->leftJoin($tableName, $joinTable, null, $condition);
+
+                $condition = sprintf(
+                    '%s.%s = %s.%s',
+                    $joinTable,
+                    $foreignKey,
+                    $relatedTable,
+                    $relatedPrimaryKey
+                );
+                $select->leftJoin($joinTable, $relatedTable, null, $condition);
+
+                break;
+            case TableDescriptor::RELATION_HAS:
+                $related_foreign = $this->table->getForeignKey($tableName);
+
+                $condition = sprintf(
+                    '%s.%s = %s.%s',
+                    $tableName,
+                    $primaryKey,
+                    $relatedTable,
+                    $related_foreign,
+                    $joinCondition
+                );
+                $select->leftJoin($tableName, $relatedTable, null, $condition);
+                break;
+            case TableDescriptor::RELATION_BELONGS_TO:
+
+                $condition = sprintf(
+                    '%s.%s = %s.%s',
+                    $tableName,
+                    $foreignKey,
+                    $relatedTable,
+                    $relatedPrimaryKey,
+                    $joinCondition
+                );
+                $select->leftJoin($tableName, $relatedTable, null, $condition);
+                break;
+        }
     }
 
     /**
@@ -268,10 +416,10 @@ class Query implements Iterator, Countable
     }
 
     /**
-     * @param PDOStatement $stmt
-     * @param Manager      $orm
+     * @param Statement $stmt
+     * @param Manager   $orm
      */
-    protected function bindParameters(PDOStatement $stmt, Manager $orm)
+    protected function bindParameters(Statement $stmt, Manager $orm)
     {
         $i      = 0;
         $params = array();
@@ -289,13 +437,13 @@ class Query implements Iterator, Countable
     }
 
     /**
-     * @param bool         $single
-     * @param PDOStatement $stmt
-     * @param Manager      $orm
+     * @param bool      $single
+     * @param Statement $stmt
+     * @param Manager   $orm
      *
      * @return array|bool|Row
      */
-    protected function processResults($single, $stmt, $orm)
+    protected function processResults($single, Statement $stmt, $orm)
     {
         $rows = $stmt->fetchAll();
         $orm->log('Results: %d', count($rows));
@@ -319,12 +467,12 @@ class Query implements Iterator, Countable
     }
 
     /**
-     * @param PDOStatement $statement
-     * @param bool         $single
+     * @param Statement $statement
+     * @param bool      $single
      *
      * @return array
      */
-    private function processResultsWithRelatedRecords(PDOStatement $statement, $single)
+    private function processResultsWithRelatedRecords(Statement $statement, $single)
     {
         $descriptor = $this->table->descriptor;
         $table      = $descriptor->name;
@@ -342,7 +490,7 @@ class Query implements Iterator, Countable
         $row_num           = 0;
         $fetched           = 0;
 
-        $query_fields = array_merge($table_fields, $this->selected_extra_fields);
+        $query_fields = array_merge($table_fields, $this->selectedExtraFields);
         $row_skipped  = false;
 
         //We fetch rows one-by-one because MANY_MANY relation type cannot be limited by LIMIT

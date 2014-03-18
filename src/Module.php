@@ -13,6 +13,11 @@ use Miny\Application\BaseApplication;
 
 class Module extends \Miny\Modules\Module
 {
+    public function getDependencies()
+    {
+        return array('DBAL');
+    }
+
     public function defaultConfiguration()
     {
         return array(
@@ -21,11 +26,10 @@ class Module extends \Miny\Modules\Module
         );
     }
 
-
     public function init(BaseApplication $app)
     {
         $container = $app->getContainer();
-        $module = $this;
+        $module    = $this;
 
         $container->addAlias(
             '\\PDO',

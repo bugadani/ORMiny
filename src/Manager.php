@@ -10,6 +10,7 @@
 namespace Modules\ORM;
 
 use Miny\Log\Log;
+use Modules\DBAL\Driver;
 use Modules\ORM\Parts\Table;
 use Modules\ORM\Parts\TableDescriptor;
 use OutOfBoundsException;
@@ -17,7 +18,7 @@ use OutOfBoundsException;
 class Manager
 {
     /**
-     * @var PDO
+     * @var Driver
      */
     public $connection;
 
@@ -37,11 +38,12 @@ class Manager
     private $log;
 
     /**
-     * @param PDO $connection
-     * @param iDatabaseDescriptor $database
-     * @param Log $log
+     * @param Driver $connection
+     * @param iDatabaseDescriptor                   $database
+     * @param Log                                   $log
      */
-    public function __construct(PDO $connection, iDatabaseDescriptor $database = NULL, Log $log = NULL)
+    public function __construct(Driver $connection, iDatabaseDescriptor $database = null,
+        Log $log = null)
     {
         $this->connection = $connection;
         $this->log = $log;
@@ -52,6 +54,14 @@ class Manager
                 $this->__set($name, $descriptor);
             }
         }
+    }
+
+    /**
+     * @return Driver
+     */
+    public function getDriver()
+    {
+        return $this->connection;
     }
 
     /**
