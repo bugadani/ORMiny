@@ -31,22 +31,6 @@ class Module extends \Miny\Modules\Module
         $container = $app->getContainer();
         $module    = $this;
 
-        $container->addAlias(
-            '\\PDO',
-            __NAMESPACE__ . '\\PDO'
-        );
-
-        $container->addAlias(
-            __NAMESPACE__ . '\\PDO',
-            null,
-            array(
-                $this->getConfiguration('pdo:dsn'),
-                $this->getConfiguration('pdo:username'),
-                $this->getConfiguration('pdo:password'),
-                $this->getConfiguration('pdo:options')
-            )
-        );
-
         $container->addCallback(
             __NAMESPACE__ . '\\DatabaseDiscovery',
             function (DatabaseDiscovery $discovery) use ($module) {
