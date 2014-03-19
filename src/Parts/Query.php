@@ -34,6 +34,7 @@ class Query implements Iterator, Countable
     private $rows = array();
     private $query;
     private $queryBuilder;
+    private $select;
 
     /**
      *
@@ -44,6 +45,11 @@ class Query implements Iterator, Countable
         $this->table        = $table;
         $this->manager      = $table->manager;
         $this->queryBuilder = $table->manager->connection->getQueryBuilder();
+
+        $tableName    = $table->getTableName();
+        $this->select = $this->queryBuilder
+            ->select(array())
+            ->from($tableName);
     }
 
     /**
@@ -77,10 +83,11 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
+        $arguments = func_get_args();
         if (empty($this->columns)) {
-            $this->columns = func_get_args();
+            $this->columns = $arguments;
         } else {
-            $this->columns = array_merge($this->columns, func_get_args());
+            $this->columns = array_merge($this->columns, $arguments);
         }
 
         return $this;
@@ -101,12 +108,12 @@ class Query implements Iterator, Countable
         if (isset($params[0]) && is_array($params[0])) {
             $params = $params[0];
         }
-        $condition = '(' . $condition . ')';
-        if (!isset($this->where)) {
-            $this->where        = $condition;
+        if (!$this->where) {
+            $this->where = true;
+            $this->select->where($condition);
             $this->where_params = $params;
         } else {
-            $this->where .= ' AND ' . $condition;
+            $this->select->andWhere($condition);
             $this->where_params = array_merge($this->where_params, $params);
         }
 
@@ -128,12 +135,12 @@ class Query implements Iterator, Countable
         if (isset($params[0]) && is_array($params[0])) {
             $params = $params[0];
         }
-        $condition = '(' . $condition . ')';
-        if (!isset($this->having)) {
-            $this->having        = $condition;
+        if (!$this->having) {
+            $this->having = true;
+            $this->select->having($condition);
             $this->having_params = $params;
         } else {
-            $this->having .= ' AND ' . $condition;
+            $this->select->andHaving($condition);
             $this->having_params = array_merge($this->having_params, $params);
         }
 
@@ -152,7 +159,7 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        $this->order = array($field, $order);
+        $this->select->orderBy($field, $order);
 
         return $this;
     }
@@ -169,24 +176,24 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        $this->limit  = $limit;
-        $this->offset = $offset;
+        $this->select->setFirstResult($offset);
+        $this->select->setMaxResults($limit);
 
         return $this;
     }
 
     /**
-     * @param string $group
+     * @param string $field
      *
      * @return Query
      */
-    public function group($group)
+    public function group($field)
     {
         if (isset($this->rows)) {
             unset($this->rows);
             unset($this->query);
         }
-        $this->group = $group;
+        $this->select->groupBy($field);
 
         return $this;
     }
@@ -202,7 +209,8 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        $this->lock = $lock;
+
+        $this->select->lockForUpdate($lock);
 
         return $this;
     }
@@ -225,9 +233,7 @@ class Query implements Iterator, Countable
         }
 
         $tableName = $this->table->getTableName();
-        $select    = $this->queryBuilder
-            ->select(array())
-            ->from($tableName);
+        $select    = $this->select;
 
         if (!empty($this->with)) {
             $tableDescriptor = $this->table->descriptor;
@@ -246,30 +252,6 @@ class Query implements Iterator, Countable
             $select->select($this->columns ? : '*');
         }
 
-        if (isset($this->where)) {
-            $select->where($this->where);
-        }
-        if (isset($this->group)) {
-            $select->groupBy($this->group);
-        }
-        if (isset($this->having)) {
-            $select->having($this->having);
-        }
-        if (isset($this->order)) {
-            list($field, $order) = $this->order;
-            $select->orderBy($field, $order);
-        }
-        if (isset($this->limit) && empty($this->with)) {
-            $select->setMaxResults($this->limit);
-            if (isset($this->offset) && $this->offset != 0) {
-                $select->setFirstResult($this->offset);
-            }
-        }
-
-        if ($this->lock) {
-            $select->lockForUpdate();
-        }
-
         $this->query = $select->get();
 
         return $this->query;
@@ -280,7 +262,7 @@ class Query implements Iterator, Countable
         TableDescriptor $tableDescriptor,
         $tableName
     ) {
-        $columns = array();
+        $columns     = array();
         $tableFields = $tableDescriptor->fields;
         foreach ($this->columns ? : $tableFields as $name) {
             if (strpos($name, '(') === false) {
