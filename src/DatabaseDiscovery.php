@@ -19,7 +19,7 @@ use Modules\ORM\Parts\TableDescriptor;
 class DatabaseDiscovery implements iDatabaseDescriptor
 {
     /**
-     * @var PDO
+     * @var Driver
      */
     public $connection;
 

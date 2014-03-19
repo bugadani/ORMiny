@@ -11,6 +11,7 @@ namespace Modules\ORM\Parts;
 
 use ArrayAccess;
 use ArrayIterator;
+use InvalidArgumentException;
 use IteratorAggregate;
 use OutOfBoundsException;
 
@@ -69,55 +70,67 @@ class Row implements ArrayAccess, IteratorAggregate
         foreach ($this->changed as $key) {
             $return[$key] = $this->data[$key];
         }
+
         return $return;
     }
 
-    private function getRelatedRows($related, $condition = NULL)
+    private function getRelatedRows($related, $condition = null)
     {
-        $table = $this->getTable();
+        $table         = $this->getTable();
         $related_table = $table->getRelatedTable($related);
         switch ($table->descriptor->getRelation($related)) {
-            case TableDescriptor::RELATION_HAS: {
-                    $foreign_key = $table->getForeignKey($table);
-                    $where = sprintf('`%s` = ?', $foreign_key);
+            case TableDescriptor::RELATION_HAS:
+            {
+                $foreign_key = $table->getForeignKey($table);
+                $where       = sprintf('`%s` = ?', $foreign_key);
+                if ($condition) {
+                    $where .= ' AND ' . $condition;
+                }
+                $key = $table->getPrimaryKey();
+
+                return $related_table->where($where, $this[$key])->get(false);
+            }
+            case TableDescriptor::RELATION_BELONGS_TO:
+            {
+                $key   = $table->getForeignKey($related);
+                $where = sprintf('`%s` = ?', $related_table->getPrimaryKey());
+                if ($condition) {
+                    $where .= ' AND ' . $condition;
+                }
+
+                return $related_table->where($where, $this[$key])->get();
+            }
+            case TableDescriptor::RELATION_MANY_MANY:
+            {
+                $join_table = $table->getJoinTableName($related);
+                //query the join table for the ids - this in turn fills up the record with the join table data
+                $ids = array();
+                $fk  = $table->getForeignKey($related);
+                foreach ($this->$join_table as $join_record) {
+                    $ids[] = $join_record[$fk];
+                }
+                if (count($ids) > 0) {
+                    //query the related table for records
+                    $qms   = array_fill(0, count($ids), '?');
+                    $where = sprintf(
+                        '`%s` IN(%s)',
+                        $related_table->getPrimaryKey(),
+                        implode(',', $qms)
+                    );
                     if ($condition) {
                         $where .= ' AND ' . $condition;
                     }
-                    $key = $table->getPrimaryKey();
-                    return $related_table->where($where, $this[$key])->get(false);
+
+                    return $related_table->where($where, $ids)->get(false);
                 }
-            case TableDescriptor::RELATION_BELONGS_TO: {
-                    $key = $table->getForeignKey($related);
-                    $where = sprintf('`%s` = ?', $related_table->getPrimaryKey());
-                    if ($condition) {
-                        $where .= ' AND ' . $condition;
-                    }
-                    return $related_table->where($where, $this[$key])->get();
-                }
-            case TableDescriptor::RELATION_MANY_MANY: {
-                    $join_table = $table->getJoinTableName($related);
-                    //query the join table for the ids - this in turn fills up the record with the join table data
-                    $ids = array();
-                    $fk = $table->getForeignKey($related);
-                    foreach ($this->$join_table as $join_record) {
-                        $ids[] = $join_record[$fk];
-                    }
-                    if (count($ids) > 0) {
-                        //query the related table for records
-                        $qms = array_fill(0, count($ids), '?');
-                        $where = sprintf('`%s` IN(%s)', $related_table->getPrimaryKey(), implode(',', $qms));
-                        if ($condition) {
-                            $where .= ' AND ' . $condition;
-                        }
-                        return $related_table->where($where, $ids)->get(false);
-                    }
-                }
+            }
         }
     }
 
     public function __call($related, array $args)
     {
         $where = implode(' AND ', $args);
+
         return $this->getRelatedRows($related, $where);
     }
 
@@ -126,6 +139,7 @@ class Row implements ArrayAccess, IteratorAggregate
         if (!isset($this->related[$related])) {
             $this->related[$related] = $this->getRelatedRows($related);
         }
+
         return $this->related[$related];
     }
 
@@ -165,6 +179,7 @@ class Row implements ArrayAccess, IteratorAggregate
         if (!array_key_exists($offset, $this->data)) {
             throw new OutOfBoundsException(sprintf('Key "%s" is not set', $offset));
         }
+
         return $this->data[$offset];
     }
 
@@ -186,7 +201,7 @@ class Row implements ArrayAccess, IteratorAggregate
 
     public function offsetUnset($offset)
     {
-        $this->offsetSet($offset, NULL);
+        $this->offsetSet($offset, null);
     }
 
     //IteratorAggregate method

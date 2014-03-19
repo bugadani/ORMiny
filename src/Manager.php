@@ -38,16 +38,18 @@ class Manager
     private $log;
 
     /**
-     * @param Driver $connection
-     * @param iDatabaseDescriptor                   $database
-     * @param Log                                   $log
+     * @param Driver              $connection
+     * @param iDatabaseDescriptor $database
+     * @param Log                 $log
      */
-    public function __construct(Driver $connection, iDatabaseDescriptor $database = null,
-        Log $log = null)
-    {
+    public function __construct(
+        Driver $connection,
+        iDatabaseDescriptor $database = null,
+        Log $log = null
+    ) {
         $this->connection = $connection;
-        $this->log = $log;
-        $this->database = $database;
+        $this->log        = $log;
+        $this->database   = $database;
 
         if ($database !== null) {
             foreach ($database->getTableDescriptors() as $name => $descriptor) {
@@ -69,19 +71,19 @@ class Manager
      */
     public function log($message)
     {
-        if ($this->log !== NULL) {
+        if ($this->log !== null) {
             $args = array_slice(func_get_args(), 1);
             $this->log->write(Log::DEBUG, 'ORM', $message, $args);
         }
     }
 
     /**
-     * @param string $name
+     * @param string          $name
      * @param TableDescriptor $table
      */
     public function __set($name, TableDescriptor $table)
     {
-        if ($name === NULL) {
+        if ($name === null) {
             sscanf($table->name, $this->database->getTableNameFormat(), $name);
         }
         $this->tables[$name] = new Table($this, $table);
@@ -89,6 +91,7 @@ class Manager
 
     /**
      * @param string $name
+     *
      * @return Table
      * @throws OutOfBoundsException
      */
@@ -97,11 +100,13 @@ class Manager
         if (!isset($this->tables[$name])) {
             throw new OutOfBoundsException('Table does not exist: ' . $name);
         }
+
         return $this->tables[$name];
     }
 
     /**
      * @param string $table
+     *
      * @return bool
      */
     public function __isset($table)

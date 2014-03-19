@@ -14,16 +14,10 @@ use InvalidArgumentException;
 use Iterator;
 use Modules\ORM\Manager;
 use OutOfBoundsException;
-use PDO;
 use PDOException;
 
 class Table implements ArrayAccess, Iterator
 {
-    private static $select_pattern = 'SELECT %s FROM `%s` WHERE %s';
-    private static $insert_pattern = 'INSERT INTO `%s` (`%s`) VALUES (%s)';
-    private static $update_pattern = 'UPDATE `%s` SET %s WHERE %s';
-    private static $delete_pattern = 'DELETE FROM `%s` WHERE %s';
-
     /**
      * @var Manager
      */
@@ -37,7 +31,7 @@ class Table implements ArrayAccess, Iterator
     /**
      * @var array
      */
-    private $loaded_records = array();
+    private $loadedRecords = array();
 
     /**
      * @param Manager         $manager
@@ -52,6 +46,7 @@ class Table implements ArrayAccess, Iterator
     public function __call($method, $args)
     {
         $query = new Query($this);
+
         return call_user_func_array(array($query, $method), $args);
     }
 
@@ -105,6 +100,7 @@ class Table implements ArrayAccess, Iterator
         if ($referenced instanceof TableDescriptor) {
             return sprintf($fk, $referenced->name);
         }
+
         return sprintf($fk, $referenced);
     }
 
@@ -119,6 +115,7 @@ class Table implements ArrayAccess, Iterator
         if (!isset($this->descriptor->relations[$relation])) {
             throw new InvalidArgumentException('Not related: ' . $relation);
         }
+
         return $this->manager->$relation;
     }
 
@@ -130,6 +127,7 @@ class Table implements ArrayAccess, Iterator
     public function getJoinTable($relation)
     {
         $table = $this->getRelatedTable($relation);
+
         return sprintf($this->manager->getTableNameFormat(), $this . '_' . $table);
     }
 
@@ -150,6 +148,7 @@ class Table implements ArrayAccess, Iterator
                 throw new InvalidArgumentException($message);
             }
         }
+
         return $join_table;
     }
 
@@ -162,6 +161,7 @@ class Table implements ArrayAccess, Iterator
     public function getRelated($relation, $key)
     {
         $related = $this->getRelatedTable($relation);
+
         return $related[$key];
     }
 
@@ -195,21 +195,22 @@ class Table implements ArrayAccess, Iterator
     {
         $record_data = array_intersect_key($data, array_flip($this->descriptor->fields));
         $pdo         = $this->manager->connection;
-        $fields      = array();
-        $log_fields  = array();
+
+        $insert = $pdo->getQueryBuilder()->insert($this->getTableName());
+
+        $log_fields = array();
         foreach ($record_data as $key => $data) {
-            $fields[$key] = ':' . $key;
+            $insert->set($pdo->quoteIdentifier($key), ':' . $key);
+
             $log_fields[] = sprintf(':%s = "%s"', $key, $data);
         }
-        $placeholders = implode(', ', $fields);
-        $field_list   = implode('`, `', array_keys($fields));
 
-        $sql = sprintf(self::$insert_pattern, $this->getTableName(), $field_list, $placeholders);
-
+        $sql = $insert->get();
         $this->manager->log('Executing query: ' . $sql);
         $this->manager->log('Parameters: ' . implode(', ', $log_fields));
 
         $pdo->query($sql, $record_data);
+
         return $pdo->lastInsertId();
     }
 
@@ -219,20 +220,26 @@ class Table implements ArrayAccess, Iterator
             $condition = sprintf('%s = :pk', $this->getPrimaryKey());
             $this->updateRows($condition, array('pk' => $pk), $data);
         }
+
         return $pk;
     }
 
     public function updateRows($condition, array $parameters, array $data)
     {
-        $data   = array_intersect_key($data, array_flip($this->descriptor->fields));
-        $fields = array();
+        $data = array_intersect_key($data, array_flip($this->descriptor->fields));
+
+        $pdo    = $this->manager->connection;
+        $update = $pdo->getQueryBuilder()
+            ->update($this->getTableName())
+            ->where($condition);
+
         foreach ($data as $key => $value) {
-            $fields[]         = sprintf('%1$s = :%1$s', $key);
+            $update->set($pdo->quoteIdentifier($key), ':' . $key);
             $parameters[$key] = $value;
         }
 
-        if (count($fields) > 0) {
-            $sql = sprintf(self::$update_pattern, $this->getTableName(), implode(', ', $fields), $condition);
+        if (count($parameters) > 1) {
+            $sql = $update->get();
             $this->manager->log($sql);
             $this->manager->connection->query($sql, $parameters);
         } else {
@@ -270,13 +277,17 @@ class Table implements ArrayAccess, Iterator
             $message = sprintf('Also delete rows from %s', implode(', ', $relations_to_delete));
             $this->manager->log($message);
         }
-        $pdo = $this->manager->connection;
+        $pdo          = $this->manager->connection;
+        $queryBuilder = $pdo->getQueryBuilder();
+
         if (!empty($relations_to_delete)) {
-            $sql = sprintf(self::$select_pattern, $this->getPrimaryKey(), $this->getTableName(), $condition);
+            $sql = $queryBuilder
+                ->select($this->getPrimaryKey())
+                ->from($this->getTableName())
+                ->where($condition)->get();
+
             $this->manager->log($sql);
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute($parameters);
-            $deleted_ids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+            $deleted_ids = $pdo->fetchColumn($sql, $parameters, 0);
         } else {
             $deleted_ids = array();
         }
@@ -291,9 +302,11 @@ class Table implements ArrayAccess, Iterator
                 $table->deleteRows($rel_condition, $deleted_ids);
             }
         }
-        $sql = sprintf(self::$delete_pattern, $this->getTableName(), $condition);
+
+        $sql = $queryBuilder->delete($this->getTableName())->where($condition)->get();
+
         $this->manager->log($sql);
-        $pdo->prepare($sql)->execute($parameters);
+        $pdo->query($sql, $parameters);
     }
 
     //ArrayAccess methods
@@ -301,6 +314,7 @@ class Table implements ArrayAccess, Iterator
     {
         try {
             $this->offsetGet($offset);
+
             return true;
         } catch (OutOfBoundsException $ex) {
             return false;
@@ -309,25 +323,26 @@ class Table implements ArrayAccess, Iterator
 
     public function offsetGet($offset)
     {
-        if (!isset($this->loaded_records[$offset])) {
+        if (!isset($this->loadedRecords[$offset])) {
             $query     = new Query($this);
             $condition = sprintf('%s = ?', $this->descriptor->primary_key);
             $record    = $query->where($condition, $offset)->get();
             if (empty($record)) {
                 throw new OutOfBoundsException('Record does not exist: ' . $offset);
             }
-            $this->loaded_records[$offset] = $record;
+            $this->loadedRecords[$offset] = $record;
         }
-        return $this->loaded_records[$offset];
+
+        return $this->loadedRecords[$offset];
     }
 
     public function offsetSet($offset, $row)
     {
         if ($row instanceof Row) {
-            if ($row->getTable() != $this) {
+            if ($row->getTable() !== $this) {
                 throw new InvalidArgumentException('Cannot save row: table mismatch.');
             }
-        } else if (is_array($row)) {
+        } elseif (is_array($row)) {
             $row = new Row($this, $row);
         } else {
             throw new InvalidArgumentException('Value should be a Row or an array');
@@ -345,35 +360,36 @@ class Table implements ArrayAccess, Iterator
     //Iterator methods
     public function current()
     {
-        return current($this->loaded_records);
+        return current($this->loadedRecords);
     }
 
     public function key()
     {
-        return key($this->loaded_records);
+        return key($this->loadedRecords);
     }
 
     public function next()
     {
-        return next($this->loaded_records);
+        return next($this->loadedRecords);
     }
 
     public function rewind()
     {
-        if (empty($this->loaded_records)) {
-            $query                = new Query($this);
-            $this->loaded_records = $query->execute();
-            if (!is_array($this->loaded_records)) {
-                $pk                   = $this->loaded_records[$this->getPrimaryKey()];
-                $this->loaded_records = array($pk => $this->loaded_records);
+        if (empty($this->loadedRecords)) {
+            $query               = new Query($this);
+            $this->loadedRecords = $query->execute();
+            if (!is_array($this->loadedRecords)) {
+                $pk                  = $this->loadedRecords[$this->getPrimaryKey()];
+                $this->loadedRecords = array($pk => $this->loadedRecords);
             }
         }
-        reset($this->loaded_records);
+        reset($this->loadedRecords);
     }
 
     public function valid()
     {
-        $val = key($this->loaded_records);
+        $val = key($this->loadedRecords);
+
         return $val !== null && $val !== false;
     }
 
