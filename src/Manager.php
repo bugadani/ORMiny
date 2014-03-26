@@ -11,6 +11,7 @@ namespace Modules\ORM;
 
 use Miny\Log\Log;
 use Modules\DBAL\Driver;
+use Modules\DBAL\QueryBuilder;
 use Modules\ORM\Parts\Table;
 use Modules\ORM\Parts\TableDescriptor;
 use OutOfBoundsException;
@@ -64,6 +65,14 @@ class Manager
     public function getDriver()
     {
         return $this->connection;
+    }
+
+    /**
+     * @return QueryBuilder
+     */
+    public function getQueryBuilder()
+    {
+        return $this->connection->getQueryBuilder();
     }
 
     /**
