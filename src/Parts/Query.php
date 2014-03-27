@@ -175,8 +175,10 @@ class Query implements Iterator, Countable
             unset($this->rows);
             unset($this->query);
         }
-        $this->select->setFirstResult($offset);
-        $this->select->setMaxResults($limit);
+        if (empty($this->with)) {
+            $this->select->setFirstResult($offset);
+            $this->select->setMaxResults($limit);
+        }
         $this->processor->setLimits($limit, $offset);
 
         return $this;
