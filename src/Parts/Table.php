@@ -288,18 +288,16 @@ class Table implements ArrayAccess, Iterator
 
             $this->manager->log($sql);
             $deleted_ids = $pdo->fetchColumn($sql, $parameters, 0);
-        } else {
-            $deleted_ids = array();
-        }
 
-        if (!empty($deleted_ids)) {
-            $placeholders = implode(', ', array_fill(0, count($deleted_ids), '?'));
+            if (!empty($deleted_ids)) {
+                $placeholders = array_fill(0, count($deleted_ids), '?');
 
-            foreach ($relations_to_delete as $relation) {
-                $table         = $this->getRelatedTable($relation);
-                $foreign_key   = $table->getForeignKey($this->descriptor->name);
-                $rel_condition = sprintf('%s IN(%s)', $foreign_key, $placeholders);
-                $table->deleteRows($rel_condition, $deleted_ids);
+                foreach ($relations_to_delete as $relation) {
+                    $table       = $this->getRelatedTable($relation);
+                    $foreign_key = $table->getForeignKey($this->descriptor->name);
+                    $expression  = $queryBuilder->expression()->in($foreign_key, $placeholders);
+                    $table->deleteRows($expression->get(), (array)$deleted_ids);
+                }
             }
         }
 
