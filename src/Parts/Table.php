@@ -222,10 +222,29 @@ class Table implements ArrayAccess, Iterator
 
     public function update($pk, array $data)
     {
-        if (!empty($data)) {
-            $condition = sprintf('%s = :pk', $this->getPrimaryKey());
-            $this->updateRows($condition, array('pk' => $pk), $data);
+        if (empty($data)) {
+            return $pk;
         }
+        $expr = $this->manager
+            ->getQueryBuilder()
+            ->expression();
+
+        if (is_array($pk)) {
+            if (empty($pk)) {
+                return $pk;
+            }
+            $placeholders = array();
+            $pks = array();
+            foreach ($pk as $i => $key) {
+                $placeholders[]  = ':pk_' . $i;
+                $pks['pk_' . $i] = $key;
+            }
+            $condition = $expr->in($this->getPrimaryKey(), $placeholders);
+        } else {
+            $condition = $expr->eq($this->getPrimaryKey(), ':pk');
+            $pks       = array('pk' => $pk);
+        }
+        $this->updateRows($condition->get(), $pks, $data);
 
         return $pk;
     }
@@ -254,13 +273,30 @@ class Table implements ArrayAccess, Iterator
     }
 
     /**
-     *
      * @param mixed $pk
      */
     public function delete($pk)
     {
-        $condition = sprintf('%s = :pk', $this->getPrimaryKey());
-        $this->deleteRows($condition, array('pk' => $pk));
+        $expr = $this->manager
+            ->getQueryBuilder()
+            ->expression();
+
+        if (is_array($pk)) {
+            if (empty($pk)) {
+                return;
+            }
+            $placeholders = array();
+            $pks          = array();
+            foreach ($pk as $i => $key) {
+                $placeholders[]  = ':pk_' . $i;
+                $pks['pk_' . $i] = $key;
+            }
+            $condition = $expr->in($this->getPrimaryKey(), $placeholders);
+        } else {
+            $condition = $expr->eq($this->getPrimaryKey(), ':pk');
+            $pks       = array('pk' => $pk);
+        }
+        $this->deleteRows($condition->get(), $pks);
     }
 
     /**
