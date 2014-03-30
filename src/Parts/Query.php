@@ -379,6 +379,7 @@ class Query implements Iterator, Countable
 
             if ($stmt->rowCount() == 0) {
                 $this->manager->log('Results: 0');
+
                 return false;
             }
         } else {
@@ -386,10 +387,10 @@ class Query implements Iterator, Countable
 
             if ($stmt->rowCount() == 0) {
                 $this->manager->log('Results: 0');
+
                 return array();
             }
         }
-
 
         if (empty($this->with)) {
             return $this->processor->processResults($stmt);
@@ -426,12 +427,7 @@ class Query implements Iterator, Countable
      */
     public function get($single = true)
     {
-        if (is_int($single)) {
-            $this->where($this->table->getPrimaryKey(true) . ' = ? ', $single);
-
-            return $this->execute(true);
-        }
-        if ($single) {
+        if ($single === true) {
             if (isset($this->rows)) {
                 reset($this->rows);
 
@@ -439,12 +435,31 @@ class Query implements Iterator, Countable
             }
 
             return $this->execute($single);
-        }
-        if (!isset($this->rows)) {
-            $this->rows = $this->execute($single);
-        }
+        } elseif ($single === false) {
+            if (!isset($this->rows)) {
+                $this->rows = $this->execute($single);
+            }
 
-        return $this->rows;
+            return $this->rows;
+        } else {
+            $pk = $this->table->getPrimaryKey(true);
+            if (is_array($single)) {
+                if (!empty($single)) {
+                    $in = $this->manager->getQueryBuilder()->expression()->in(
+                        $pk,
+                        array_fill(0, count($single), '?')
+                    );
+
+                    $this->where($in->get(), $single);
+                }
+
+                return $this->execute(false);
+            } else {
+                $this->where($pk . ' = ? ', (int)$single);
+
+                return $this->execute(true);
+            }
+        }
     }
 
     //Iterator methods
