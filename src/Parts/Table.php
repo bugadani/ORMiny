@@ -79,10 +79,16 @@ class Table implements ArrayAccess, Iterator
     }
 
     /**
+     * @param bool $prependTableName
+     *
      * @return string
      */
-    public function getPrimaryKey()
+    public function getPrimaryKey($prependTableName = false)
     {
+        if ($prependTableName) {
+            return $this->getTableName() . '.' . $this->descriptor->primary_key;
+        }
+
         return $this->descriptor->primary_key;
     }
 

@@ -420,12 +420,17 @@ class Query implements Iterator, Countable
     }
 
     /**
-     * @param bool $single
+     * @param int|bool $single
      *
      * @return Row|array
      */
     public function get($single = true)
     {
+        if (is_int($single)) {
+            $this->where($this->table->getPrimaryKey(true) . ' = ? ', $single);
+
+            return $this->execute(true);
+        }
         if ($single) {
             if (isset($this->rows)) {
                 reset($this->rows);
