@@ -46,26 +46,27 @@ class ResultProcessor
      */
     public function processResults(Statement $statement, array $related = array())
     {
-        $single = isset($this->limit) && $this->limit === 1;
         if (!empty($related)) {
             return $this->processResultsWithRelatedRecords($statement, $related);
         }
-        $rows = $statement->fetchAll();
-        $orm  = $this->table->manager;
-        $orm->log('Results: %d', count($rows));
-        if (empty($rows)) {
-            return $single ? false : array();
-        }
-        if ($single) {
+        $rows   = $statement->fetchAll();
+        $this->table->manager->log('Results: %d', count($rows));
+
+        if (isset($this->limit) && $this->limit === 1) {
+            if (empty($rows)) {
+                return false;
+            }
+
             return new Row($this->table, current($rows));
         }
         $return  = array();
         $pkField = $this->table->getPrimaryKey();
         foreach ($rows as $row) {
+            $record = new Row($this->table, $row);
             if (isset($row[$pkField])) {
-                $return[$row[$pkField]] = new Row($this->table, $row);
+                $return[$row[$pkField]] = $record;
             } else {
-                $return[] = new Row($this->table, $row);
+                $return[] = $record;
             }
         }
 
@@ -96,38 +97,40 @@ class ResultProcessor
         $row_num           = 0;
         $fetched           = 0;
 
-        $query_fields = array_merge($table_fields, $this->selectedExtraFields);
-        $row_skipped  = false;
+        $query_fields   = array_merge($table_fields, $this->selectedExtraFields);
+        $table_pk_field = $table_fields[$pk_field];
+        $row_skipped    = false;
 
         //We fetch rows one-by-one because MANY_MANY relation type cannot be limited by LIMIT
         while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
-            if ($last_pk !== $row[$table_fields[$pk_field]]) {
-                $last_pk = $row[$table_fields[$pk_field]];
+            if ($last_pk !== $row[$table_pk_field]) {
+                $last_pk = $row[$table_pk_field];
 
                 if (isset($this->offset)) {
                     $row_skipped = ($row_num++ < $this->offset);
                 }
-                if (!$row_skipped) {
-                    if (isset($this->limit) && $fetched++ == $this->limit) {
-                        break;
-                    }
-                    $records[$last_pk] = new Row($this->table, $this->getFieldsFromRow(
-                        $row,
-                        $query_fields
-                    ));
-                    $relation_last_pks = array();
+                if ($row_skipped) {
+                    continue;
                 }
+                if (isset($this->limit) && $fetched++ == $this->limit) {
+                    break;
+                }
+                $records[$last_pk] = new Row($this->table, $this->getFieldsFromRow(
+                    $row,
+                    $query_fields
+                ));
+                $relation_last_pks = array();
+            } elseif ($row_skipped) {
+                continue;
             }
 
-            if (!$row_skipped) {
-                $relation_last_pks = $this->processRelatedRecords(
-                    $related,
-                    $relation_data,
-                    $records[$last_pk],
-                    $row,
-                    $relation_last_pks
-                );
-            }
+            $relation_last_pks = $this->processRelatedRecords(
+                $related,
+                $relation_data,
+                $records[$last_pk],
+                $row,
+                $relation_last_pks
+            );
         }
         $statement->closeCursor();
         $this->table->manager->log('Results: %d', count($records));
@@ -209,17 +212,20 @@ class ResultProcessor
             if (is_array($name)) {
                 $name = $name[0];
             }
-            $relation_table       = $this->table->getRelatedTable($name);
-            $relation_data[$name] = array(
-                'fields' => array(),
-                'table'  => $relation_table,
-                'type'   => $descriptor->getRelation($name),
+            $relation_table = $this->table->getRelatedTable($name);
+
+            $fields = array();
+            $data   = array(
+                'table' => $relation_table,
+                'type'  => $descriptor->getRelation($name),
             );
             foreach ($relation_table->descriptor->fields as $field) {
-                $relation_data[$name]['fields'][$field] = $name . '_' . $field;
+                $fields[$field] = $name . '_' . $field;
             }
-            $primaryKey                                = $relation_table->getPrimaryKey();
-            $relation_data[$name]['primary_key_alias'] = $relation_data[$name]['fields'][$primaryKey];
+            $primaryKey                = $relation_table->getPrimaryKey();
+            $data['primary_key_alias'] = $fields[$primaryKey];
+            $data['fields']            = $fields;
+            $relation_data[$name]      = $data;
         }
 
         return $relation_data;
