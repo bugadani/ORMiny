@@ -52,10 +52,11 @@ class Manager
         $this->log        = $log;
         $this->database   = $database;
 
-        if ($database !== null) {
-            foreach ($database->getTableDescriptors() as $name => $descriptor) {
-                $this->__set($name, $descriptor);
-            }
+        if ($database === null) {
+            return;
+        }
+        foreach ($database->getTableDescriptors() as $name => $descriptor) {
+            $this->addTable($name, $descriptor);
         }
     }
 
@@ -80,17 +81,18 @@ class Manager
      */
     public function log($message)
     {
-        if ($this->log !== null) {
-            $args = array_slice(func_get_args(), 1);
-            $this->log->write(Log::DEBUG, 'ORM', $message, $args);
+        if ($this->log === null) {
+            return;
         }
+        $args = array_slice(func_get_args(), 1);
+        $this->log->write(Log::DEBUG, 'ORM', $message, $args);
     }
 
     /**
      * @param string          $name
      * @param TableDescriptor $table
      */
-    public function __set($name, TableDescriptor $table)
+    public function addTable($name, TableDescriptor $table)
     {
         if ($name === null) {
             sscanf($table->name, $this->database->getTableNameFormat(), $name);

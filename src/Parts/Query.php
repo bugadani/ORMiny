@@ -11,9 +11,7 @@ namespace Modules\ORM\Parts;
 
 use Countable;
 use Iterator;
-use Modules\DBAL\Driver\Statement;
 use Modules\DBAL\QueryBuilder\Select;
-use Modules\ORM\Manager;
 
 class Query implements Iterator, Countable
 {
@@ -21,9 +19,9 @@ class Query implements Iterator, Countable
     private $with = array();
     private $columns = array();
     private $where;
-    private $where_params = array();
+    private $whereParams = array();
     private $having;
-    private $having_params = array();
+    private $havingParams = array();
     private $rows = array();
     private $query;
     private $queryBuilder;
@@ -110,10 +108,10 @@ class Query implements Iterator, Countable
         if (!$this->where) {
             $this->where = true;
             $this->select->where($condition);
-            $this->where_params = $params;
+            $this->whereParams = $params;
         } else {
             $this->select->andWhere($condition);
-            $this->where_params = array_merge($this->where_params, $params);
+            $this->whereParams = array_merge($this->whereParams, $params);
         }
 
         return $this;
@@ -137,10 +135,10 @@ class Query implements Iterator, Countable
         if (!$this->having) {
             $this->having = true;
             $this->select->having($condition);
-            $this->having_params = $params;
+            $this->havingParams = $params;
         } else {
             $this->select->andHaving($condition);
-            $this->having_params = array_merge($this->having_params, $params);
+            $this->havingParams = array_merge($this->havingParams, $params);
         }
 
         return $this;
@@ -253,28 +251,28 @@ class Query implements Iterator, Countable
         TableDescriptor $tableDescriptor,
         $tableName
     ) {
-        $columns     = array();
-        $extra       = array();
-        $tableFields = $tableDescriptor->fields;
-        foreach ($this->columns ? : $tableFields as $name) {
-            if (strpos($name, '(') === false) {
-                $columns[] = sprintf(
-                    '%1$s.%2$s as %3$s_%2$s',
-                    $tableName,
-                    $name,
-                    $tableDescriptor->name
-                );
-            } else {
-                $columns[] = $name;
+        if (empty($this->columns)) {
+            $columnList = $tableDescriptor->fields;
+            foreach ($columnList as &$name) {
+                $name = $tableName . '.' . $name . ' as ' . $tableDescriptor->name . '_' . $name;
             }
-            if (!in_array($name, $tableFields) && strpos($name, ' as ')) {
-                list(, $alias) = explode(' as ', $name, 2);
-                $extra[$alias] = $alias;
+        } else {
+            $extra       = array();
+            $tableFields = $tableDescriptor->fields;
+            $columnList  = $this->columns;
+            foreach ($columnList as &$name) {
+                if (strpos($name, '(') === false) {
+                    $alias         = $tableDescriptor->name . '_' . $name;
+                    $extra[$alias] = $alias;
+                    $name          = $tableName . '.' . $name . ' as ' . $alias;
+                } elseif (!in_array($name, $tableFields) && strpos($name, ' as ')) {
+                    list(, $alias) = explode(' as ', $name, 2);
+                    $extra[$alias] = $alias;
+                }
             }
+            $this->processor->setExtraFieldsForMainTable($extra);
         }
-
-        $this->processor->setExtraFieldsForMainTable($extra);
-        $select->addSelect($columns);
+        $select->addSelect($columnList);
     }
 
     private function addRelationToQuery($relatedName)
@@ -292,17 +290,11 @@ class Query implements Iterator, Countable
         $relatedTableAlias = $related->descriptor->name;
         $relatedPrimaryKey = $related->descriptor->primary_key;
 
+        $array = array();
         foreach ($related->descriptor->fields as $field) {
-            $this->select->addSelect(
-                sprintf(
-                    '%s.%s as %s_%s',
-                    $relatedTableName,
-                    $field,
-                    $relatedTableAlias,
-                    $field
-                )
-            );
+            $array[] = $relatedTableName . '.' . $field . ' as ' . $relatedTableAlias . '_' . $field;
         }
+        $this->select->addSelect($array);
 
         $tableName       = $this->table->getTableName();
         $tableDescriptor = $this->table->descriptor;
@@ -369,10 +361,13 @@ class Query implements Iterator, Countable
         $query = $this->getQuery();
         $this->manager->log('Executing query: %s', $query);
 
-        $stmt = $this->manager->connection->prepare($query);
-        $this->bindParameters($stmt, $this->manager);
+        $params = array_merge($this->whereParams, $this->havingParams);
+        if (!empty($params)) {
+            $this->manager->log('Query parameters: "%s"', implode('", "', $params));
+        }
 
-        $stmt->execute();
+        $stmt = $this->manager->connection->query($query, $params);
+
         if ($single) {
             $this->processor->setLimits(1);
             $this->manager->log('Single row requested');
@@ -397,27 +392,6 @@ class Query implements Iterator, Countable
         }
 
         return $this->processor->processResultsWithRelatedRecords($stmt, $this->with);
-    }
-
-    /**
-     * @param Statement $stmt
-     * @param Manager   $orm
-     */
-    protected function bindParameters(Statement $stmt, Manager $orm)
-    {
-        $i      = 0;
-        $params = array();
-        foreach ($this->where_params as $param) {
-            $stmt->bindValue(++$i, $param);
-            $params[] = $param;
-        }
-        foreach ($this->having_params as $param) {
-            $stmt->bindValue(++$i, $param);
-            $params[] = $param;
-        }
-        if (count($params)) {
-            $orm->log('Query parameters: "%s"', implode('", "', $params));
-        }
     }
 
     /**

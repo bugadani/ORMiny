@@ -49,7 +49,7 @@ class ResultProcessor
         if (!empty($related)) {
             return $this->processResultsWithRelatedRecords($statement, $related);
         }
-        $rows   = $statement->fetchAll();
+        $rows = $statement->fetchAll();
         $this->table->manager->log('Results: %d', count($rows));
 
         if (isset($this->limit) && $this->limit === 1) {

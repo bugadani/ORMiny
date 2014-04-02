@@ -17,8 +17,10 @@ class Utils
 {
     /**
      * Calls a callback in a transaction.
-     * @param Manager $orm
+     *
+     * @param Manager  $orm
      * @param callback $callback
+     *
      * @return mixed The value returned from the callback
      * @throws InvalidArgumentException
      */
@@ -34,13 +36,16 @@ class Utils
         $orm->connection->beginTransaction();
         $return = call_user_func_array($callback, $params);
         $orm->connection->commit();
+
         return $return;
     }
 
     /**
      * Calls a callback safeguarded by a transaction that rolls back on errors.
-     * @param Manager $orm
+     *
+     * @param Manager  $orm
      * @param callback $callback
+     *
      * @return mixed The value returned from the callback
      * @throws InvalidArgumentException
      * @throws Exception
@@ -52,6 +57,7 @@ class Utils
             if (is_array($params[0])) {
                 $params = $params[0];
             }
+
             return self::inTransaction($orm, $callback, $params);
         } catch (Exception $e) {
             $orm->connection->rollback();
@@ -65,7 +71,7 @@ class Utils
      */
     public static function batchInsert(Table $table, array $rows)
     {
-        $callback = function(array $rows)use($table) {
+        $callback = function (array $rows) use ($table) {
             foreach ($rows as $row) {
                 $table->insert($row);
             }
