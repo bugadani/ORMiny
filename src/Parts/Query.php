@@ -12,6 +12,8 @@ namespace Modules\ORM\Parts;
 use Countable;
 use Iterator;
 use Modules\DBAL\QueryBuilder\Select;
+use Modules\DBAL\QueryBuilder;
+use Modules\ORM\Manager;
 
 class Query implements Iterator, Countable
 {
@@ -24,7 +26,16 @@ class Query implements Iterator, Countable
     private $havingParams = array();
     private $rows = array();
     private $query;
+
+    /**
+     * @var QueryBuilder
+     */
     private $queryBuilder;
+
+    /**
+     * @var Manager
+     */
+    private $manager;
 
     /**
      * @var ResultProcessor
@@ -32,21 +43,26 @@ class Query implements Iterator, Countable
     private $processor;
 
     /**
-     *
-     * @param Table $table
+     * @var Select
      */
-    public function __construct(Table $table)
+    private $select;
+
+    /**
+     *
+     * @param Manager $manager
+     * @param Table   $table
+     */
+    public function __construct(Manager $manager, Table $table)
     {
         $this->table        = $table;
-        $this->manager      = $table->manager;
-        $this->queryBuilder = $table->manager->connection->getQueryBuilder();
+        $this->manager      = $manager;
+        $this->queryBuilder = $manager->connection->getQueryBuilder();
 
         $this->processor = new ResultProcessor($table);
 
-        $tableName    = $table->getTableName();
         $this->select = $this->queryBuilder
             ->select(array())
-            ->from($tableName);
+            ->from($table->getTableName());
     }
 
     /**
@@ -419,7 +435,7 @@ class Query implements Iterator, Countable
             $pk = $this->table->getPrimaryKey(true);
             if (is_array($single)) {
                 if (!empty($single)) {
-                    $in = $this->manager->getQueryBuilder()->expression()->in(
+                    $in = $this->queryBuilder->expression()->in(
                         $pk,
                         array_fill(0, count($single), '?')
                     );

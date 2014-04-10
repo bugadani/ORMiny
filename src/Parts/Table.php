@@ -45,7 +45,7 @@ class Table implements ArrayAccess, Iterator
 
     public function __call($method, $args)
     {
-        $query = new Query($this);
+        $query = new Query($this->manager, $this);
 
         return call_user_func_array(array($query, $method), $args);
     }
@@ -234,7 +234,7 @@ class Table implements ArrayAccess, Iterator
                 return $pk;
             }
             $placeholders = array();
-            $pks = array();
+            $pks          = array();
             foreach ($pk as $i => $key) {
                 $placeholders[]  = ':pk_' . $i;
                 $pks['pk_' . $i] = $key;
@@ -364,7 +364,7 @@ class Table implements ArrayAccess, Iterator
     public function offsetGet($offset)
     {
         if (!isset($this->loadedRecords[$offset])) {
-            $query     = new Query($this);
+            $query     = new Query($this->manager, $this);
             $condition = sprintf('%s = ?', $this->descriptor->primary_key);
             $record    = $query->where($condition, $offset)->get();
             if (empty($record)) {
@@ -416,7 +416,7 @@ class Table implements ArrayAccess, Iterator
     public function rewind()
     {
         if (empty($this->loadedRecords)) {
-            $query               = new Query($this);
+            $query               = new Query($this->manager, $this);
             $this->loadedRecords = $query->execute();
             if (!is_array($this->loadedRecords)) {
                 $pk                  = $this->loadedRecords[$this->getPrimaryKey()];
