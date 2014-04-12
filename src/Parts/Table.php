@@ -146,16 +146,18 @@ class Table implements ArrayAccess, Iterator
     public function getJoinTableName($related)
     {
         $join_table = $this . '_' . $related;
-        if (!isset($this->manager->$join_table)) {
-            //Let's try the other way around.
-            $join_table = $related . '_' . $this;
-            if (!isset($this->manager->$join_table)) {
-                $message = sprintf('%s and %s is not related.', $this, $related);
-                throw new InvalidArgumentException($message);
-            }
+        if (isset($this->manager->$join_table)) {
+            return $join_table;
         }
 
-        return $join_table;
+        //Let's try the other way around.
+        $join_table = $related . '_' . $this;
+        if (isset($this->manager->$join_table)) {
+            return $join_table;
+        }
+
+        $message = sprintf('%s and %s is not related.', $this, $related);
+        throw new InvalidArgumentException($message);
     }
 
     /**
@@ -204,20 +206,14 @@ class Table implements ArrayAccess, Iterator
 
         $insert = $pdo->getQueryBuilder()->insert($this->getTableName());
 
-        $log_fields = array();
         foreach ($record_data as $key => $data) {
-            $insert->set($pdo->quoteIdentifier($key), ':' . $key);
-
-            $log_fields[] = sprintf(':%s = "%s"', $key, $data);
+            $insert->set(
+                $pdo->quoteIdentifier($key),
+                $insert->createNamedParameter($data)
+            );
         }
 
-        $sql = $insert->get();
-        $this->manager->log('Executing query: ' . $sql);
-        $this->manager->log('Parameters: ' . implode(', ', $log_fields));
-
-        $pdo->query($sql, $record_data);
-
-        return $pdo->lastInsertId();
+        return $insert->query();
     }
 
     public function update($pk, array $data)
@@ -253,23 +249,25 @@ class Table implements ArrayAccess, Iterator
     {
         $data = array_intersect_key($data, array_flip($this->descriptor->fields));
 
+        if (empty($data)) {
+            $this->manager->log('Update cancelled. No valid fields were set.');
+
+            return;
+        }
+
         $pdo    = $this->manager->connection;
         $update = $pdo->getQueryBuilder()
             ->update($this->getTableName())
             ->where($condition);
 
         foreach ($data as $key => $value) {
-            $update->set($pdo->quoteIdentifier($key), ':' . $key);
-            $parameters[$key] = $value;
+            $update->set(
+                $pdo->quoteIdentifier($key),
+                $update->createNamedParameter($value)
+            );
         }
 
-        if (count($parameters) > 1) {
-            $sql = $update->get();
-            $this->manager->log($sql);
-            $this->manager->connection->query($sql, $parameters);
-        } else {
-            $this->manager->log('Update cancelled. No valid fields were set.');
-        }
+        $update->query($parameters);
     }
 
     /**
@@ -315,14 +313,13 @@ class Table implements ArrayAccess, Iterator
                 $relations_to_delete[] = $name;
             }
         }
-        if (!empty($relations_to_delete)) {
-            $message = sprintf('Also delete rows from %s', implode(', ', $relations_to_delete));
-            $this->manager->log($message);
-        }
         $pdo          = $this->manager->connection;
         $queryBuilder = $pdo->getQueryBuilder();
 
         if (!empty($relations_to_delete)) {
+            $message = sprintf('Also delete rows from %s', implode(', ', $relations_to_delete));
+            $this->manager->log($message);
+
             $sql = $queryBuilder
                 ->select($this->getPrimaryKey())
                 ->from($this->getTableName())
@@ -337,16 +334,19 @@ class Table implements ArrayAccess, Iterator
                 foreach ($relations_to_delete as $relation) {
                     $table       = $this->getRelatedTable($relation);
                     $foreign_key = $table->getForeignKey($this->descriptor->name);
-                    $expression  = $queryBuilder->expression()->in($foreign_key, $placeholders);
-                    $table->deleteRows($expression->get(), (array)$deleted_ids);
+                    $expression  = $queryBuilder
+                        ->expression()
+                        ->in($foreign_key, $placeholders)
+                        ->get();
+                    $table->deleteRows($expression, (array)$deleted_ids);
                 }
             }
         }
 
-        $sql = $queryBuilder->delete($this->getTableName())->where($condition)->get();
-
-        $this->manager->log($sql);
-        $pdo->query($sql, $parameters);
+        $queryBuilder
+            ->delete($this->getTableName())
+            ->where($condition)
+            ->query($parameters);
     }
 
     //ArrayAccess methods
