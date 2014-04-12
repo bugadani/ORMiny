@@ -22,7 +22,8 @@ class Module extends \Miny\Modules\Module
     {
         return array(
             'database_descriptor' => __NAMESPACE__ . '\\DatabaseDiscovery',
-            'table_name_format'   => 'miny_%s'
+            'table_name_format'   => 'miny_%s',
+            'log'                 => true
         );
     }
 
@@ -41,6 +42,12 @@ class Module extends \Miny\Modules\Module
         $container->addAlias(
             __NAMESPACE__ . '\\iDatabaseDescriptor',
             $module->getConfiguration('database_descriptor')
+        );
+
+        $container->addConstructorArguments(
+            '\\Modules\\ORM\\Manager',
+            null,
+            $this->getConfiguration('log') ? null : $container->get('\\Miny\\Log\\NullLog')
         );
     }
 }

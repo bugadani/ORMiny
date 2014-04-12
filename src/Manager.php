@@ -9,6 +9,8 @@
 
 namespace Modules\ORM;
 
+use Miny\Log\AbstractLog;
+use Miny\Log\AbstractLogWriter;
 use Miny\Log\Log;
 use Modules\DBAL\Driver;
 use Modules\DBAL\QueryBuilder;
@@ -40,13 +42,13 @@ class Manager
 
     /**
      * @param Driver              $connection
+     * @param AbstractLog         $log
      * @param iDatabaseDescriptor $database
-     * @param Log                 $log
      */
     public function __construct(
         Driver $connection,
-        iDatabaseDescriptor $database = null,
-        Log $log = null
+        AbstractLog $log,
+        iDatabaseDescriptor $database = null
     ) {
         $this->connection = $connection;
         $this->log        = $log;
@@ -81,11 +83,7 @@ class Manager
      */
     public function log($message)
     {
-        if ($this->log === null) {
-            return;
-        }
-        $args = array_slice(func_get_args(), 1);
-        $this->log->write(Log::DEBUG, 'ORM', $message, $args);
+        $this->log->write(Log::DEBUG, 'ORM', $message, array_slice(func_get_args(), 1));
     }
 
     /**

@@ -375,14 +375,12 @@ class Query implements Iterator, Countable
     public function execute($single = false)
     {
         $query = $this->getQuery();
-        $this->manager->log('Executing query: %s', $query);
 
         $params = array_merge($this->whereParams, $this->havingParams);
+        $stmt = $this->manager->connection->query($query, $params);
         if (!empty($params)) {
             $this->manager->log('Query parameters: "%s"', implode('", "', $params));
         }
-
-        $stmt = $this->manager->connection->query($query, $params);
 
         if ($single) {
             $this->processor->setLimits(1);
