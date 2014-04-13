@@ -24,8 +24,11 @@ class Query implements Iterator, Countable
     private $whereParams = array();
     private $having;
     private $havingParams = array();
-    private $rows = array();
-    private $query;
+
+    /**
+     * @var Row[]
+     */
+    private $rows;
 
     /**
      * @var QueryBuilder
@@ -72,11 +75,6 @@ class Query implements Iterator, Countable
      */
     public function with()
     {
-        if (isset($this->rows)) {
-            unset($this->rows);
-            unset($this->query);
-        }
-
         foreach (func_get_args() as $relatedName) {
             $this->with[] = $relatedName;
             $this->addRelationToQuery($relatedName);
@@ -92,10 +90,6 @@ class Query implements Iterator, Countable
      */
     public function select()
     {
-        if (isset($this->rows)) {
-            unset($this->rows);
-            unset($this->query);
-        }
         $arguments = func_get_args();
         if (empty($this->columns)) {
             $this->columns = $arguments;
@@ -113,10 +107,6 @@ class Query implements Iterator, Countable
      */
     public function where($condition)
     {
-        if (isset($this->rows)) {
-            unset($this->rows);
-            unset($this->query);
-        }
         $params = array_slice(func_get_args(), 1);
         if (isset($params[0]) && is_array($params[0])) {
             $params = $params[0];
@@ -140,10 +130,6 @@ class Query implements Iterator, Countable
      */
     public function having($condition)
     {
-        if (isset($this->rows)) {
-            unset($this->rows);
-            unset($this->query);
-        }
         $params = array_slice(func_get_args(), 1);
         if (isset($params[0]) && is_array($params[0])) {
             $params = $params[0];
@@ -168,10 +154,6 @@ class Query implements Iterator, Countable
      */
     public function order($field, $order = 'ASC')
     {
-        if (isset($this->rows)) {
-            unset($this->rows);
-            unset($this->query);
-        }
         $this->select->orderBy($field, $order);
 
         return $this;
@@ -185,10 +167,6 @@ class Query implements Iterator, Countable
      */
     public function limit($limit, $offset = 0)
     {
-        if (isset($this->rows)) {
-            unset($this->rows);
-            unset($this->query);
-        }
         if (empty($this->with)) {
             $this->select->setFirstResult($offset);
             $this->select->setMaxResults($limit);
@@ -205,10 +183,6 @@ class Query implements Iterator, Countable
      */
     public function group($field)
     {
-        if (isset($this->rows)) {
-            unset($this->rows);
-            unset($this->query);
-        }
         $this->select->groupBy($field);
 
         return $this;
@@ -221,11 +195,6 @@ class Query implements Iterator, Countable
      */
     public function lock($lock = true)
     {
-        if (isset($this->rows)) {
-            unset($this->rows);
-            unset($this->query);
-        }
-
         $this->select->lockForUpdate($lock);
 
         return $this;
@@ -236,59 +205,56 @@ class Query implements Iterator, Countable
      */
     public function __toString()
     {
-        return $this->getQuery();
+        return $this->getQuery()->get();
     }
 
     /**
-     * @return string
+     * @return Select
      */
     public function getQuery()
     {
-        if (isset($this->query)) {
-            return $this->query;
-        }
-
         if (!empty($this->with)) {
-            $tableName       = $this->table->getTableName();
-            $tableDescriptor = $this->table->descriptor;
-
-            $this->addSelectedColumns($this->select, $tableDescriptor, $tableName);
+            if (empty($this->columns)) {
+                $this->addSelectedColumnsFromTable($this->table);
+            } else {
+                $this->addSelectedColumns($this->table);
+            }
         } else {
             $this->select->select($this->columns ? : '*');
         }
 
-        $this->query = $this->select->get();
-
-        return $this->query;
+        return $this->select;
     }
 
-    private function addSelectedColumns(
-        Select $select,
-        TableDescriptor $tableDescriptor,
-        $tableName
-    ) {
-        if (empty($this->columns)) {
-            $columnList = $tableDescriptor->fields;
-            foreach ($columnList as &$name) {
-                $name = $tableName . '.' . $name . ' as ' . $tableDescriptor->name . '_' . $name;
-            }
-        } else {
-            $extra       = array();
-            $tableFields = $tableDescriptor->fields;
-            $columnList  = $this->columns;
-            foreach ($columnList as &$name) {
-                if (strpos($name, '(') === false) {
-                    $alias         = $tableDescriptor->name . '_' . $name;
-                    $extra[$alias] = $alias;
-                    $name          = $tableName . '.' . $name . ' as ' . $alias;
-                } elseif (!in_array($name, $tableFields) && strpos($name, ' as ')) {
-                    list(, $alias) = explode(' as ', $name, 2);
-                    $extra[$alias] = $alias;
-                }
-            }
-            $this->processor->setExtraFieldsForMainTable($extra);
+    private function addSelectedColumnsFromTable(Table $table)
+    {
+        $tableName  = $table->getTableName();
+        $tableAlias = $table->descriptor->name;
+
+        $array = array();
+        foreach ($table->descriptor->fields as $field) {
+            $array[] = $tableName . '.' . $field . ' as ' . $tableAlias . '_' . $field;
         }
-        $select->addSelect($columnList);
+        $this->select->addSelect($array);
+    }
+
+    private function addSelectedColumns(Table $table)
+    {
+        $extra      = array();
+        $columnList = $this->columns;
+        $tableName  = $table->getTableName();
+        foreach ($columnList as &$name) {
+            if (strpos($name, '(') === false) {
+                $alias         = $table->descriptor->name . '_' . $name;
+                $extra[$alias] = $alias;
+                $name          = $tableName . '.' . $name . ' as ' . $alias;
+            } elseif (!in_array($name, $table->descriptor->fields) && strpos($name, ' as ')) {
+                list(, $alias) = explode(' as ', $name, 2);
+                $extra[$alias] = $alias;
+            }
+        }
+        $this->processor->setExtraFieldsForMainTable($extra);
+        $this->select->addSelect($columnList);
     }
 
     private function addRelationToQuery($relatedName)
@@ -303,14 +269,9 @@ class Query implements Iterator, Countable
 
         $related           = $this->table->getRelatedTable($relatedName);
         $relatedTableName  = $related->getTableName();
-        $relatedTableAlias = $related->descriptor->name;
         $relatedPrimaryKey = $related->descriptor->primary_key;
 
-        $array = array();
-        foreach ($related->descriptor->fields as $field) {
-            $array[] = $relatedTableName . '.' . $field . ' as ' . $relatedTableAlias . '_' . $field;
-        }
-        $this->select->addSelect($array);
+        $this->addSelectedColumnsFromTable($related);
 
         $tableName       = $this->table->getTableName();
         $tableDescriptor = $this->table->descriptor;
@@ -370,17 +331,12 @@ class Query implements Iterator, Countable
     /**
      * @param bool $single
      *
-     * @return Row
+     * @return Row|Row[]
      */
     public function execute($single = false)
     {
-        $query = $this->getQuery();
-
         $params = array_merge($this->whereParams, $this->havingParams);
-        $stmt = $this->manager->connection->query($query, $params);
-        if (!empty($params)) {
-            $this->manager->log('Query parameters: "%s"', implode('", "', $params));
-        }
+        $stmt   = $this->getQuery()->query($params);
 
         if ($single) {
             $this->processor->setLimits(1);
@@ -432,7 +388,7 @@ class Query implements Iterator, Countable
         } else {
             $pk = $this->table->getPrimaryKey(true);
             if (is_array($single)) {
-                if (!empty($single)) {
+                if (isset($single)) {
                     $in = $this->queryBuilder->expression()->in(
                         $pk,
                         array_fill(0, count($single), '?')
@@ -470,9 +426,6 @@ class Query implements Iterator, Countable
     {
         if (!isset($this->rows)) {
             $this->rows = $this->execute(false);
-            if (!is_array($this->rows)) {
-                $this->rows = array($this->rows);
-            }
         }
         reset($this->rows);
     }
