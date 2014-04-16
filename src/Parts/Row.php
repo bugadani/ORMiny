@@ -215,7 +215,20 @@ class Row implements ArrayAccess, IteratorAggregate
      */
     public function toArray()
     {
-        return array_merge($this->data, $this->related);
+        $relatedData = array();
+        foreach ($this->related as $name => $row) {
+            if ($row instanceof Row) {
+                $data = $row->toArray();
+            } else {
+                $data = array();
+                foreach ($row as $id => $record) {
+                    $data[$id] = $record->toArray();
+                }
+            }
+            $relatedData[$name] = $data;
+        }
+
+        return array_merge($this->data, $relatedData);
     }
 
 }
