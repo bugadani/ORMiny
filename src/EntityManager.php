@@ -12,6 +12,7 @@ namespace Modules\ORM;
 use Modules\Annotation\Comment;
 use Modules\Annotation\Reader;
 use Modules\DBAL\Driver;
+use Modules\ORM\Annotations\Relation;
 use Modules\ORM\Exceptions\EntityDefinitionException;
 
 class EntityManager
@@ -211,6 +212,27 @@ class EntityManager
 
     public function delete(Entity $entity, $object)
     {
+        foreach ($entity->getRelatedEntities() as $relationName => $relatedEntity) {
+            $relatedObjects = $entity->getRelationValue($object, $relationName);
+            switch ($entity->getRelation($relationName)->type) {
+                case Relation::HAS_ONE:
+                    $relatedEntity->delete($relatedObjects);
+                    break;
+
+                case Relation::HAS_MANY:
+                    array_map([$relatedEntity, 'delete'], $relatedObjects);
+                    break;
+
+                case Relation::MANY_MANY:
+                    //todo
+                    break;
+
+                case Relation::BELONGS_TO:
+                    //don't delete the record this one belongs to
+                    break;
+            }
+        }
+
         if ($entity->isPrimaryKeySet($object)) {
             $this->getEntityFinder($entity)
                 ->delete($entity->getPrimaryKeyValue($object));

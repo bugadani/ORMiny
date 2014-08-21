@@ -103,13 +103,13 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
     {
         $this->expectQuery('DELETE FROM test WHERE field=?');
 
-        $this->entityFinder->deleteByPk(5);
+        $this->entityFinder->delete(5);
     }
 
     public function testThatDeleteByPkUsesInForMultiple()
     {
         $this->expectQuery('DELETE FROM test WHERE field IN(?, ?)');
 
-        $this->entityFinder->deleteByPk([4, 5]);
+        $this->entityFinder->delete([4, 5]);
     }
 }

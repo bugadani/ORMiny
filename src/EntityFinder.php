@@ -321,38 +321,22 @@ class EntityFinder
         return $records;
     }
 
-    private function deleteRelatedRecords()
+    private function deleteByPk($primaryKeys)
     {
-        //ha a saját finderrel töröltetem, akkor rekurzívan minden ahhoz csatlakozót is töröl -> :)
-    }
-
-    public function deleteByPk($primaryKeys)
-    {
-        //TODO: delete records from has many and many-many relations
-        //TODO: itt meg kell különböztetni a has one és a belongs to relációt?
-        //has one-nál töröl, belongs to-nál nem
-        //de a belongs to az has many típus lényegében, de pl egy user kommentjei has many és törölni kell
-
-        $this->deleteRelatedRecords();
-
-        $queryBuilder = $this->driver->getQueryBuilder();
-
-        return $queryBuilder
-            ->delete($this->entity->getTable())
-            ->where(
-                $this->createInExpression(
-                    $this->entity->getPrimaryKey(),
-                    (array)$primaryKeys,
-                    $queryBuilder
-                )
-            )->query();
+        array_map(
+            [$this->entity, 'delete'],
+            $this->with(array_keys($this->entity->getRelations()))
+                ->getByPrimaryKey($primaryKeys)
+        );
     }
 
     public function delete()
     {
         if (func_num_args() > 0) {
             if (!is_array(func_get_arg(0))) {
-                return $this->deleteByPk(func_get_args());
+                $this->deleteByPk(func_get_args());
+
+                return;
             } else {
                 $parameters = func_get_arg(0);
             }
@@ -360,14 +344,11 @@ class EntityFinder
             $parameters = [];
         }
 
-        $this->deleteRelatedRecords();
-
-        //delete by expression
-        return $this->applyFilters(
-            $this->driver
-                ->getQueryBuilder()
-                ->delete($this->entity->getTable())
-        )->query($parameters);
+        array_map(
+            [$this->entity, 'delete'],
+            $this->with(array_keys($this->entity->getRelations()))
+                ->get($parameters)
+        );
     }
 
     private function createInExpression($field, array $values, QueryBuilder $queryBuilder)
