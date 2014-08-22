@@ -4,7 +4,6 @@ namespace Modules\ORM;
 
 use Modules\Annotation\AnnotationReader;
 use Modules\DBAL\Driver;
-use Modules\DBAL\Driver\Statement;
 use Modules\DBAL\Platform\MySQL;
 
 class EntityTest extends \PHPUnit_Framework_TestCase
@@ -19,31 +18,17 @@ class EntityTest extends \PHPUnit_Framework_TestCase
      */
     private $driver;
 
-    /**
-     * @var Statement
-     */
-    private $mockStatement;
-
     public function setUp()
     {
         $platform     = new MySQL();
         $this->driver = $this->getMockBuilder('Modules\\DBAL\\Driver')
             ->disableOriginalConstructor()
-            ->setMethods(['getPlatform'])
-            ->getMockForAbstractClass();
-
-        $this->mockStatement = $this->getMockBuilder('Modules\\DBAL\\Driver\\Statement')
-            ->disableOriginalConstructor()
-            ->setMethods(['fetchAll', 'fetch'])
+            ->setMethods(['getPlatform', 'query'])
             ->getMockForAbstractClass();
 
         $this->driver->expects($this->any())
             ->method('getPlatform')
             ->will($this->returnValue($platform));
-
-        $this->driver->expects($this->any())
-            ->method('query')
-            ->will($this->returnValue($this->mockStatement));
 
         $this->entityManager = new EntityManager($this->driver, new AnnotationReader());
         $this->entityManager->register('TestEntity', 'Modules\\ORM\\TestEntity');
@@ -59,23 +44,50 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         );
     }
 
+    private function createMockStatement(array $return)
+    {
+        $mockStatement = $this->getMockBuilder('Modules\\DBAL\\Driver\\Statement')
+            ->disableOriginalConstructor()
+            ->setMethods(['fetchAll', 'fetch'])
+            ->getMockForAbstractClass();
+
+        $mockStatement->expects($this->any())
+            ->method('fetchAll')
+            ->will($this->returnValue($return));
+
+        $mockStatement->expects($this->any())
+            ->method('fetch')
+            ->will(call_user_func_array([$this, 'onConsecutiveCalls'], $return));
+
+        return $mockStatement;
+    }
+
+    private function expectQueries(array $queries)
+    {
+        $statements    = [];
+        $queryMatchers = [];
+        foreach ($queries as $query) {
+            if (!is_array($query)) {
+                $query = [$query, []];
+            }
+            if (!isset($query[1])) {
+                $query[1] = [];
+            }
+            $queryMatchers[] = [$this->equalTo($query[0])];
+            $statements[]    = $this->createMockStatement($query[1]);
+        }
+
+        $driverExpect = $this->driver
+            ->expects($this->any())
+            ->method('query');
+
+        call_user_func_array([$driverExpect, 'withConsecutive'], $queryMatchers)
+            ->will(call_user_func_array([$this, 'onConsecutiveCalls'], $statements));
+    }
+
     private function expectQuery($query, array $return = [])
     {
-        $this->driver->expects($this->once())
-            ->method('query')
-            ->with($this->equalTo($query));
-
-        $this->mockStatement->expects($this->any())
-            ->method('fetchAll')
-            ->will(
-                $this->returnValue($return)
-            );
-
-        $this->mockStatement->expects($this->any())
-            ->method('fetch')
-            ->will(
-                call_user_func_array([$this, 'onConsecutiveCalls'], $return)
-            );
+        $this->expectQueries([[$query, $return]]);
     }
 
     public function testCreate()
@@ -114,6 +126,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatInsertIsCalledForNewRecords()
     {
+        $this->expectQuery('INSERT INTO test (field, fieldWithSetter, field2) VALUES (?, ?, ?)');
+
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
@@ -123,15 +137,13 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             ]
         );
 
-        $this->expectQuery(
-            'INSERT INTO test (field, fieldWithSetter, field2) VALUES (?, ?, ?)'
-        );
-
         $entity->save($object);
     }
 
     public function testThatUpdateIsCalledForRecordsWithPrimaryKeySet()
     {
+        $this->expectQuery('UPDATE test SET field=?, fieldWithSetter=?, field2=?');
+
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
@@ -140,8 +152,6 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                 'fieldWithSetter' => 'foobar'
             ]
         );
-
-        $this->expectQuery('UPDATE test SET field=?, fieldWithSetter=?, field2=?');
 
         $entity->save($object);
     }
@@ -159,10 +169,10 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatDeleteIsCalledForRecordsWithPkSet()
     {
+        $this->expectQuery('DELETE FROM test WHERE field=?');
+
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(['field' => 'value']);
-
-        $this->expectQuery('DELETE FROM test WHERE field=?');
 
         $entity->delete($object);
     }

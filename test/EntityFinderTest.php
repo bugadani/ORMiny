@@ -4,7 +4,6 @@ namespace Modules\ORM;
 
 use Modules\Annotation\AnnotationReader;
 use Modules\DBAL\Driver;
-use Modules\DBAL\Driver\Statement;
 use Modules\DBAL\Platform\MySQL;
 
 class EntityFinderTest extends \PHPUnit_Framework_TestCase
@@ -24,31 +23,17 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
      */
     private $entityFinder;
 
-    /**
-     * @var Statement
-     */
-    private $mockStatement;
-
     public function setUp()
     {
         $platform     = new MySQL();
         $this->driver = $this->getMockBuilder('Modules\\DBAL\\Driver')
             ->disableOriginalConstructor()
-            ->setMethods(['getPlatform'])
-            ->getMockForAbstractClass();
-
-        $this->mockStatement = $this->getMockBuilder('Modules\\DBAL\\Driver\\Statement')
-            ->disableOriginalConstructor()
-            ->setMethods(['fetchAll', 'fetch'])
+            ->setMethods(['getPlatform', 'query'])
             ->getMockForAbstractClass();
 
         $this->driver->expects($this->any())
             ->method('getPlatform')
             ->will($this->returnValue($platform));
-
-        $this->driver->expects($this->any())
-            ->method('query')
-            ->will($this->returnValue($this->mockStatement));
 
         $this->entityManager = new EntityManager($this->driver, new AnnotationReader());
         $this->entityManager->register('TestEntity', 'Modules\\ORM\\TestEntity');
@@ -66,23 +51,50 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
         $this->entityFinder = $this->entityManager->find('TestEntity');
     }
 
+    private function createMockStatement($return)
+    {
+        $mockStatement = $this->getMockBuilder('Modules\\DBAL\\Driver\\Statement')
+            ->disableOriginalConstructor()
+            ->setMethods(['fetchAll', 'fetch'])
+            ->getMockForAbstractClass();
+
+        $mockStatement->expects($this->any())
+            ->method('fetchAll')
+            ->will($this->returnValue($return));
+
+        $mockStatement->expects($this->any())
+            ->method('fetch')
+            ->will(call_user_func_array([$this, 'onConsecutiveCalls'], $return));
+
+        return $mockStatement;
+    }
+
+    private function expectQueries(array $queries)
+    {
+        $statements    = [];
+        $queryMatchers = [];
+        foreach ($queries as $query) {
+            if (!is_array($query)) {
+                $query = [$query, []];
+            }
+            if (!isset($query[1])) {
+                $query[1] = [];
+            }
+            $queryMatchers[] = [$this->equalTo($query[0])];
+            $statements[]    = $this->createMockStatement($query[1]);
+        }
+
+        $driverExpect = $this->driver
+            ->expects($this->any())
+            ->method('query');
+
+        call_user_func_array([$driverExpect, 'withConsecutive'], $queryMatchers)
+            ->will(call_user_func_array([$this, 'onConsecutiveCalls'], $statements));
+    }
+
     private function expectQuery($query, array $return = [])
     {
-        $this->driver->expects($this->once())
-            ->method('query')
-            ->with($this->equalTo($query));
-
-        $this->mockStatement->expects($this->any())
-            ->method('fetchAll')
-            ->will(
-                $this->returnValue($return)
-            );
-
-        $this->mockStatement->expects($this->any())
-            ->method('fetch')
-            ->will(
-                call_user_func_array([$this, 'onConsecutiveCalls'], $return)
-            );
+        $this->expectQueries([[$query, $return]]);
     }
 
     public function testThatSimpleCountQueryIsCorrect()
