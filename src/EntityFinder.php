@@ -83,14 +83,14 @@ class EntityFinder
 
     public function setMaxResults($limit)
     {
-        $this->limit = (int)$limit;
+        $this->limit = (int) $limit;
 
         return $this;
     }
 
     public function setFirstResult($offset)
     {
-        $this->offset = (int)$offset;
+        $this->offset = (int) $offset;
 
         return $this;
     }
@@ -323,11 +323,25 @@ class EntityFinder
 
     private function deleteByPk($primaryKeys)
     {
-        array_map(
-            [$this->entity, 'delete'],
-            $this->with(array_keys($this->entity->getRelations()))
-                ->getByPrimaryKey($primaryKeys)
-        );
+        $relations = $this->entity->getRelations();
+        if (empty($relations)) {
+            $queryBuilder = $this->driver->getQueryBuilder();
+
+            $queryBuilder->delete($this->entity->getTable())
+                ->where(
+                    $this->createInExpression(
+                        $this->entity->getPrimaryKey(),
+                        $primaryKeys,
+                        $queryBuilder
+                    )
+                )->query();
+        } else {
+            array_map(
+                [$this->entity, 'delete'],
+                $this->with(array_keys($relations))
+                    ->getByPrimaryKey($primaryKeys)
+            );
+        }
     }
 
     public function delete()
@@ -343,12 +357,20 @@ class EntityFinder
         } else {
             $parameters = [];
         }
-
-        array_map(
-            [$this->entity, 'delete'],
-            $this->with(array_keys($this->entity->getRelations()))
-                ->get($parameters)
-        );
+        $relations = $this->entity->getRelations();
+        if (empty($relations)) {
+            $this->applyFilters(
+                $this->driver
+                    ->getQueryBuilder()
+                    ->delete($this->entity->getTable())
+            )->query();
+        } else {
+            array_map(
+                [$this->entity, 'delete'],
+                $this->with(array_keys($relations))
+                    ->get($parameters)
+            );
+        }
     }
 
     private function createInExpression($field, array $values, QueryBuilder $queryBuilder)
