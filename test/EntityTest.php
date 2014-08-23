@@ -78,7 +78,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         }
 
         $driverExpect = $this->driver
-            ->expects($this->any())
+            ->expects($this->exactly(count($queries)))
             ->method('query');
 
         call_user_func_array([$driverExpect, 'withConsecutive'], $queryMatchers)
@@ -363,5 +363,23 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             ->get();
 
         $this->assertCount(2, $objects);
+    }
+
+    public function testDeletingNonexistentRecordWithRelationsOnlyPerformsSelect()
+    {
+        $this->expectQueries(
+            [
+                [
+                    'SELECT pk, fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
+                    'LEFT JOIN many_many_related ON relation.fk=many_many_related.many_many_fk ' .
+                    'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey ' .
+                    'WHERE pk=?',
+                    []
+                ]
+            ]
+        );
+        $this->entityManager
+            ->find('ManyManyRelationEntity')
+            ->delete(2);
     }
 }

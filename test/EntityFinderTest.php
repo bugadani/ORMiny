@@ -85,7 +85,7 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
         }
 
         $driverExpect = $this->driver
-            ->expects($this->any())
+            ->expects($this->exactly(count($queries)))
             ->method('query');
 
         call_user_func_array([$driverExpect, 'withConsecutive'], $queryMatchers)

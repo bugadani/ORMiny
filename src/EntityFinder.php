@@ -336,9 +336,9 @@ class EntityFinder
                     )
                 )->query();
         } else {
-            array_map(
-                [$this->entity, 'delete'],
-                $this->with(array_keys($relations))
+            $this->deleteRecords(
+                $this
+                    ->with(array_keys($relations))
                     ->getByPrimaryKey($primaryKeys)
             );
         }
@@ -358,6 +358,7 @@ class EntityFinder
             $parameters = [];
         }
         $relations = $this->entity->getRelations();
+
         if (empty($relations)) {
             $this->applyFilters(
                 $this->driver
@@ -365,8 +366,7 @@ class EntityFinder
                     ->delete($this->entity->getTable())
             )->query();
         } else {
-            array_map(
-                [$this->entity, 'delete'],
+            $this->deleteRecords(
                 $this->with(array_keys($relations))
                     ->get($parameters)
             );
@@ -451,5 +451,23 @@ class EntityFinder
         $statement->closeCursor();
 
         return $records;
+    }
+
+    /**
+     * @param $records
+     */
+    private function deleteRecords($records)
+    {
+        if ($records === false) {
+            return;
+        }
+        if (is_array($records)) {
+            array_map(
+                [$this->entity, 'delete'],
+                $records
+            );
+        } else {
+            $this->entity->delete($records);
+        }
     }
 }
