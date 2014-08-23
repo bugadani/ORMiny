@@ -12,6 +12,7 @@ namespace Modules\ORM;
 use Modules\Annotation\Comment;
 use Modules\Annotation\Reader;
 use Modules\DBAL\Driver;
+use Modules\DBAL\QueryBuilder;
 use Modules\ORM\Annotations\Relation;
 use Modules\ORM\Exceptions\EntityDefinitionException;
 
@@ -214,9 +215,10 @@ class EntityManager
     {
         foreach ($entity->getRelatedEntities() as $relationName => $relatedEntity) {
             $relatedObjects = $entity->getRelationValue($object, $relationName);
-            switch ($entity->getRelation($relationName)->type) {
+            $relation = $entity->getRelation($relationName);
+            switch ($relation->type) {
                 case Relation::HAS_ONE:
-                    $relatedEntity->delete($relatedObjects);
+                    $this->delete($relatedEntity, $relatedObjects);;
                     break;
 
                 case Relation::HAS_MANY:
@@ -224,7 +226,22 @@ class EntityManager
                     break;
 
                 case Relation::MANY_MANY:
-                    //todo
+                    $joinTable = $entity->getTable() . '_' . $relatedEntity->getTable();
+                    $field     = $entity->getTable() . '_' . $relation->foreignKey;
+
+                    $queryBuilder = $this->driver->getQueryBuilder();
+                    $queryBuilder
+                        ->delete($joinTable)
+                        ->where(
+                            $this->createInExpression(
+                                $field,
+                                array_map(
+                                    [$relatedEntity, 'getPrimaryKeyValue'],
+                                    $relatedObjects
+                                ),
+                                $queryBuilder
+                            )
+                        )->query();
                     break;
 
                 case Relation::BELONGS_TO:
@@ -234,8 +251,7 @@ class EntityManager
         }
 
         if ($entity->isPrimaryKeySet($object)) {
-            $this->getEntityFinder($entity)
-                ->delete($entity->getPrimaryKeyValue($object));
+            $this->deleteByPrimaryKey($entity, $entity->getPrimaryKeyValue($object));
         }
     }
 
@@ -243,5 +259,36 @@ class EntityManager
     {
         return $this->getEntityFinder($entity)
             ->get($primaryKey);
+    }
+
+    private function createInExpression($field, array $values, QueryBuilder $queryBuilder)
+    {
+        $expression = $queryBuilder->expression();
+        if (count($values) === 1) {
+            $expression->eq(
+                $field,
+                $queryBuilder->createPositionalParameter(current($values))
+            );
+        } else {
+            $expression->in(
+                $field,
+                array_map([$queryBuilder, 'createPositionalParameter'], $values)
+            );
+        }
+
+        return $expression;
+    }
+
+    public function deleteByPrimaryKey(Entity $entity, $primaryKey)
+    {
+        $queryBuilder = $this->driver->getQueryBuilder();
+        $queryBuilder->delete($entity->getTable())
+            ->where(
+                $this->createInExpression(
+                    $entity->getPrimaryKey(),
+                    (array) $primaryKey,
+                    $queryBuilder
+                )
+            )->query();
     }
 }

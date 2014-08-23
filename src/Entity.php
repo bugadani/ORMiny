@@ -217,6 +217,11 @@ class Entity
         $this->manager->delete($this, $object);
     }
 
+    public function deleteByPrimaryKey($pk)
+    {
+        $this->manager->deleteByPrimaryKey($this, $pk);
+    }
+
     private function registerSetterAndGetter($fieldName, $setter, $getter)
     {
         if ($setter !== null) {

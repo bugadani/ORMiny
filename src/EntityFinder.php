@@ -234,7 +234,7 @@ class EntityFinder
                 break;
 
             case Relation::MANY_MANY:
-                $joinTable = $leftAlias . '_' . $relatedTable;
+                $joinTable = $entityTable . '_' . $relatedTable;
 
                 $query->leftJoin(
                     $leftAlias,
@@ -325,16 +325,7 @@ class EntityFinder
     {
         $relations = $this->entity->getRelations();
         if (empty($relations)) {
-            $queryBuilder = $this->driver->getQueryBuilder();
-
-            $queryBuilder->delete($this->entity->getTable())
-                ->where(
-                    $this->createInExpression(
-                        $this->entity->getPrimaryKey(),
-                        $primaryKeys,
-                        $queryBuilder
-                    )
-                )->query();
+            $this->entity->deleteByPrimaryKey($primaryKeys);
         } else {
             $this->deleteRecords(
                 $this

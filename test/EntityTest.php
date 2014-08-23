@@ -382,4 +382,35 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             ->find('ManyManyRelationEntity')
             ->delete(2);
     }
+
+    public function testDeletingRecordWithRelations()
+    {
+        $this->expectQueries(
+            [
+                [
+                    'SELECT pk, fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
+                    'LEFT JOIN many_many_related ON relation.fk=many_many_related.many_many_fk ' .
+                    'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey ' .
+                    'WHERE pk=?',
+                    [
+                        [
+                            'pk'                  => 1,
+                            'fk'                  => 1,
+                            'relation_primaryKey' => 1
+                        ],
+                        [
+                            'pk'                  => 1,
+                            'fk'                  => 1,
+                            'relation_primaryKey' => 2
+                        ]
+                    ],
+                ],
+                ['DELETE FROM many_many_related WHERE many_many_fk IN(?, ?)'],
+                ['DELETE FROM many_many WHERE pk=?']
+            ]
+        );
+        $this->entityManager
+            ->find('ManyManyRelationEntity')
+            ->delete(2);
+    }
 }
