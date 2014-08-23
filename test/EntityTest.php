@@ -298,14 +298,15 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             ]
         );
 
-        $object = $this->entityManager
-            ->find('DeepRelationEntity')
-            ->where('pk = ?')
+        $entityFinder = $this->entityManager->find('DeepRelationEntity');
+
+        $object = $entityFinder
+            ->where('pk = ' . $entityFinder->parameter(5))
             ->setFirstResult(2)
             ->setMaxResults(3)
             ->orderBy('pk', 'asc')
             ->groupBy('fk')
-            ->get([5]);
+            ->get();
 
         $this->assertInstanceOf('Modules\\ORM\\DeepRelationEntity', $object[5]);
 
