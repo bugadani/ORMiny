@@ -150,15 +150,18 @@ class EntityFinder
             $parameters = [];
         }
 
-        $query = $this->applyFilters(
-            $this->driver
-                ->getQueryBuilder()
-                ->select($this->entity->getFields())
-                ->from($this->entity->getTable())
+        return $this->process(
+            $this->joinRelationsToQuery(
+                $this->entity,
+                $this->applyFilters(
+                    $this->driver
+                        ->getQueryBuilder()
+                        ->select($this->entity->getFields())
+                        ->from($this->entity->getTable())
+                ),
+                ''
+            )->query($parameters)
         );
-        $this->joinRelationsToQuery($this->entity, $query, '');
-
-        return $this->process($query->query($parameters));
     }
 
     private function applyFilters(AbstractQueryBuilder $query)
@@ -263,6 +266,8 @@ class EntityFinder
      * @param Entity $entity
      * @param        $query
      * @param        $prefix
+     *
+     * @return AbstractQueryBuilder
      */
     private function joinRelationsToQuery($entity, $query, $prefix)
     {
@@ -283,9 +288,7 @@ class EntityFinder
             );
         }
 
-        $with = array_filter($with, [$entity, 'hasRelation']);
-
-        foreach ($with as $relationName) {
+        foreach (array_filter($with, [$entity, 'hasRelation']) as $relationName) {
             $this->relationStack[] = $relationName;
 
             $relation = $entity->getRelation($relationName);
@@ -293,26 +296,30 @@ class EntityFinder
 
             array_pop($this->relationStack);
         }
+
+        return $query;
     }
 
     private function getByPrimaryKey($primaryKeys)
     {
         $queryBuilder = $this->driver->getQueryBuilder();
 
-        $query = $queryBuilder
-            ->select($this->entity->getFields())
-            ->from($this->entity->getTable())
-            ->where(
-                $this->createInExpression(
-                    $this->entity->getPrimaryKey(),
-                    $primaryKeys,
-                    $queryBuilder
-                )
-            );
-
-        $this->joinRelationsToQuery($this->entity, $query, '');
-
-        $records = $this->process($query->query());
+        $records = $this->process(
+            $this->joinRelationsToQuery(
+                $this->entity,
+                $queryBuilder
+                    ->select($this->entity->getFields())
+                    ->from($this->entity->getTable())
+                    ->where(
+                        $this->createInExpression(
+                            $this->entity->getPrimaryKey(),
+                            $primaryKeys,
+                            $queryBuilder
+                        )
+                    ),
+                ''
+            )->query()
+        );
 
         if (count($primaryKeys) === 1) {
             return current($records);
@@ -396,15 +403,14 @@ class EntityFinder
 
     private function process(Statement $results)
     {
-        $pkField = $this->entity->getPrimaryKey();
-
-        $records = $this->resultProcessor->processRecords(
+        return $this->resultProcessor->processRecords(
             $this->entity,
             $this->with,
-            $this->fetchResults($results, $pkField)
+            $this->fetchResults(
+                $results,
+                $this->entity->getPrimaryKey()
+            )
         );
-
-        return $records;
     }
 
     /**

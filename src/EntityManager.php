@@ -215,7 +215,7 @@ class EntityManager
     {
         foreach ($entity->getRelatedEntities() as $relationName => $relatedEntity) {
             $relatedObjects = $entity->getRelationValue($object, $relationName);
-            $relation = $entity->getRelation($relationName);
+            $relation       = $entity->getRelation($relationName);
             switch ($relation->type) {
                 case Relation::HAS_ONE:
                     $this->delete($relatedEntity, $relatedObjects);;
@@ -251,7 +251,10 @@ class EntityManager
         }
 
         if ($entity->isPrimaryKeySet($object)) {
-            $this->deleteByPrimaryKey($entity, $entity->getPrimaryKeyValue($object));
+            $this->deleteByPrimaryKey(
+                $entity,
+                $entity->getPrimaryKeyValue($object)
+            );
         }
     }
 
