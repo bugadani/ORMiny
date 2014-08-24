@@ -94,6 +94,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     {
         $entity = new Entity($this->entityManager, 'Modules\\ORM\\TestEntity', 'test');
         $entity->addField('field');
+        $entity->setPrimaryKey('field');
         $object = $entity->create(['field' => 'value']);
 
         $this->assertInstanceOf('Modules\\ORM\\TestEntity', $object);

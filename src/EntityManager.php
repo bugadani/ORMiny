@@ -95,6 +95,9 @@ class EntityManager
         if (!$classAnnotations->has('Table')) {
             throw new EntityDefinitionException("Missing Table annotation of {$className}");
         }
+        if (!$classAnnotations->has('PrimaryKey')) {
+            throw new EntityDefinitionException("Class {$className} must have a primary key.");
+        }
         $entity = new Entity($this, $className, $classAnnotations->get('Table'));
 
         foreach ($properties as $property => $comment) {
@@ -104,9 +107,7 @@ class EntityManager
                 $this->processRelation($comment, $property, $entity);
             }
         }
-        if ($classAnnotations->has('PrimaryKey')) {
-            $entity->setPrimaryKey($classAnnotations->get('PrimaryKey'));
-        }
+        $entity->setPrimaryKey($classAnnotations->get('PrimaryKey'));
 
         return $entity;
     }

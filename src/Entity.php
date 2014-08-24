@@ -15,6 +15,9 @@ use Modules\ORM\Annotations\Relation;
 
 class Entity
 {
+    const STATE_NEW = 1;
+    const STATE_HANDLED = 2;
+
     private $manager;
     private $className;
     private $tableName;
@@ -34,6 +37,9 @@ class Entity
      */
     private $relatedEntities = [];
     private $relationTargets = [];
+
+    private $originalData = [];
+    private $objectStates = [];
 
     public function __construct(EntityManager $manager, $className, $tableName)
     {
@@ -186,6 +192,15 @@ class Entity
     {
         $object = new $this->className;
         array_walk($data, [$this, 'setFieldValue'], $object);
+
+        $objectId = spl_object_hash($object);
+
+        $this->originalData[$objectId] = $data;
+        if ($this->isPrimaryKeySet($object)) {
+            $this->objectStates[$objectId] = self::STATE_HANDLED;
+        } else {
+            $this->objectStates[$objectId] = self::STATE_NEW;
+        }
 
         return $object;
     }
