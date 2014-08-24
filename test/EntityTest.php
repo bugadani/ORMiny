@@ -143,7 +143,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatUpdateIsCalledForRecordsWithPrimaryKeySet()
     {
-        $this->expectQuery('UPDATE test SET field=?, fieldWithSetter=?, field2=?');
+        $this->expectQuery('UPDATE test SET fieldWithSetter=?, field2=? WHERE field=?');
 
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(

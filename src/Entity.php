@@ -15,7 +15,7 @@ use Modules\ORM\Annotations\Relation;
 
 class Entity
 {
-    const STATE_NEW = 1;
+    const STATE_NEW     = 1;
     const STATE_HANDLED = 2;
 
     private $manager;
@@ -40,6 +40,7 @@ class Entity
 
     private $originalData = [];
     private $objectStates = [];
+    private $objectRelations = [];
 
     public function __construct(EntityManager $manager, $className, $tableName)
     {
@@ -151,6 +152,14 @@ class Entity
 
     public function setRelationValue($object, $relationName, $value)
     {
+        $relatedEntity = $this->getRelatedEntity($relationName);
+        if (is_array($value)) {
+            $foreignKeys = array_map([$relatedEntity, 'getPrimaryKeyValue'], $value);
+        } else {
+            $foreignKeys = $relatedEntity->getPrimaryKeyValue($value);
+        }
+        $this->objectRelations[spl_object_hash($object)] = $foreignKeys;
+
         if (isset($this->setters[$relationName])) {
             return $object->{$this->setters[$relationName]}($value);
         }
@@ -195,7 +204,8 @@ class Entity
 
         $objectId = spl_object_hash($object);
 
-        $this->originalData[$objectId] = $data;
+        $this->originalData[$objectId]    = $data;
+        $this->objectRelations[$objectId] = [];
         if ($this->isPrimaryKeySet($object)) {
             $this->objectStates[$objectId] = self::STATE_HANDLED;
         } else {
@@ -234,19 +244,52 @@ class Entity
 
     public function save($object)
     {
+        $objectId = spl_object_hash($object);
+
+        if (!isset($this->objectStates[$objectId])) {
+            $this->objectStates[$objectId]    = self::STATE_NEW;
+            $this->originalData[$objectId]    = [];
+            $this->objectRelations[$objectId] = [];
+        }
+
+        /*$relations = array_filter($this->getRelatedEntities(), function(Relation $relation){
+                return $relation->type === Relation::HAS_ONE || $relation->type === Relation::BELONGS_TO;
+            });*/
+
+        //foreach($relations as $relationName => $relation) {
+        //if the relation is many-to-many
+        //compute the diff of ids
+
+        //if $object foreign key hasn't changed but related object's pk is different
+        //overwrite the local foreign key
+        //if the local key changed that change should be respected
+        //}
+
+        $data = $this->toArray($object);
+
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-        if ($this->isPrimaryKeySet($object)) {
-            $query = $queryBuilder->update($this->getTable());
+        if ($this->isPrimaryKeySet($object) && $this->objectStates[$objectId] !== self::STATE_NEW) {
+            $data  = array_diff($data, $this->originalData[$objectId]);
+            $query = $queryBuilder
+                ->update($this->getTable())
+                ->where(
+                    $queryBuilder->expression()->eq(
+                        $this->getPrimaryKey(),
+                        $queryBuilder->createPositionalParameter(
+                            $this->getPrimaryKeyValue($object)
+                        )
+                    )
+                );
         } else {
             $query = $queryBuilder->insert($this->getTable());
         }
 
-        $query->values(
-            array_map(
-                [$query, 'createPositionalParameter'],
-                $this->toArray($object)
-            )
-        )->query();
+        //only save when a change is detected
+        if (empty($data)) {
+            return;
+        }
+
+        $query->values(array_map([$query, 'createPositionalParameter'], $data))->query();
     }
 
     public function delete($object)
