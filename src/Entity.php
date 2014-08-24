@@ -35,11 +35,6 @@ class Entity
     private $relatedEntities = [];
     private $relationTargets = [];
 
-    /**
-     * @var EntityFinder
-     */
-    private $finder;
-
     public function __construct(EntityManager $manager, $className, $tableName)
     {
         $this->manager   = $manager;
@@ -210,15 +205,11 @@ class Entity
 
     public function find()
     {
-        if (!isset($this->finder)) {
-            $this->finder = new EntityFinder(
-                $this->manager->getResultProcessor(),
-                $this->manager->getDriver(),
-                $this
-            );
-        }
-
-        return $this->finder;
+        return new EntityFinder(
+            $this->manager->getResultProcessor(),
+            $this->manager->getDriver(),
+            $this
+        );
     }
 
     public function get($primaryKey)
@@ -228,7 +219,19 @@ class Entity
 
     public function save($object)
     {
-        $this->manager->save($this, $object);
+        $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
+        if ($this->isPrimaryKeySet($object)) {
+            $query = $queryBuilder->update($this->getTable());
+        } else {
+            $query = $queryBuilder->insert($this->getTable());
+        }
+
+        $query->values(
+            array_map(
+                [$query, 'createPositionalParameter'],
+                $this->toArray($object)
+            )
+        )->query();
     }
 
     public function delete($object)
@@ -239,7 +242,7 @@ class Entity
             $relation       = $this->getRelation($relationName);
             switch ($relation->type) {
                 case Relation::HAS_ONE:
-                    $this->delete($relatedEntity, $relatedObjects);;
+                    $this->delete($relatedEntity, $relatedObjects);
                     break;
 
                 case Relation::HAS_MANY:

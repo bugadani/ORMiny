@@ -13,7 +13,6 @@ use Modules\Annotation\Comment;
 use Modules\Annotation\Reader;
 use Modules\DBAL\Driver;
 use Modules\DBAL\QueryBuilder;
-use Modules\ORM\Annotations\Relation;
 use Modules\ORM\Exceptions\EntityDefinitionException;
 
 class EntityManager
@@ -201,24 +200,5 @@ class EntityManager
     public function find($entityName)
     {
         return $this->get($entityName)->find();
-    }
-
-    public function save(Entity $entity, $object)
-    {
-        $queryBuilder = $this->driver->getQueryBuilder();
-
-        if ($entity->isPrimaryKeySet($object)) {
-            $query = $queryBuilder->update($entity->getTable());
-        } else {
-            $query = $queryBuilder->insert($entity->getTable());
-        }
-
-        foreach ($entity->toArray($object) as $field => $value) {
-            $query->set(
-                $field,
-                $query->createPositionalParameter($value)
-            );
-        }
-        $query->query();
     }
 }
