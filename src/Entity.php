@@ -10,6 +10,7 @@
 namespace Modules\ORM;
 
 use Modules\DBAL\Driver;
+use Modules\DBAL\QueryBuilder;
 use Modules\ORM\Annotations\Relation;
 
 class Entity
@@ -33,6 +34,11 @@ class Entity
      */
     private $relatedEntities = [];
     private $relationTargets = [];
+
+    /**
+     * @var EntityFinder
+     */
+    private $finder;
 
     public function __construct(EntityManager $manager, $className, $tableName)
     {
@@ -202,9 +208,22 @@ class Entity
         return $data;
     }
 
+    public function find()
+    {
+        if (!isset($this->finder)) {
+            $this->finder = new EntityFinder(
+                $this->manager->getResultProcessor(),
+                $this->manager->getDriver(),
+                $this
+            );
+        }
+
+        return $this->finder;
+    }
+
     public function get($primaryKey)
     {
-        return $this->manager->getByPrimaryKey($this, $primaryKey);
+        return $this->find()->get($primaryKey);
     }
 
     public function save($object)
@@ -214,12 +233,56 @@ class Entity
 
     public function delete($object)
     {
-        $this->manager->delete($this, $object);
-    }
+        $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
+        foreach ($this->getRelatedEntities() as $relationName => $relatedEntity) {
+            $relatedObjects = $this->getRelationValue($object, $relationName);
+            $relation       = $this->getRelation($relationName);
+            switch ($relation->type) {
+                case Relation::HAS_ONE:
+                    $this->delete($relatedEntity, $relatedObjects);;
+                    break;
 
-    public function deleteByPrimaryKey($pk)
-    {
-        $this->manager->deleteByPrimaryKey($this, $pk);
+                case Relation::HAS_MANY:
+                    array_map([$relatedEntity, 'delete'], $relatedObjects);
+                    break;
+
+                case Relation::MANY_MANY:
+                    $joinTable = $this->getTable() . '_' . $relatedEntity->getTable();
+                    $field     = $this->getTable() . '_' . $relation->foreignKey;
+
+                    $queryBuilder
+                        ->delete($joinTable)
+                        ->where(
+                            $queryBuilder->expression()->in(
+                                $field,
+                                array_map(
+                                    [$queryBuilder, 'createPositionalParameter'],
+                                    array_map(
+                                        [$relatedEntity, 'getPrimaryKeyValue'],
+                                        $relatedObjects
+                                    )
+                                )
+                            )
+                        )->query();
+                    break;
+
+                case Relation::BELONGS_TO:
+                    //don't delete the record this one belongs to
+                    break;
+            }
+        }
+
+        if ($this->isPrimaryKeySet($object)) {
+            $queryBuilder->delete($this->getTable())
+                ->where(
+                    $queryBuilder->expression()->eq(
+                        $this->getPrimaryKey(),
+                        $queryBuilder->createPositionalParameter(
+                            $this->getPrimaryKeyValue($object)
+                        )
+                    )
+                )->query();
+        }
     }
 
     private function registerSetterAndGetter($fieldName, $setter, $getter)

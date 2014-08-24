@@ -332,7 +332,7 @@ class EntityFinder
     {
         $relations = $this->entity->getRelations();
         if (empty($relations)) {
-            $this->entity->deleteByPrimaryKey($primaryKeys);
+            $this->deleteByPrimaryKey($primaryKeys);
         } else {
             $this->deleteRecords(
                 $this
@@ -467,4 +467,18 @@ class EntityFinder
             $this->entity->delete($records);
         }
     }
+
+    private function deleteByPrimaryKey($primaryKeys)
+    {
+        $queryBuilder = $this->driver->getQueryBuilder();
+        $queryBuilder->delete($this->entity->getTable())
+            ->where(
+                $this->createInExpression(
+                    $this->entity->getPrimaryKey(),
+                    (array) $primaryKeys,
+                    $queryBuilder
+                )
+            )->query();
+    }
+
 }

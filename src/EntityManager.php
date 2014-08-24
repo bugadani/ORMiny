@@ -50,6 +50,22 @@ class EntityManager
         $this->resultProcessor  = new ResultProcessor;
     }
 
+    /**
+     * @return ResultProcessor
+     */
+    public function getResultProcessor()
+    {
+        return $this->resultProcessor;
+    }
+
+    /**
+     * @return Driver
+     */
+    public function getDriver()
+    {
+        return $this->driver;
+    }
+
     public function register($entityName, $className)
     {
         $this->entityClassMap[$entityName] = $className;
@@ -184,12 +200,7 @@ class EntityManager
      */
     public function find($entityName)
     {
-        return $this->getEntityFinder($this->get($entityName));
-    }
-
-    private function getEntityFinder(Entity $entity)
-    {
-        return new EntityFinder($this->resultProcessor, $this->driver, $entity);
+        return $this->get($entityName)->find();
     }
 
     public function save(Entity $entity, $object)
@@ -209,89 +220,5 @@ class EntityManager
             );
         }
         $query->query();
-    }
-
-    public function delete(Entity $entity, $object)
-    {
-        foreach ($entity->getRelatedEntities() as $relationName => $relatedEntity) {
-            $relatedObjects = $entity->getRelationValue($object, $relationName);
-            $relation       = $entity->getRelation($relationName);
-            switch ($relation->type) {
-                case Relation::HAS_ONE:
-                    $this->delete($relatedEntity, $relatedObjects);;
-                    break;
-
-                case Relation::HAS_MANY:
-                    array_map([$relatedEntity, 'delete'], $relatedObjects);
-                    break;
-
-                case Relation::MANY_MANY:
-                    $joinTable = $entity->getTable() . '_' . $relatedEntity->getTable();
-                    $field     = $entity->getTable() . '_' . $relation->foreignKey;
-
-                    $queryBuilder = $this->driver->getQueryBuilder();
-                    $queryBuilder
-                        ->delete($joinTable)
-                        ->where(
-                            $this->createInExpression(
-                                $field,
-                                array_map(
-                                    [$relatedEntity, 'getPrimaryKeyValue'],
-                                    $relatedObjects
-                                ),
-                                $queryBuilder
-                            )
-                        )->query();
-                    break;
-
-                case Relation::BELONGS_TO:
-                    //don't delete the record this one belongs to
-                    break;
-            }
-        }
-
-        if ($entity->isPrimaryKeySet($object)) {
-            $this->deleteByPrimaryKey(
-                $entity,
-                $entity->getPrimaryKeyValue($object)
-            );
-        }
-    }
-
-    public function getByPrimaryKey(Entity $entity, $primaryKey)
-    {
-        return $this->getEntityFinder($entity)
-            ->get($primaryKey);
-    }
-
-    private function createInExpression($field, array $values, QueryBuilder $queryBuilder)
-    {
-        $expression = $queryBuilder->expression();
-        if (count($values) === 1) {
-            $expression->eq(
-                $field,
-                $queryBuilder->createPositionalParameter(current($values))
-            );
-        } else {
-            $expression->in(
-                $field,
-                array_map([$queryBuilder, 'createPositionalParameter'], $values)
-            );
-        }
-
-        return $expression;
-    }
-
-    public function deleteByPrimaryKey(Entity $entity, $primaryKey)
-    {
-        $queryBuilder = $this->driver->getQueryBuilder();
-        $queryBuilder->delete($entity->getTable())
-            ->where(
-                $this->createInExpression(
-                    $entity->getPrimaryKey(),
-                    (array) $primaryKey,
-                    $queryBuilder
-                )
-            )->query();
     }
 }
