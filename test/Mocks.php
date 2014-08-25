@@ -2,38 +2,37 @@
 
 namespace Modules\ORM;
 
-use Modules\ORM\Annotations as ORM;
+use Modules\ORM\Annotations\Field;
+use Modules\ORM\Annotations\Relation;
 
 /**
- * @Table      related
- * @PrimaryKey primaryKey
+ * @Table related
  */
 class RelatedEntity
 {
     /**
-     * @Field primaryKey
+     * @Id @Field()
      */
     public $primaryKey;
 }
 
 /**
- * @Table      hasOne
- * @PrimaryKey pk
+ * @Table hasOne
  */
 class HasOneRelationEntity
 {
     /**
-     * @Field
+     * @Id @Field()
      */
     public $pk;
 
     /**
-     * @Field
+     * @Field()
      */
     public $fk;
 
     /**
-     * @ORM\Relation('hasOneRelation',
+     * @Relation('hasOneRelation',
      *     type: 'has one',
      *     target: 'RelatedEntity',
      *     foreignKey: 'fk',
@@ -44,23 +43,22 @@ class HasOneRelationEntity
 }
 
 /**
- * @Table      deep
- * @PrimaryKey pk
+ * @Table deep
  */
 class DeepRelationEntity
 {
     /**
-     * @Field
+     * @Id @Field()
      */
     public $pk;
 
     /**
-     * @Field
+     * @Field()
      */
     public $fk;
 
     /**
-     * @ORM\Relation('relation',
+     * @Relation('relation',
      *     type: 'has many',
      *     target: 'HasOneRelationEntity',
      *     foreignKey: 'fk',
@@ -71,23 +69,22 @@ class DeepRelationEntity
 }
 
 /**
- * @Table      many_many
- * @PrimaryKey pk
+ * @Table many_many
  */
 class ManyManyRelationEntity
 {
     /**
-     * @Field
+     * @Id @Field()
      */
     public $pk;
 
     /**
-     * @Field
+     * @Field()
      */
     public $fk;
 
     /**
-     * @ORM\Relation('relation',
+     * @Relation('relation',
      *     type: 'many to many',
      *     target: 'RelatedEntity',
      *     foreignKey: 'fk',
@@ -98,26 +95,22 @@ class ManyManyRelationEntity
 }
 
 /**
- * @Table      test
- * @PrimaryKey field
+ * @Table test
  */
 class TestEntity
 {
     /**
-     * @Field field
+     * @Id @Field(name: 'key')
      */
     public $field;
 
     /**
-     * @Field  fieldWithSetter
-     * @Setter setField
-     * @Getter getField
+     * @Field(setter: 'setField', getter: 'getField')
      */
     private $fieldWithSetter;
 
     /**
-     * @Field field2
-     * @AutomaticSetterAndGetter
+     * @Field(setter: true, getter: true)
      */
     public $field2;
 

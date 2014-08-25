@@ -119,6 +119,8 @@ class Entity
         } else {
             $this->registerSetterAndGetter($fieldName, $setter, $getter);
         }
+
+        return $fieldName;
     }
 
     public function addRelation($property, Relation $relation, $setter = null, $getter = null)

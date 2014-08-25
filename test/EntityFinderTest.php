@@ -106,21 +106,21 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
 
     public function testThatFiltersCanBeAppliedToCount()
     {
-        $this->expectQuery('SELECT count(*) as count FROM test WHERE field=foo');
+        $this->expectQuery('SELECT count(*) as count FROM test WHERE key=foo');
 
-        $this->entityFinder->where('field=foo')->count();
+        $this->entityFinder->where('key=foo')->count();
     }
 
     public function testThatDeleteByPkUsesEqualSignForOne()
     {
-        $this->expectQuery('DELETE FROM test WHERE field=?');
+        $this->expectQuery('DELETE FROM test WHERE key=?');
 
         $this->entityFinder->delete(5);
     }
 
     public function testThatDeleteByPkUsesInForMultiple()
     {
-        $this->expectQuery('DELETE FROM test WHERE field IN(?, ?)');
+        $this->expectQuery('DELETE FROM test WHERE key IN(?, ?)');
 
         $this->entityFinder->delete(4, 5);
     }

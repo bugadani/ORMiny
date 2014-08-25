@@ -93,9 +93,9 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     public function testCreate()
     {
         $entity = new Entity($this->entityManager, 'Modules\\ORM\\TestEntity', 'test');
-        $entity->addField('field');
-        $entity->setPrimaryKey('field');
-        $object = $entity->create(['field' => 'value']);
+        $entity->addField('field', 'key');
+        $entity->setPrimaryKey('key');
+        $object = $entity->create(['key' => 'value']);
 
         $this->assertInstanceOf('Modules\\ORM\\TestEntity', $object);
         $this->assertEquals('value', $object->field);
@@ -106,7 +106,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'field'           => 'value',
+                'key'             => 'value',
                 'field2'          => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
@@ -117,7 +117,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals(
             [
-                'field'           => 'value',
+                'key'             => 'value',
                 'field2'          => 'value2 via setter and getter',
                 'fieldWithSetter' => 'foobar via setter and getter'
             ],
@@ -127,12 +127,12 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatInsertIsCalledForNewRecords()
     {
-        $this->expectQuery('INSERT INTO test (field, fieldWithSetter, field2) VALUES (?, ?, ?)');
+        $this->expectQuery('INSERT INTO test (key, fieldWithSetter, field2) VALUES (?, ?, ?)');
 
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'field'           => null,
+                'key'             => null,
                 'field2'          => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
@@ -143,12 +143,12 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatUpdateIsCalledForRecordsWithPrimaryKeySet()
     {
-        $this->expectQuery('UPDATE test SET fieldWithSetter=?, field2=? WHERE field=?');
+        $this->expectQuery('UPDATE test SET fieldWithSetter=?, field2=? WHERE key=?');
 
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'field'           => 'value',
+                'key'             => 'value',
                 'field2'          => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
@@ -170,10 +170,10 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatDeleteIsCalledForRecordsWithPkSet()
     {
-        $this->expectQuery('DELETE FROM test WHERE field=?');
+        $this->expectQuery('DELETE FROM test WHERE key=?');
 
         $entity = $this->entityManager->get('TestEntity');
-        $object = $entity->create(['field' => 'value']);
+        $object = $entity->create(['key' => 'value']);
 
         $entity->delete($object);
     }
@@ -224,7 +224,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     public function testGetSingleRecordWithRelated()
     {
         $this->expectQuery(
-            'SELECT pk, fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne LEFT JOIN related hasOneRelation ON fk=hasOneRelation.primaryKey WHERE pk IN(?, ?)',
+            'SELECT pk, fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne'.
+            ' LEFT JOIN related hasOneRelation ON fk=hasOneRelation.primaryKey WHERE pk IN(?, ?)',
             [
                 [
                     'pk'                        => 5,
@@ -316,11 +317,11 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatConditionsAreAppliedToDelete()
     {
-        $this->expectQuery('DELETE FROM test WHERE pk=? LIMIT 2 OFFSET 1');
+        $this->expectQuery('DELETE FROM test WHERE key=? LIMIT 2 OFFSET 1');
 
         $this->entityManager
             ->find('TestEntity')
-            ->where('pk=?')
+            ->where('key=?')
             ->setFirstResult(1)
             ->setMaxResults(2)
             ->delete();

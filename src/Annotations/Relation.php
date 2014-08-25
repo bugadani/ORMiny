@@ -17,6 +17,8 @@ namespace Modules\ORM\Annotations;
  * @Attribute('target', type: 'string')
  * @Attribute('foreignKey', type: 'string')
  * @Attribute('targetKey', type: 'string')
+ * @Attribute('setter')
+ * @Attribute('getter')
  * @Target('property')
  */
 class Relation
@@ -31,6 +33,8 @@ class Relation
     public $target;
     public $foreignKey;
     public $targetKey;
+    public $setter;
+    public $getter;
 
     public function __construct($name, $type = Relation::HAS_ONE, $target = null, $foreignKey = null, $targetKey = null)
     {
