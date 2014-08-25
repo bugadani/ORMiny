@@ -125,9 +125,9 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         );
     }
 
-    public function testThatInsertIsCalledForNewRecords()
+    public function testThatInsertIsCalledForRecordWithoutPrimaryKeySet()
     {
-        $this->expectQuery('INSERT INTO test (key, fieldWithSetter, field2) VALUES (?, ?, ?)');
+        $this->expectQuery('INSERT INTO test (fieldWithSetter, field2) VALUES (?, ?)');
 
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
@@ -157,6 +157,24 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity->save($object);
     }
 
+    public function testThatUpdateCanSetNewPrimaryKey()
+    {
+        $this->expectQuery('UPDATE test SET key=?, fieldWithSetter=?, field2=? WHERE key=?');
+
+        $entity = $this->entityManager->get('TestEntity');
+        $object = $entity->create(
+            [
+                'key'             => 'value',
+                'field2'          => 'value2',
+                'fieldWithSetter' => 'foobar'
+            ]
+        );
+
+        $object->field = 'foo';
+
+        $entity->save($object);
+    }
+
     public function testThatDeleteIsNotCalledForNewRecords()
     {
         $entity = $this->entityManager->get('TestEntity');
@@ -176,6 +194,26 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $object = $entity->create(['key' => 'value']);
 
         $entity->delete($object);
+    }
+
+    public function testThatGetReturnsFalseWhenNoRecordIsReturned()
+    {
+        $this->expectQuery('SELECT pk, fk FROM hasOne WHERE pk=?');
+
+        $entity = $this->entityManager->get('HasOneRelationEntity');
+        $object = $entity->get(5);
+
+        $this->assertFalse($object);
+    }
+
+    public function testThatGetReturnsEmptyArrayWhenNoRecordIsReturned()
+    {
+        $this->expectQuery('SELECT pk, fk FROM hasOne WHERE pk IN(?, ?)');
+
+        $entity  = $this->entityManager->get('HasOneRelationEntity');
+        $objects = $entity->get(5, 6);
+
+        $this->assertEmpty($objects);
     }
 
     public function testThatGetConstructsQueryWithoutJoinForOne()
@@ -224,7 +262,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     public function testGetSingleRecordWithRelated()
     {
         $this->expectQuery(
-            'SELECT pk, fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne'.
+            'SELECT pk, fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne' .
             ' LEFT JOIN related hasOneRelation ON fk=hasOneRelation.primaryKey WHERE pk IN(?, ?)',
             [
                 [
@@ -414,5 +452,26 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->entityManager
             ->find('ManyManyRelationEntity')
             ->delete(2);
+    }
+
+    public function testInsertAndUpdateSimpleRecord()
+    {
+        //field2 is set because its getter returns a value
+        $this->expectQueries([
+                ['INSERT INTO test (fieldWithSetter, field2) VALUES (?, ?)'],
+                ['UPDATE test SET field2=? WHERE key=?']
+            ]);
+
+        $entity = $this->entityManager->get('TestEntity');
+        $object = $entity->create(
+            [
+                'fieldWithSetter' => 'foo'
+            ]
+        );
+        $entity->save($object);
+
+        $object->setField2('bar');
+
+        $entity->save($object);
     }
 }

@@ -241,7 +241,7 @@ class Entity
 
     public function get($primaryKey)
     {
-        return $this->find()->get($primaryKey);
+        return call_user_func_array([$this->find(), 'get'], func_get_args());
     }
 
     public function save($object)
@@ -254,44 +254,70 @@ class Entity
             $this->objectRelations[$objectId] = [];
         }
 
-        /*$relations = array_filter($this->getRelatedEntities(), function(Relation $relation){
-                return $relation->type === Relation::HAS_ONE || $relation->type === Relation::BELONGS_TO;
-            });*/
+        foreach ($this->getRelations() as $relationName => $relation) {
+            $relatedEntity = $this->getRelatedEntity($relationName);
+            switch ($relation->type) {
+                case Relation::MANY_MANY:
+                    $currentForeignKeys  = array_map(
+                        [$relatedEntity, 'getPrimaryKeyValue'],
+                        $this->getRelationValue($object, $relationName)
+                    );
+                    $originalForeignKeys = $this->objectRelations[$objectId];
 
-        //foreach($relations as $relationName => $relation) {
-        //if the relation is many-to-many
-        //compute the diff of ids
+                    $deleted  = array_diff($originalForeignKeys, $currentForeignKeys);
+                    $inserted = array_diff($currentForeignKeys, $originalForeignKeys);
+                    break;
+            }
 
-        //if $object foreign key hasn't changed but related object's pk is different
-        //overwrite the local foreign key
-        //if the local key changed that change should be respected
-        //}
+            //if $object foreign key hasn't changed but related object's pk is different
+            //overwrite the local foreign key
+            //if the local key changed that change should be respected
+        }
 
         $data = $this->toArray($object);
 
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-        if ($this->isPrimaryKeySet($object) && $this->objectStates[$objectId] !== self::STATE_NEW) {
-            $data  = array_diff($data, $this->originalData[$objectId]);
+        if ($this->objectStates[$objectId] === self::STATE_NEW) {
+            $data = array_filter(
+                $data,
+                function ($value) {
+                    return $value !== null;
+                }
+            );
+
+            //only save when a change is detected
+            if (empty($data)) {
+                return;
+            }
+
+            $query = $queryBuilder->insert($this->getTable());
+            $id = $query->values(array_map([$query, 'createPositionalParameter'], $data))->query();
+            $this->setFieldValue($id, $this->getPrimaryKey(), $object);
+
+            $this->objectStates[$objectId] = self::STATE_HANDLED;
+        } else {
+            $data = array_diff($data, $this->originalData[$objectId]);
+
+            //only save when a change is detected
+            if (empty($data)) {
+                return;
+            }
+
             $query = $queryBuilder
                 ->update($this->getTable())
                 ->where(
                     $queryBuilder->expression()->eq(
                         $this->getPrimaryKey(),
                         $queryBuilder->createPositionalParameter(
-                            $this->getPrimaryKeyValue($object)
+                            $this->getOriginalData($object, $this->getPrimaryKey())
                         )
                     )
                 );
-        } else {
-            $query = $queryBuilder->insert($this->getTable());
+
+            $query->values(array_map([$query, 'createPositionalParameter'], $data))->query();
         }
 
-        //only save when a change is detected
-        if (empty($data)) {
-            return;
-        }
-
-        $query->values(array_map([$query, 'createPositionalParameter'], $data))->query();
+        $this->originalData[$objectId] = $this->toArray($object);
     }
 
     public function delete($object)
@@ -362,5 +388,10 @@ class Entity
             }
             $this->getters[$fieldName] = $getter;
         }
+    }
+
+    private function getOriginalData($object, $field)
+    {
+        return $this->originalData[spl_object_hash($object)][$field];
     }
 }
