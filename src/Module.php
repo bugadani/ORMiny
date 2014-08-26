@@ -20,6 +20,11 @@ class Module extends \Miny\Modules\Module
         ];
     }
 
+    public function getDependencies()
+    {
+        return ['Annotation', 'DBAL'];
+    }
+
     public function init(BaseApplication $app)
     {
         $entityManager = $app->getContainer()->get(__NAMESPACE__ . '\\EntityManager');
