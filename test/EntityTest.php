@@ -269,27 +269,36 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testGetSingleRecordWithRelated()
     {
-        $this->expectQuery(
-            'SELECT pk, fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne' .
-            ' LEFT JOIN related hasOneRelation ON fk=hasOneRelation.primaryKey WHERE pk IN(?, ?)',
+        $this->expectQueries(
             [
                 [
-                    'pk'                        => 5,
-                    'fk'                        => 1,
-                    'hasOneRelation_primaryKey' => 1
+                    'SELECT pk, fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne' .
+                    ' LEFT JOIN related hasOneRelation ON fk=hasOneRelation.primaryKey WHERE pk IN(?, ?)',
+                    [
+                        [
+                            'pk'                        => 5,
+                            'fk'                        => 1,
+                            'hasOneRelation_primaryKey' => 1
+                        ],
+                        [
+                            'pk'                        => 6,
+                            'fk'                        => 2,
+                            'hasOneRelation_primaryKey' => 2
+                        ]
+                    ]
                 ],
-                [
-                    'pk'                        => 6,
-                    'fk'                        => 2,
-                    'hasOneRelation_primaryKey' => 2
-                ]
+                ['DELETE FROM related WHERE primaryKey=?']
             ]
         );
 
-        $objects = $this->entityManager
-            ->find('HasOneRelationEntity')
+        $entity  = $this->entityManager
+            ->get('HasOneRelationEntity');
+
+        $objects = $entity
+            ->find()
             ->with('hasOneRelation')
             ->get(5, 6);
+
         $this->assertCount(2, $objects);
 
         $this->assertEquals(5, $objects[5]->pk);
@@ -302,6 +311,9 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals(1, $objects[5]->relation->primaryKey);
         $this->assertEquals(2, $objects[6]->relation->primaryKey);
+
+        unset($objects[5]->relation);
+        $entity->save($objects[5]);
     }
 
     public function testGetSingleRecordWithDeepRelated()
@@ -529,22 +541,22 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->expectQueries(
             [
                 [
-                    'SELECT pk, relation.primaryKey as relation_primaryKey, '.
+                    'SELECT pk, relation.primaryKey as relation_primaryKey, ' .
                     'relation.foreignKey as relation_foreignKey FROM has_many ' .
                     'LEFT JOIN related relation ON pk=relation.foreignKey WHERE pk=?',
                     [
                         [
-                            'pk'          => 1,
+                            'pk'                  => 1,
                             'relation_primaryKey' => 1,
                             'relation_foreignKey' => 1
                         ],
                         [
-                            'pk'          => 1,
+                            'pk'                  => 1,
                             'relation_primaryKey' => 2,
                             'relation_foreignKey' => 1
                         ],
                         [
-                            'pk'          => 1,
+                            'pk'                  => 1,
                             'relation_primaryKey' => 3,
                             'relation_foreignKey' => 1
                         ]

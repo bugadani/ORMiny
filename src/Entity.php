@@ -292,12 +292,6 @@ class Entity
             $relatedObjects = $this->getRelationValue($object, $relationName);
             $relation       = $this->getRelation($relationName);
             switch ($relation->type) {
-                case Relation::HAS_ONE:
-                    if ($relatedObjects) {
-                        $relatedEntity->delete($relatedObjects);
-                    }
-                    break;
-
                 case Relation::HAS_MANY:
                     call_user_func_array(
                         [$relatedEntity->find(), 'delete'],
@@ -323,6 +317,12 @@ class Entity
                                 )
                             )
                         )->query();
+                    break;
+
+                case Relation::HAS_ONE:
+                    if ($relatedObjects) {
+                        $relatedEntity->delete($relatedObjects);
+                    }
                     break;
 
                 case Relation::BELONGS_TO:
@@ -400,6 +400,27 @@ class Entity
                     $deleted = array_diff($this->objectRelations[$objectId], $currentForeignKeys);
                     if (!empty($deleted)) {
                         call_user_func_array([$relatedEntity->find(), 'delete'], $deleted);
+                    }
+                    break;
+
+                case Relation::HAS_ONE:
+                case Relation::BELONGS_TO:
+                    if (isset($this->getters[$relationName])) {
+                        $value = $object->{$this->getters[$relationName]}();
+
+                        $hasValue = isset($value);
+                    } else {
+                        $hasValue = isset($object->{$this->relationTargets[$relationName]});
+                    }
+                    //checking the foreign key is not enough here - foreign key is not updated yet.
+                    if ($hasValue) {
+                        $relatedEntity->save(
+                            $this->getRelationValue($object, $relationName)
+                        );
+                    } else {
+                        $relatedEntity
+                            ->find()
+                            ->delete($this->objectRelations[$objectId][$relationName]);
                     }
                     break;
             }
