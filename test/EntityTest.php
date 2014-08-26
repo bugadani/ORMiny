@@ -39,6 +39,14 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             'Modules\\ORM\\HasOneRelationEntity'
         );
         $this->entityManager->register(
+            'HasManyRelationEntity',
+            'Modules\\ORM\\HasManyRelationEntity'
+        );
+        $this->entityManager->register(
+            'HasManyTargetEntity',
+            'Modules\\ORM\\HasManyTargetEntity'
+        );
+        $this->entityManager->register(
             'ManyManyRelationEntity',
             'Modules\\ORM\\ManyManyRelationEntity'
         );
@@ -514,5 +522,52 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $object->relation[] = new RelatedEntity();
 
         $entity->save($object);
+    }
+
+    public function testUpdateRecordWithHasManyRelation()
+    {
+        $this->expectQueries(
+            [
+                [
+                    'SELECT pk, relation.primaryKey as relation_primaryKey, '.
+                    'relation.foreignKey as relation_foreignKey FROM has_many ' .
+                    'LEFT JOIN related relation ON pk=relation.foreignKey WHERE pk=?',
+                    [
+                        [
+                            'pk'          => 1,
+                            'relation_primaryKey' => 1,
+                            'relation_foreignKey' => 1
+                        ],
+                        [
+                            'pk'          => 1,
+                            'relation_primaryKey' => 2,
+                            'relation_foreignKey' => 1
+                        ],
+                        [
+                            'pk'          => 1,
+                            'relation_primaryKey' => 3,
+                            'relation_foreignKey' => 1
+                        ]
+                    ]
+                ],
+                ['UPDATE related SET primaryKey=? WHERE primaryKey=?'],
+                ['DELETE FROM related WHERE primaryKey=?'],
+                ['DELETE FROM related WHERE primaryKey IN(?, ?)'],
+                ['DELETE FROM has_many WHERE pk=?']
+            ]
+        );
+
+        $entity = $this->entityManager->get('HasManyRelationEntity');
+        $object = $entity->find()->with('relation')->get(2);
+
+        $this->assertInstanceOf('Modules\\ORM\\HasManyRelationEntity', $object);
+        $this->assertCount(3, $object->relation);
+        $this->assertContainsOnly('Modules\\ORM\\HasManyTargetEntity', $object->relation);
+
+        unset($object->relation[1]);
+        $object->relation[2]->primaryKey = 5;
+
+        $entity->save($object);
+        $entity->delete($object);
     }
 }

@@ -83,14 +83,14 @@ class EntityFinder
 
     public function setMaxResults($limit)
     {
-        $this->limit = (int) $limit;
+        $this->limit = (int)$limit;
 
         return $this;
     }
 
     public function setFirstResult($offset)
     {
-        $this->offset = (int) $offset;
+        $this->offset = (int)$offset;
 
         return $this;
     }
@@ -475,7 +475,7 @@ class EntityFinder
             ->where(
                 $this->createInExpression(
                     $this->entity->getPrimaryKey(),
-                    (array) $primaryKeys,
+                    (array)$primaryKeys,
                     $queryBuilder
                 )
             )->query();

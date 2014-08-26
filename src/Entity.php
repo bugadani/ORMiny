@@ -157,11 +157,31 @@ class Entity
     public function setRelationValue($object, $relationName, $value)
     {
         $relatedEntity = $this->getRelatedEntity($relationName);
-        if (is_array($value)) {
-            $foreignKeys = array_map([$relatedEntity, 'getPrimaryKeyValue'], $value);
-        } else {
-            $foreignKeys = $relatedEntity->getPrimaryKeyValue($value);
+        $relation      = $this->getRelation($relationName);
+
+        switch ($relation->type) {
+            case Relation::MANY_MANY:
+                $targetKey = $relation->targetKey;
+
+                if (is_array($value)) {
+                    $foreignKeys = [];
+                    foreach ($value as $relatedObject) {
+                        $foreignKeys[] = $relatedEntity->getFieldValue($relatedObject, $targetKey);
+                    }
+                } else {
+                    $foreignKeys[] = $relatedEntity->getFieldValue($value, $targetKey);
+                }
+                break;
+
+            default:
+                if (is_array($value)) {
+                    $foreignKeys = array_map([$relatedEntity, 'getPrimaryKeyValue'], $value);
+                } else {
+                    $foreignKeys = $relatedEntity->getPrimaryKeyValue($value);
+                }
+                break;
         }
+
         $objectId = spl_object_hash($object);
 
         $this->objectRelations[$objectId]      = $foreignKeys;
@@ -273,11 +293,16 @@ class Entity
             $relation       = $this->getRelation($relationName);
             switch ($relation->type) {
                 case Relation::HAS_ONE:
-                    $this->delete($relatedEntity, $relatedObjects);
+                    if ($relatedObjects) {
+                        $relatedEntity->delete($relatedObjects);
+                    }
                     break;
 
                 case Relation::HAS_MANY:
-                    array_map([$relatedEntity, 'delete'], $relatedObjects);
+                    call_user_func_array(
+                        [$relatedEntity->find(), 'delete'],
+                        array_map([$relatedEntity, 'getPrimaryKeyValue'], $relatedObjects)
+                    );
                     break;
 
                 case Relation::MANY_MANY:
@@ -358,6 +383,24 @@ class Entity
                     break;
 
                 case Relation::HAS_MANY:
+                    $currentForeignKeys = [];
+                    foreach ($this->getRelationValue($object, $relationName) as $relatedObject) {
+                        $currentForeignKeys[] = $relatedEntity->getOriginalData(
+                            $relatedObject,
+                            $relatedEntity->getPrimaryKey()
+                        );
+                        $relatedEntity->setFieldValue(
+                            $this->getFieldValue($object, $relation->foreignKey),
+                            $relation->targetKey,
+                            $relatedObject
+                        );
+                        $relatedEntity->save($relatedObject);
+                    }
+
+                    $deleted = array_diff($this->objectRelations[$objectId], $currentForeignKeys);
+                    if (!empty($deleted)) {
+                        call_user_func_array([$relatedEntity->find(), 'delete'], $deleted);
+                    }
                     break;
             }
 

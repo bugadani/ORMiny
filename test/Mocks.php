@@ -95,6 +95,43 @@ class ManyManyRelationEntity
 }
 
 /**
+ * @Table has_many
+ */
+class HasManyRelationEntity
+{
+    /**
+     * @Id @Field()
+     */
+    public $pk;
+
+    /**
+     * @Relation('relation',
+     *     type: 'has many',
+     *     target: 'HasManyTargetEntity',
+     *     foreignKey: 'pk',
+     *     targetKey: 'foreignKey'
+     * )
+     */
+    public $relation;
+}
+
+/**
+ * @Table related
+ */
+class HasManyTargetEntity
+{
+    /**
+     * @Id @Field()
+     */
+    public $primaryKey;
+
+    /**
+     * @Field()
+     */
+    public $foreignKey;
+}
+
+/**
  * @Table test
  */
 class TestEntity
