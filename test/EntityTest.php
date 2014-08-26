@@ -500,6 +500,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                         ]
                     ]
                 ],
+                ['INSERT INTO related () VALUES ()'],
                 ['DELETE FROM many_many_related WHERE (many_many_fk=? AND related_primaryKey=?)'],
                 ['INSERT INTO many_many_related (many_many_fk, related_primaryKey) VALUES (?, ?)']
             ]
@@ -510,9 +511,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
         unset($object->relation[1]);
 
-        $newRelation             = new RelatedEntity();
-        $newRelation->primaryKey = 3;
-        $object->relation[3]     = $newRelation;
+        $object->relation[] = new RelatedEntity();
 
         $entity->save($object);
     }

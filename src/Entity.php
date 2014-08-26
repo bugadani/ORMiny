@@ -42,6 +42,8 @@ class Entity
     private $objectStates = [];
     private $objectRelations = [];
 
+    private $relatedObjectHandles = [];
+
     public function __construct(EntityManager $manager, $className, $tableName)
     {
         $this->manager   = $manager;
@@ -160,7 +162,10 @@ class Entity
         } else {
             $foreignKeys = $relatedEntity->getPrimaryKeyValue($value);
         }
-        $this->objectRelations[spl_object_hash($object)] = $foreignKeys;
+        $objectId = spl_object_hash($object);
+
+        $this->objectRelations[$objectId]      = $foreignKeys;
+        $this->relatedObjectHandles[$objectId] = $object;
 
         if (isset($this->setters[$relationName])) {
             return $object->{$this->setters[$relationName]}($value);
@@ -213,6 +218,7 @@ class Entity
         } else {
             $this->objectStates[$objectId] = self::STATE_NEW;
         }
+        $this->relatedObjectHandles[$objectId] = $object;
 
         return $object;
     }
@@ -318,34 +324,40 @@ class Entity
         $this->checkObjectInstance($object);
         $objectId = spl_object_hash($object);
 
-        if (!isset($this->objectStates[$objectId])) {
-            $this->objectStates[$objectId]    = self::STATE_NEW;
-            $this->originalData[$objectId]    = [];
-            $this->objectRelations[$objectId] = [];
+        if (!isset($this->objectStates[$objectId]) || $this->relatedObjectHandles[$objectId] !== $object) {
+            $this->objectStates[$objectId]         = self::STATE_NEW;
+            $this->originalData[$objectId]         = [];
+            $this->objectRelations[$objectId]      = [];
+            $this->relatedObjectHandles[$objectId] = $object;
         }
 
-        $deletedRelations  = [];
-        $insertedRelations = [];
-
+        $modifiedManyManyRelations = [];
         foreach ($this->getRelations() as $relationName => $relation) {
             $relatedEntity = $this->getRelatedEntity($relationName);
             switch ($relation->type) {
                 case Relation::MANY_MANY:
-                    $currentForeignKeys  = array_map(
+                    $relatedObjects = $this->getRelationValue($object, $relationName);
+
+                    array_map([$relatedEntity, 'save'], $relatedObjects);
+                    $currentForeignKeys = array_map(
                         [$relatedEntity, 'getPrimaryKeyValue'],
-                        $this->getRelationValue($object, $relationName)
+                        $relatedObjects
                     );
+
                     $originalForeignKeys = $this->objectRelations[$objectId];
 
                     $deleted = array_diff($originalForeignKeys, $currentForeignKeys);
                     if (!empty($deleted)) {
-                        $deletedRelations[$relationName] = $deleted;
+                        $modifiedManyManyRelations[$relationName]['deleted'] = $deleted;
                     }
 
                     $inserted = array_diff($currentForeignKeys, $originalForeignKeys);
                     if (!empty($inserted)) {
-                        $insertedRelations[$relationName] = $inserted;
+                        $modifiedManyManyRelations[$relationName]['inserted'] = $deleted;
                     }
+                    break;
+
+                case Relation::HAS_MANY:
                     break;
             }
 
@@ -360,64 +372,27 @@ class Entity
             $primaryKey = $this->update($object);
         }
 
-        $queryBuilder                  = $this->manager->getDriver()->getQueryBuilder();
         $this->originalData[$objectId] = $this->toArray($object);
 
-        foreach ($deletedRelations as $relationName => $keys) {
-            $relation      = $this->getRelation($relationName);
-            $relatedEntity = $this->getRelatedEntity($relationName);
+        $this->updateManyToManyRelations($modifiedManyManyRelations, $primaryKey);
+    }
 
-            $entityTable  = $this->getTable();
-            $relatedTable = $relatedEntity->getTable();
-
-            $joinTable = $entityTable . '_' . $relatedTable;
-            $leftKey   = $entityTable . '_' . $relation->foreignKey;
-            $rightKey  = $relatedEntity->getTable() . '_' . $relation->targetKey;
-
-            $expression  = $queryBuilder->expression();
-            $deleteQuery = $queryBuilder
-                ->delete($joinTable)
-                ->where(
-                    $expression
-                        ->eq(
-                            $leftKey,
-                            $queryBuilder->createPositionalParameter($primaryKey)
-                        )
-                        ->andX(
-                            $expression->eq(
-                                $rightKey,
-                                '?'
-                            )
-                        )
-                );
-            foreach ($keys as $foreignKey) {
-                $deleteQuery->query([1 => $foreignKey]);
-            }
+    private function createInExpression($field, array $values, QueryBuilder $queryBuilder)
+    {
+        $expression = $queryBuilder->expression();
+        if (count($values) === 1) {
+            $expression->eq(
+                $field,
+                $queryBuilder->createPositionalParameter(current($values))
+            );
+        } else {
+            $expression->in(
+                $field,
+                array_map([$queryBuilder, 'createPositionalParameter'], $values)
+            );
         }
 
-        foreach ($insertedRelations as $relationName => $keys) {
-            $relation      = $this->getRelation($relationName);
-            $relatedEntity = $this->getRelatedEntity($relationName);
-
-            $entityTable  = $this->getTable();
-            $relatedTable = $relatedEntity->getTable();
-
-            $joinTable = $entityTable . '_' . $relatedTable;
-            $leftKey   = $entityTable . '_' . $relation->foreignKey;
-            $rightKey  = $relatedEntity->getTable() . '_' . $relation->targetKey;
-
-            $insertQuery = $queryBuilder
-                ->insert($joinTable)
-                ->values(
-                    [
-                        $leftKey  => $queryBuilder->createPositionalParameter($primaryKey),
-                        $rightKey => '?'
-                    ]
-                );
-            foreach ($keys as $foreignKey) {
-                $insertQuery->query([1 => $foreignKey]);
-            }
-        }
+        return $expression;
     }
 
     private function getOriginalData($object, $field)
@@ -445,11 +420,6 @@ class Entity
                 return $value !== null;
             }
         );
-
-        //only save when a change is detected
-        if (empty($data)) {
-            return false;
-        }
 
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
         $query        = $queryBuilder->insert($this->getTable());
@@ -490,5 +460,58 @@ class Entity
         }
 
         return $this->getPrimaryKeyValue($object);
+    }
+
+    /**
+     * @param $modifiedManyManyRelations
+     * @param $primaryKey
+     */
+    private function updateManyToManyRelations($modifiedManyManyRelations, $primaryKey)
+    {
+        $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
+        foreach ($modifiedManyManyRelations as $relationName => $keys) {
+            $relation      = $this->getRelation($relationName);
+            $relatedEntity = $this->getRelatedEntity($relationName);
+
+            $entityTable  = $this->getTable();
+            $relatedTable = $relatedEntity->getTable();
+
+            $joinTable = $entityTable . '_' . $relatedTable;
+            $leftKey   = $entityTable . '_' . $relation->foreignKey;
+            $rightKey  = $relatedEntity->getTable() . '_' . $relation->targetKey;
+
+            if (isset($keys['deleted'])) {
+                $expression = $queryBuilder->expression();
+                $queryBuilder
+                    ->delete($joinTable)
+                    ->where(
+                        $expression
+                            ->eq(
+                                $leftKey,
+                                $queryBuilder->createPositionalParameter($primaryKey)
+                            )
+                            ->andX(
+                                $this->createInExpression(
+                                    $rightKey,
+                                    $keys['deleted'],
+                                    $queryBuilder
+                                )
+                            )
+                    )->query();
+            }
+            if (isset($keys['inserted'])) {
+                $insertQuery = $queryBuilder
+                    ->insert($joinTable)
+                    ->values(
+                        [
+                            $leftKey  => $queryBuilder->createPositionalParameter($primaryKey),
+                            $rightKey => '?'
+                        ]
+                    );
+                foreach ($keys['inserted'] as $foreignKey) {
+                    $insertQuery->query([1 => $foreignKey]);
+                }
+            }
+        }
     }
 }
