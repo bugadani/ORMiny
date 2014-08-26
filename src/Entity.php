@@ -341,6 +341,7 @@ class Entity
                         )
                     )
                 )->query();
+            unset($this->relatedObjectHandles[spl_object_hash($object)]);
         }
     }
 
@@ -380,6 +381,7 @@ class Entity
                     if (!empty($inserted)) {
                         $modifiedManyManyRelations[$relationName]['inserted'] = $inserted;
                     }
+                    $this->objectRelations[$objectId] = array_diff($deleted, $currentForeignKeys);
                     break;
 
                 case Relation::HAS_MANY:
@@ -401,19 +403,38 @@ class Entity
                     if (!empty($deleted)) {
                         call_user_func_array([$relatedEntity->find(), 'delete'], $deleted);
                     }
+                    $this->objectRelations[$objectId] = array_diff($deleted, $currentForeignKeys);
                     break;
 
                 case Relation::HAS_ONE:
                 case Relation::BELONGS_TO:
-                    if (isset($this->getters[$relationName])) {
-                        $value = $object->{$this->getters[$relationName]}();
-
-                        $hasValue = isset($value);
-                    } else {
-                        $hasValue = isset($object->{$this->relationTargets[$relationName]});
-                    }
                     //checking the foreign key is not enough here - foreign key is not updated yet.
-                    if ($hasValue) {
+                    if (isset($this->getters[$relationName])) {
+                        $foreignKeyValue = $object->{$this->getters[$relationName]}();
+                    } elseif (isset($object->{$this->relationTargets[$relationName]})) {
+                        $foreignKeyValue = $object->{$this->relationTargets[$relationName]};
+                    } else {
+                        $foreignKeyValue = null;
+                    }
+
+                    $this->setFieldValue($foreignKeyValue, $relation->foreignKey, $object);
+                    $this->objectRelations[$objectId] = $foreignKeyValue;
+                    break;
+            }
+        }
+
+        if ($this->objectStates[$objectId] === self::STATE_NEW) {
+            $primaryKey = $this->insert($object);
+        } else {
+            $primaryKey = $this->update($object);
+        }
+
+        foreach ($this->getRelations() as $relationName => $relation) {
+            switch ($relation->type) {
+                case Relation::HAS_ONE:
+                case Relation::BELONGS_TO:
+                    $relatedEntity = $this->getRelatedEntity($relationName);
+                    if ($this->getFieldValue($object, $relation->foreignKey) !== null) {
                         $relatedEntity->save(
                             $this->getRelationValue($object, $relationName)
                         );
@@ -424,18 +445,9 @@ class Entity
                     }
                     break;
             }
-
-            //if $object foreign key hasn't changed but related object's pk is different
-            //overwrite the local foreign key
-            //if the local key changed that change should be respected
         }
 
-        if ($this->objectStates[$objectId] === self::STATE_NEW) {
-            $primaryKey = $this->insert($object);
-        } else {
-            $primaryKey = $this->update($object);
-        }
-
+        $this->objectStates[$objectId] = self::STATE_HANDLED;
         $this->originalData[$objectId] = $this->toArray($object);
 
         $this->updateManyToManyRelations($modifiedManyManyRelations, $primaryKey);
@@ -493,8 +505,6 @@ class Entity
             ->query();
 
         $this->setFieldValue($primaryKey, $this->getPrimaryKey(), $object);
-
-        $this->objectStates[spl_object_hash($object)] = self::STATE_HANDLED;
 
         return $primaryKey;
     }

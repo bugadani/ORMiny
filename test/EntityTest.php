@@ -287,7 +287,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                         ]
                     ]
                 ],
-                ['DELETE FROM related WHERE primaryKey=?']
+                ['UPDATE hasOne SET fk=? WHERE pk=?'],
+                ['DELETE FROM related WHERE primaryKey=?'],
             ]
         );
 
@@ -310,10 +311,11 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->assertNotSame($objects[5]->relation, $objects[6]->relation);
 
         $this->assertEquals(1, $objects[5]->relation->primaryKey);
-        $this->assertEquals(2, $objects[6]->relation->primaryKey);
 
         unset($objects[5]->relation);
         $entity->save($objects[5]);
+
+        $this->assertNull($objects[5]->fk);
     }
 
     public function testGetSingleRecordWithDeepRelated()
