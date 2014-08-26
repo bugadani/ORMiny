@@ -353,7 +353,7 @@ class Entity
 
                     $inserted = array_diff($currentForeignKeys, $originalForeignKeys);
                     if (!empty($inserted)) {
-                        $modifiedManyManyRelations[$relationName]['inserted'] = $deleted;
+                        $modifiedManyManyRelations[$relationName]['inserted'] = $inserted;
                     }
                     break;
 
