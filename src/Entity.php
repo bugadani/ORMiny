@@ -219,9 +219,7 @@ class Entity
 
     public function toArray($object)
     {
-        if (!$object instanceof $this->className) {
-            throw new \InvalidArgumentException("Object must be an instance of {$this->className}");
-        }
+        $this->checkObjectInstance($object);
         $data = [];
         foreach ($this->fields as $field) {
             $data[$field] = $this->getFieldValue($object, $field);
@@ -244,84 +242,25 @@ class Entity
         return call_user_func_array([$this->find(), 'get'], func_get_args());
     }
 
-    public function save($object)
+    private function registerSetterAndGetter($fieldName, $setter, $getter)
     {
-        $objectId = spl_object_hash($object);
-
-        if (!isset($this->objectStates[$objectId])) {
-            $this->objectStates[$objectId]    = self::STATE_NEW;
-            $this->originalData[$objectId]    = [];
-            $this->objectRelations[$objectId] = [];
-        }
-
-        foreach ($this->getRelations() as $relationName => $relation) {
-            $relatedEntity = $this->getRelatedEntity($relationName);
-            switch ($relation->type) {
-                case Relation::MANY_MANY:
-                    $currentForeignKeys  = array_map(
-                        [$relatedEntity, 'getPrimaryKeyValue'],
-                        $this->getRelationValue($object, $relationName)
-                    );
-                    $originalForeignKeys = $this->objectRelations[$objectId];
-
-                    $deleted  = array_diff($originalForeignKeys, $currentForeignKeys);
-                    $inserted = array_diff($currentForeignKeys, $originalForeignKeys);
-                    break;
+        if ($setter !== null) {
+            if (!method_exists($this->className, $setter)) {
+                throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$setter}");
             }
-
-            //if $object foreign key hasn't changed but related object's pk is different
-            //overwrite the local foreign key
-            //if the local key changed that change should be respected
+            $this->setters[$fieldName] = $setter;
         }
-
-        $data = $this->toArray($object);
-
-        $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-        if ($this->objectStates[$objectId] === self::STATE_NEW) {
-            $data = array_filter(
-                $data,
-                function ($value) {
-                    return $value !== null;
-                }
-            );
-
-            //only save when a change is detected
-            if (empty($data)) {
-                return;
+        if ($getter !== null) {
+            if (!method_exists($this->className, $getter)) {
+                throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$getter}");
             }
-
-            $query = $queryBuilder->insert($this->getTable());
-            $id = $query->values(array_map([$query, 'createPositionalParameter'], $data))->query();
-            $this->setFieldValue($id, $this->getPrimaryKey(), $object);
-
-            $this->objectStates[$objectId] = self::STATE_HANDLED;
-        } else {
-            $data = array_diff($data, $this->originalData[$objectId]);
-
-            //only save when a change is detected
-            if (empty($data)) {
-                return;
-            }
-
-            $query = $queryBuilder
-                ->update($this->getTable())
-                ->where(
-                    $queryBuilder->expression()->eq(
-                        $this->getPrimaryKey(),
-                        $queryBuilder->createPositionalParameter(
-                            $this->getOriginalData($object, $this->getPrimaryKey())
-                        )
-                    )
-                );
-
-            $query->values(array_map([$query, 'createPositionalParameter'], $data))->query();
+            $this->getters[$fieldName] = $getter;
         }
-
-        $this->originalData[$objectId] = $this->toArray($object);
     }
 
     public function delete($object)
     {
+        $this->checkObjectInstance($object);
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
         foreach ($this->getRelatedEntities() as $relationName => $relatedEntity) {
             $relatedObjects = $this->getRelationValue($object, $relationName);
@@ -374,24 +313,182 @@ class Entity
         }
     }
 
-    private function registerSetterAndGetter($fieldName, $setter, $getter)
+    public function save($object)
     {
-        if ($setter !== null) {
-            if (!method_exists($this->className, $setter)) {
-                throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$setter}");
-            }
-            $this->setters[$fieldName] = $setter;
+        $this->checkObjectInstance($object);
+        $objectId = spl_object_hash($object);
+
+        if (!isset($this->objectStates[$objectId])) {
+            $this->objectStates[$objectId]    = self::STATE_NEW;
+            $this->originalData[$objectId]    = [];
+            $this->objectRelations[$objectId] = [];
         }
-        if ($getter !== null) {
-            if (!method_exists($this->className, $getter)) {
-                throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$getter}");
+
+        $deletedRelations  = [];
+        $insertedRelations = [];
+
+        foreach ($this->getRelations() as $relationName => $relation) {
+            $relatedEntity = $this->getRelatedEntity($relationName);
+            switch ($relation->type) {
+                case Relation::MANY_MANY:
+                    $currentForeignKeys  = array_map(
+                        [$relatedEntity, 'getPrimaryKeyValue'],
+                        $this->getRelationValue($object, $relationName)
+                    );
+                    $originalForeignKeys = $this->objectRelations[$objectId];
+
+                    $deleted = array_diff($originalForeignKeys, $currentForeignKeys);
+                    if (!empty($deleted)) {
+                        $deletedRelations[$relationName] = $deleted;
+                    }
+
+                    $inserted = array_diff($currentForeignKeys, $originalForeignKeys);
+                    if (!empty($inserted)) {
+                        $insertedRelations[$relationName] = $inserted;
+                    }
+                    break;
             }
-            $this->getters[$fieldName] = $getter;
+
+            //if $object foreign key hasn't changed but related object's pk is different
+            //overwrite the local foreign key
+            //if the local key changed that change should be respected
+        }
+
+        if ($this->objectStates[$objectId] === self::STATE_NEW) {
+            $primaryKey = $this->insert($object);
+        } else {
+            $primaryKey = $this->update($object);
+        }
+
+        $queryBuilder                  = $this->manager->getDriver()->getQueryBuilder();
+        $this->originalData[$objectId] = $this->toArray($object);
+
+        foreach ($deletedRelations as $relationName => $keys) {
+            $relation      = $this->getRelation($relationName);
+            $relatedEntity = $this->getRelatedEntity($relationName);
+
+            $entityTable  = $this->getTable();
+            $relatedTable = $relatedEntity->getTable();
+
+            $joinTable = $entityTable . '_' . $relatedTable;
+            $leftKey   = $entityTable . '_' . $relation->foreignKey;
+            $rightKey  = $relatedEntity->getTable() . '_' . $relation->targetKey;
+
+            $expression  = $queryBuilder->expression();
+            $deleteQuery = $queryBuilder
+                ->delete($joinTable)
+                ->where(
+                    $expression
+                        ->eq(
+                            $leftKey,
+                            $queryBuilder->createPositionalParameter($primaryKey)
+                        )
+                        ->andX(
+                            $expression->eq(
+                                $rightKey,
+                                '?'
+                            )
+                        )
+                );
+            foreach ($keys as $foreignKey) {
+                $deleteQuery->query([1 => $foreignKey]);
+            }
+        }
+
+        foreach ($insertedRelations as $relationName => $keys) {
+            $relation      = $this->getRelation($relationName);
+            $relatedEntity = $this->getRelatedEntity($relationName);
+
+            $entityTable  = $this->getTable();
+            $relatedTable = $relatedEntity->getTable();
+
+            $joinTable = $entityTable . '_' . $relatedTable;
+            $leftKey   = $entityTable . '_' . $relation->foreignKey;
+            $rightKey  = $relatedEntity->getTable() . '_' . $relation->targetKey;
+
+            $insertQuery = $queryBuilder
+                ->insert($joinTable)
+                ->values(
+                    [
+                        $leftKey  => $queryBuilder->createPositionalParameter($primaryKey),
+                        $rightKey => '?'
+                    ]
+                );
+            foreach ($keys as $foreignKey) {
+                $insertQuery->query([1 => $foreignKey]);
+            }
         }
     }
 
     private function getOriginalData($object, $field)
     {
         return $this->originalData[spl_object_hash($object)][$field];
+    }
+
+    /**
+     * @param $object
+     *
+     * @throws \InvalidArgumentException
+     */
+    private function checkObjectInstance($object)
+    {
+        if (!$object instanceof $this->className) {
+            throw new \InvalidArgumentException("Object must be an instance of {$this->className}");
+        }
+    }
+
+    private function insert($object)
+    {
+        $data = array_filter(
+            $this->toArray($object),
+            function ($value) {
+                return $value !== null;
+            }
+        );
+
+        //only save when a change is detected
+        if (empty($data)) {
+            return false;
+        }
+
+        $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
+        $query        = $queryBuilder->insert($this->getTable());
+
+        $primaryKey = $query
+            ->values(array_map([$query, 'createPositionalParameter'], $data))
+            ->query();
+
+        $this->setFieldValue($primaryKey, $this->getPrimaryKey(), $object);
+
+        $this->objectStates[spl_object_hash($object)] = self::STATE_HANDLED;
+
+        return $primaryKey;
+    }
+
+    private function update($object)
+    {
+        $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
+        $data         = array_diff(
+            $this->toArray($object),
+            $this->originalData[spl_object_hash($object)]
+        );
+
+        //only save when a change is detected
+        if (!empty($data)) {
+            $query = $queryBuilder
+                ->update($this->getTable())
+                ->where(
+                    $queryBuilder->expression()->eq(
+                        $this->getPrimaryKey(),
+                        $queryBuilder->createPositionalParameter(
+                            $this->getOriginalData($object, $this->getPrimaryKey())
+                        )
+                    )
+                );
+
+            $query->values(array_map([$query, 'createPositionalParameter'], $data))->query();
+        }
+
+        return $this->getPrimaryKeyValue($object);
     }
 }

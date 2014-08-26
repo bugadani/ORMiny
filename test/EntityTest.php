@@ -457,10 +457,12 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     public function testInsertAndUpdateSimpleRecord()
     {
         //field2 is set because its getter returns a value
-        $this->expectQueries([
+        $this->expectQueries(
+            [
                 ['INSERT INTO test (fieldWithSetter, field2) VALUES (?, ?)'],
                 ['UPDATE test SET field2=? WHERE key=?']
-            ]);
+            ]
+        );
 
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
@@ -471,6 +473,46 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity->save($object);
 
         $object->setField2('bar');
+
+        $entity->save($object);
+    }
+
+    public function testUpdateRecordWithManyToManyRelation()
+    {
+        //field2 is set because its getter returns a value
+        $this->expectQueries(
+            [
+                [
+                    'SELECT pk, fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
+                    'LEFT JOIN many_many_related ON relation.fk=many_many_related.many_many_fk ' .
+                    'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey ' .
+                    'WHERE pk=?',
+                    [
+                        [
+                            'pk'                  => 1,
+                            'fk'                  => 1,
+                            'relation_primaryKey' => 1
+                        ],
+                        [
+                            'pk'                  => 1,
+                            'fk'                  => 1,
+                            'relation_primaryKey' => 2
+                        ]
+                    ]
+                ],
+                ['DELETE FROM many_many_related WHERE (many_many_fk=? AND related_primaryKey=?)'],
+                ['INSERT INTO many_many_related (many_many_fk, related_primaryKey) VALUES (?, ?)']
+            ]
+        );
+
+        $entity = $this->entityManager->get('ManyManyRelationEntity');
+        $object = $entity->find()->with('relation')->get(2);
+
+        unset($object->relation[1]);
+
+        $newRelation             = new RelatedEntity();
+        $newRelation->primaryKey = 3;
+        $object->relation[3]     = $newRelation;
 
         $entity->save($object);
     }
