@@ -2,6 +2,8 @@
 
 namespace Modules\ORM;
 
+use Modules\ORM\Annotations\Relation;
+
 class ResultProcessor
 {
     private $with;
@@ -36,11 +38,7 @@ class ResultProcessor
             $key  = $data[$pkField];
             if ($currentKey !== $key) {
                 if ($object !== null) {
-                    $this->processRelatedRecords(
-                        $entity,
-                        $object,
-                        $recordsToProcess
-                    );
+                    $this->processRelatedRecords($entity, $object, $recordsToProcess);
                     $recordsToProcess     = [];
                     $objects[$currentKey] = $object;
                 }
@@ -50,11 +48,7 @@ class ResultProcessor
             $recordsToProcess[] = array_diff_key($record, $fields);
         }
         if ($object !== null) {
-            $this->processRelatedRecords(
-                $entity,
-                $object,
-                $recordsToProcess
-            );
+            $this->processRelatedRecords($entity, $object, $recordsToProcess);
             $objects[$key] = $object;
         }
 
@@ -87,42 +81,36 @@ class ResultProcessor
             );
         }
 
-        $with = array_filter($with, [$entity, 'hasRelation']);
-
-        foreach ($with as $relationName) {
+        foreach (array_filter($with, [$entity, 'hasRelation']) as $relationName) {
             $this->relationStack[] = $relationName;
 
-            array_walk(
-                $recordsToProcess,
-                [$this, 'getRelevantColumns'],
-                $relationName . '_'
-            );
             $value = $this->process(
                 $entity->getRelatedEntity($relationName),
-                $recordsToProcess
+                array_map(
+                    function ($rawRecord) use ($relationName) {
+                        $record       = [];
+                        $prefixLength = strlen($relationName) + 1;
+                        foreach ($rawRecord as $key => $value) {
+                            if (strpos($key, $relationName . '_') === 0) {
+                                $key          = substr($key, $prefixLength);
+                                $record[$key] = $value;
+                            }
+                        }
+
+                        return $record;
+                    },
+                    $recordsToProcess
+                )
             );
-            if ($entity->getRelation($relationName)->type === 'has one') {
-                $value = current($value);
+            switch ($entity->getRelation($relationName)->type) {
+                case Relation::HAS_ONE:
+                case Relation::BELONGS_TO:
+                    $value = current($value);
+                    break;
             }
             $entity->setRelationValue($object, $relationName, $value);
 
             array_pop($this->relationStack);
         }
-    }
-
-    private function getRelevantColumns(&$rawRecord, $key, $prefix)
-    {
-        if ($prefix === '') {
-            return;
-        }
-        $record       = [];
-        $prefixLength = strlen($prefix);
-        foreach ($rawRecord as $key => $value) {
-            if (strpos($key, $prefix) === 0) {
-                $key          = substr($key, $prefixLength);
-                $record[$key] = $value;
-            }
-        }
-        $rawRecord = $record;
     }
 }

@@ -69,13 +69,6 @@ class EntityFinder
             }
         }
 
-        /*usort(
-            $with,
-            function ($a, $b) {
-                return strlen($b) - strlen($a);
-            }
-        );*/
-
         $this->with = $with;
 
         return $this;
@@ -111,8 +104,10 @@ class EntityFinder
 
     public function addGroupBy($field)
     {
-        $fields              = is_array($field) ? $field : func_get_args();
-        $this->groupByFields = array_merge($this->groupByFields, $fields);
+        $this->groupByFields = array_merge(
+            $this->groupByFields,
+            is_array($field) ? $field : func_get_args()
+        );
 
         return $this;
     }
@@ -143,9 +138,8 @@ class EntityFinder
         if (func_num_args() > 0) {
             if (!is_array(func_get_arg(0))) {
                 return $this->getByPrimaryKey(func_get_args());
-            } else {
-                $parameters = func_get_arg(0);
             }
+            $parameters = func_get_arg(0);
         } else {
             $parameters = [];
         }
@@ -158,8 +152,7 @@ class EntityFinder
                         ->getQueryBuilder()
                         ->select($this->entity->getFields())
                         ->from($this->entity->getTable())
-                ),
-                ''
+                )
             )->query($parameters)
         );
     }
@@ -269,7 +262,7 @@ class EntityFinder
      *
      * @return AbstractQueryBuilder
      */
-    private function joinRelationsToQuery($entity, $query, $prefix)
+    private function joinRelationsToQuery($entity, $query, $prefix = '')
     {
         $with = $this->with;
         if (!empty($this->relationStack)) {
@@ -316,8 +309,7 @@ class EntityFinder
                             $primaryKeys,
                             $queryBuilder
                         )
-                    ),
-                ''
+                    )
             )->query()
         );
 
@@ -328,30 +320,15 @@ class EntityFinder
         return $records;
     }
 
-    private function deleteByPk($primaryKeys)
-    {
-        $relations = $this->entity->getRelations();
-        if (empty($relations)) {
-            $this->deleteByPrimaryKey($primaryKeys);
-        } else {
-            $this->deleteRecords(
-                $this
-                    ->with(array_keys($relations))
-                    ->getByPrimaryKey($primaryKeys)
-            );
-        }
-    }
-
     public function delete()
     {
         if (func_num_args() > 0) {
             if (!is_array(func_get_arg(0))) {
-                $this->deleteByPk(func_get_args());
+                $this->deleteByPrimaryKey(func_get_args());
 
                 return;
-            } else {
-                $parameters = func_get_arg(0);
             }
+            $parameters = func_get_arg(0);
         } else {
             $parameters = [];
         }
@@ -367,6 +344,27 @@ class EntityFinder
             $this->deleteRecords(
                 $this->with(array_keys($relations))
                     ->get($parameters)
+            );
+        }
+    }
+
+    private function deleteByPrimaryKey($primaryKeys)
+    {
+        $relations = $this->entity->getRelations();
+        if (empty($relations)) {
+            $queryBuilder = $this->driver->getQueryBuilder();
+            $queryBuilder->delete($this->entity->getTable())
+                ->where(
+                    $this->createInExpression(
+                        $this->entity->getPrimaryKey(),
+                        (array)$primaryKeys,
+                        $queryBuilder
+                    )
+                )->query();
+        } else {
+            $this->deleteRecords(
+                $this->with(array_keys($relations))
+                    ->getByPrimaryKey($primaryKeys)
             );
         }
     }
@@ -430,6 +428,7 @@ class EntityFinder
 
         $key     = null;
         $records = [];
+        $count   = 0;
         $index   = -1;
         while ($record = $statement->fetch()) {
             if ($key !== $record[$pkField]) {
@@ -439,10 +438,10 @@ class EntityFinder
             if (isset($this->offset) && $index < $this->offset) {
                 continue;
             }
-            if (isset($this->limit) && count($records) > $this->limit) {
+            if (isset($this->limit) && $count > $this->limit) {
                 break;
             }
-            $records[] = $record;
+            $records[$count++] = $record;
         }
 
         $statement->closeCursor();
@@ -450,35 +449,17 @@ class EntityFinder
         return $records;
     }
 
-    /**
-     * @param $records
-     */
     private function deleteRecords($records)
     {
-        if ($records === false) {
-            return;
-        }
-        if (is_array($records)) {
-            array_map(
-                [$this->entity, 'delete'],
-                $records
-            );
-        } else {
-            $this->entity->delete($records);
+        if ($records !== false) {
+            if (is_array($records)) {
+                array_map(
+                    [$this->entity, 'delete'],
+                    $records
+                );
+            } else {
+                $this->entity->delete($records);
+            }
         }
     }
-
-    private function deleteByPrimaryKey($primaryKeys)
-    {
-        $queryBuilder = $this->driver->getQueryBuilder();
-        $queryBuilder->delete($this->entity->getTable())
-            ->where(
-                $this->createInExpression(
-                    $this->entity->getPrimaryKey(),
-                    (array)$primaryKeys,
-                    $queryBuilder
-                )
-            )->query();
-    }
-
 }

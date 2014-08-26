@@ -82,6 +82,7 @@ class Entity
 
     public function setFieldValue($value, $field, $object)
     {
+        $this->checkObjectInstance($object);
         if (isset($this->setters[$field])) {
             return $object->{$this->setters[$field]}($value);
         }
@@ -93,6 +94,7 @@ class Entity
 
     public function getFieldValue($object, $field)
     {
+        $this->checkObjectInstance($object);
         if (isset($this->getters[$field])) {
             return $object->{$this->getters[$field]}();
         }
@@ -147,6 +149,7 @@ class Entity
 
     public function getRelationValue($object, $relationName)
     {
+        $this->checkObjectInstance($object);
         if (isset($this->getters[$relationName])) {
             return $object->{$this->getters[$relationName]}();
         }
@@ -156,36 +159,39 @@ class Entity
 
     public function setRelationValue($object, $relationName, $value)
     {
+        $this->checkObjectInstance($object);
+
         $relatedEntity = $this->getRelatedEntity($relationName);
         $relation      = $this->getRelation($relationName);
+
+        $objectId = spl_object_hash($object);
+
+        $this->relatedObjectHandles[$objectId] = $object;
 
         switch ($relation->type) {
             case Relation::MANY_MANY:
                 $targetKey = $relation->targetKey;
 
-                if (is_array($value)) {
-                    $foreignKeys = [];
-                    foreach ($value as $relatedObject) {
-                        $foreignKeys[] = $relatedEntity->getFieldValue($relatedObject, $targetKey);
-                    }
-                } else {
-                    $foreignKeys[] = $relatedEntity->getFieldValue($value, $targetKey);
+                $this->objectRelations[$objectId] = [];
+                foreach ($value as $relatedObject) {
+                    $this->objectRelations[$objectId][] = $relatedEntity->getFieldValue(
+                        $relatedObject,
+                        $targetKey
+                    );
                 }
+                break;
+
+            case Relation::HAS_MANY:
+                $this->objectRelations[$objectId] = array_map(
+                    [$relatedEntity, 'getPrimaryKeyValue'],
+                    (array)$value
+                );
                 break;
 
             default:
-                if (is_array($value)) {
-                    $foreignKeys = array_map([$relatedEntity, 'getPrimaryKeyValue'], $value);
-                } else {
-                    $foreignKeys = $relatedEntity->getPrimaryKeyValue($value);
-                }
+                $this->objectRelations[$objectId] = $relatedEntity->getPrimaryKeyValue($value);
                 break;
         }
-
-        $objectId = spl_object_hash($object);
-
-        $this->objectRelations[$objectId]      = $foreignKeys;
-        $this->relatedObjectHandles[$objectId] = $object;
 
         if (isset($this->setters[$relationName])) {
             return $object->{$this->setters[$relationName]}($value);
@@ -231,13 +237,14 @@ class Entity
 
         $objectId = spl_object_hash($object);
 
-        $this->originalData[$objectId]    = $data;
-        $this->objectRelations[$objectId] = [];
         if ($this->isPrimaryKeySet($object)) {
             $this->objectStates[$objectId] = self::STATE_HANDLED;
         } else {
             $this->objectStates[$objectId] = self::STATE_NEW;
         }
+
+        $this->originalData[$objectId]         = $data;
+        $this->objectRelations[$objectId]      = [];
         $this->relatedObjectHandles[$objectId] = $object;
 
         return $object;
@@ -288,6 +295,7 @@ class Entity
     {
         $this->checkObjectInstance($object);
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
+
         foreach ($this->getRelatedEntities() as $relationName => $relatedEntity) {
             $relatedObjects = $this->getRelationValue($object, $relationName);
             $relation       = $this->getRelation($relationName);
@@ -300,14 +308,11 @@ class Entity
                     break;
 
                 case Relation::MANY_MANY:
-                    $joinTable = $this->getTable() . '_' . $relatedEntity->getTable();
-                    $field     = $this->getTable() . '_' . $relation->foreignKey;
-
                     $queryBuilder
-                        ->delete($joinTable)
+                        ->delete($this->getTable() . '_' . $relatedEntity->getTable())
                         ->where(
                             $queryBuilder->expression()->in(
-                                $field,
+                                $this->getTable() . '_' . $relation->foreignKey,
                                 array_map(
                                     [$queryBuilder, 'createPositionalParameter'],
                                     array_map(
@@ -372,15 +377,12 @@ class Entity
 
                     $originalForeignKeys = $this->objectRelations[$objectId];
 
-                    $deleted = array_diff($originalForeignKeys, $currentForeignKeys);
-                    if (!empty($deleted)) {
-                        $modifiedManyManyRelations[$relationName]['deleted'] = $deleted;
-                    }
-
+                    $deleted  = array_diff($originalForeignKeys, $currentForeignKeys);
                     $inserted = array_diff($currentForeignKeys, $originalForeignKeys);
-                    if (!empty($inserted)) {
-                        $modifiedManyManyRelations[$relationName]['inserted'] = $inserted;
-                    }
+
+                    $modifiedManyManyRelations[$relationName]['deleted']  = $deleted;
+                    $modifiedManyManyRelations[$relationName]['inserted'] = $inserted;
+
                     $this->objectRelations[$objectId] = array_diff($deleted, $currentForeignKeys);
                     break;
 
@@ -400,9 +402,7 @@ class Entity
                     }
 
                     $deleted = array_diff($this->objectRelations[$objectId], $currentForeignKeys);
-                    if (!empty($deleted)) {
-                        call_user_func_array([$relatedEntity->find(), 'delete'], $deleted);
-                    }
+                    call_user_func_array([$relatedEntity->find(), 'delete'], $deleted);
                     $this->objectRelations[$objectId] = array_diff($deleted, $currentForeignKeys);
                     break;
 
@@ -473,6 +473,8 @@ class Entity
 
     private function getOriginalData($object, $field)
     {
+        $this->checkObjectInstance($object);
+
         return $this->originalData[spl_object_hash($object)][$field];
     }
 
@@ -490,19 +492,20 @@ class Entity
 
     private function insert($object)
     {
-        $data = array_filter(
-            $this->toArray($object),
-            function ($value) {
-                return $value !== null;
-            }
-        );
-
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
         $query        = $queryBuilder->insert($this->getTable());
 
-        $primaryKey = $query
-            ->values(array_map([$query, 'createPositionalParameter'], $data))
-            ->query();
+        $primaryKey = $query->values(
+            array_map(
+                [$query, 'createPositionalParameter'],
+                array_filter(
+                    $this->toArray($object),
+                    function ($value) {
+                        return $value !== null;
+                    }
+                )
+            )
+        )->query();
 
         $this->setFieldValue($primaryKey, $this->getPrimaryKey(), $object);
 
@@ -511,15 +514,15 @@ class Entity
 
     private function update($object)
     {
-        $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-        $data         = array_diff(
+        $data = array_diff(
             $this->toArray($object),
             $this->originalData[spl_object_hash($object)]
         );
 
         //only save when a change is detected
         if (!empty($data)) {
-            $query = $queryBuilder
+            $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
+            $query        = $queryBuilder
                 ->update($this->getTable())
                 ->where(
                     $queryBuilder->expression()->eq(
@@ -547,11 +550,8 @@ class Entity
             $relation      = $this->getRelation($relationName);
             $relatedEntity = $this->getRelatedEntity($relationName);
 
-            $entityTable  = $this->getTable();
-            $relatedTable = $relatedEntity->getTable();
-
-            $joinTable = $entityTable . '_' . $relatedTable;
-            $leftKey   = $entityTable . '_' . $relation->foreignKey;
+            $joinTable = $this->getTable() . '_' . $relatedEntity->getTable();
+            $leftKey   = $this->getTable() . '_' . $relation->foreignKey;
             $rightKey  = $relatedEntity->getTable() . '_' . $relation->targetKey;
 
             if (isset($keys['deleted'])) {
