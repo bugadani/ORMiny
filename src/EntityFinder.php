@@ -138,6 +138,8 @@ class EntityFinder
     public function readOnly()
     {
         $this->readOnly = true;
+
+        return $this;
     }
 
     public function get()
