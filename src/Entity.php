@@ -315,7 +315,16 @@ class Entity
                 case Relation::HAS_MANY:
                     call_user_func_array(
                         [$relatedEntity->find(), 'delete'],
-                        array_map([$relatedEntity, 'getPrimaryKeyValue'], $relatedObjects)
+                        array_map(
+                            function ($object) use ($relatedEntity) {
+                                if (!is_object($object)) {
+                                    return $object;
+                                }
+
+                                return $relatedEntity->getPrimaryKeyValue($object);
+                            },
+                            $relatedObjects
+                        )
                     );
                     break;
 
@@ -383,9 +392,15 @@ class Entity
                 case Relation::MANY_MANY:
                     $relatedObjects = $this->getRelationValue($object, $relationName);
 
-                    array_map([$relatedEntity, 'save'], $relatedObjects);
                     $currentForeignKeys = array_map(
-                        [$relatedEntity, 'getPrimaryKeyValue'],
+                        function ($object) use ($relatedEntity) {
+                            if (!is_object($object)) {
+                                return $object;
+                            }
+                            $relatedEntity->save($object);
+
+                            return $relatedEntity->getPrimaryKeyValue($object);
+                        },
                         $relatedObjects
                     );
 
@@ -464,7 +479,7 @@ class Entity
         $this->objectStates[$objectId] = self::STATE_HANDLED;
         $this->originalData[$objectId] = $this->toArray($object);
 
-        $this->updateManyToManyRelations($modifiedManyManyRelations, $primaryKey);
+        $this->updateManyToManyRelations($object, $modifiedManyManyRelations, $primaryKey);
     }
 
     private function createInExpression($field, array $values, QueryBuilder $queryBuilder)
@@ -554,10 +569,11 @@ class Entity
     }
 
     /**
+     * @param $object
      * @param $modifiedManyManyRelations
      * @param $primaryKey
      */
-    private function updateManyToManyRelations($modifiedManyManyRelations, $primaryKey)
+    private function updateManyToManyRelations($object, $modifiedManyManyRelations, $primaryKey)
     {
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
         foreach ($modifiedManyManyRelations as $relationName => $keys) {
