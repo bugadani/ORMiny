@@ -459,22 +459,28 @@ class EntityFinder
             return $statement->fetchAll();
         }
 
-        $key     = null;
-        $records = [];
-        $count   = 0;
-        $index   = -1;
+        $key        = null;
+        $records    = [];
+        $count      = 0;
+        $index      = 0;
+        $rowSkipped = false;
+
         while ($record = $statement->fetch()) {
             if ($key !== $record[$pkField]) {
                 $key = $record[$pkField];
-                $index++;
-            }
-            if (isset($this->offset) && $index < $this->offset) {
+                if (isset($this->offset)) {
+                    $rowSkipped = $index++ < $this->offset;
+                }
+                if ($rowSkipped) {
+                    continue;
+                }
+                if (isset($this->limit) && $count++ === $this->limit) {
+                    break;
+                }
+            } elseif ($rowSkipped) {
                 continue;
             }
-            if (isset($this->limit) && $count > $this->limit) {
-                break;
-            }
-            $records[$count++] = $record;
+            $records[] = $record;
         }
 
         $statement->closeCursor();

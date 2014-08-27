@@ -588,12 +588,74 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     public function testThatLimitIsNotAppliedWhenTablesAreJoined()
     {
         $this->expectQuery(
-            'SELECT has_many.pk, relation.primaryKey as relation_primaryKey, ' .
-            'relation.foreignKey as relation_foreignKey FROM has_many ' .
-            'LEFT JOIN related relation ON pk=relation.foreignKey'
+            'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
+            'LEFT JOIN many_many_related ON many_many.fk=many_many_related.many_many_fk ' .
+            'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey',
+            [
+                [
+                    'pk'                  => 1,
+                    'fk'                  => 1,
+                    'relation_primaryKey' => 1
+                ],
+                [
+                    'pk'                  => 1,
+                    'fk'                  => 2,
+                    'relation_primaryKey' => 2
+                ],
+                [
+                    'pk'                  => 2,
+                    'fk'                  => 1,
+                    'relation_primaryKey' => 1
+                ],
+                [
+                    'pk'                  => 2,
+                    'fk'                  => 2,
+                    'relation_primaryKey' => 2
+                ],
+                [
+                    'pk'                  => 2,
+                    'fk'                  => 3,
+                    'relation_primaryKey' => 3
+                ],
+                [
+                    'pk'                  => 3,
+                    'fk'                  => 1,
+                    'relation_primaryKey' => 1
+                ],
+                [
+                    'pk'                  => 4,
+                    'fk'                  => 1,
+                    'relation_primaryKey' => 1
+                ],
+                [
+                    'pk'                  => 4,
+                    'fk'                  => 2,
+                    'relation_primaryKey' => 2
+                ],
+                [
+                    'pk'                  => 4,
+                    'fk'                  => 3,
+                    'relation_primaryKey' => 3
+                ],
+                [
+                    'pk'                  => 5,
+                    'fk'                  => 1,
+                    'relation_primaryKey' => 1
+                ],
+            ]
         );
 
-        $entity = $this->entityManager->get('HasManyRelationEntity');
-        $entity->find()->with('relation')->setFirstResult(2)->get();
+        $entity  = $this->entityManager->get('ManyManyRelationEntity');
+        $objects = $entity->find()
+            ->with('relation')
+            ->setFirstResult(2)
+            ->setMaxResults(3)
+            ->get();
+
+        $this->assertCount(3, $objects);
+
+        $this->assertCount(1, $objects[3]->relation);
+        $this->assertCount(3, $objects[4]->relation);
+        $this->assertCount(1, $objects[5]->relation);
     }
 }
