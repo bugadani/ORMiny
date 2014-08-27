@@ -173,7 +173,7 @@ class EntityFinder
                         ->select($fields)
                         ->from($table)
                 )
-            )->query($parameters)
+            )->query($parameters + $this->parameters)
         );
     }
 
@@ -371,11 +371,11 @@ class EntityFinder
                 $this->driver
                     ->getQueryBuilder()
                     ->delete($this->entity->getTable())
-            )->query();
+            )->query($this->parameters);
         } else {
             $this->deleteRecords(
                 $this->with(array_keys($relations))
-                    ->get($parameters)
+                    ->get($parameters + $this->parameters)
             );
         }
     }
