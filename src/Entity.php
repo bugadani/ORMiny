@@ -152,11 +152,12 @@ class Entity
     public function getRelationValue($object, $relationName)
     {
         $this->checkObjectInstance($object);
-        if (isset($this->getters[$relationName])) {
-            return $object->{$this->getters[$relationName]}();
+        $property = $this->relationTargets[$relationName];
+        if (isset($this->getters[$property])) {
+            return $object->{$this->getters[$property]}();
         }
 
-        return $object->{$this->relationTargets[$relationName]};
+        return $object->{$property};
     }
 
     public function setRelationValue($object, $relationName, $value)
@@ -195,11 +196,12 @@ class Entity
                 break;
         }
 
-        if (isset($this->setters[$relationName])) {
-            return $object->{$this->setters[$relationName]}($value);
+        $property = $this->relationTargets[$relationName];
+        if (isset($this->setters[$property])) {
+            return $object->{$this->setters[$property]}($value);
         }
 
-        return $object->{$this->relationTargets[$relationName]} = $value;
+        return $object->{$property} = $value;
     }
 
     public function getRelatedEntity($name)
