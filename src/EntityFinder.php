@@ -315,16 +315,20 @@ class EntityFinder
         return $query;
     }
 
-    private function getByPrimaryKey($primaryKeys)
+    public function getByPrimaryKey($primaryKeys)
+    {
+        return $this->getByField($this->entity->getPrimaryKey(), $primaryKeys);
+    }
+
+    public function getByField($fieldName, $keys)
     {
         $queryBuilder = $this->driver->getQueryBuilder();
 
-        $table      = $this->entity->getTable();
-        $fields     = $this->entity->getFields();
-        $primaryKey = $this->entity->getPrimaryKey();
+        $table  = $this->entity->getTable();
+        $fields = $this->entity->getFields();
         if (!empty($this->with)) {
-            $primaryKey = $table . '.' . $primaryKey;
-            $fields     = array_map(
+            $fieldName = $table . '.' . $fieldName;
+            $fields    = array_map(
                 function ($field) use ($table) {
                     return $table . '.' . $field;
                 },
@@ -339,15 +343,15 @@ class EntityFinder
                     ->from($table)
                     ->where(
                         $this->createInExpression(
-                            $primaryKey,
-                            $primaryKeys,
+                            $fieldName,
+                            $keys,
                             $queryBuilder
                         )
                     )
             )->query($this->parameters)
         );
 
-        if (count($primaryKeys) === 1) {
+        if (count($keys) === 1) {
             return current($records);
         }
 
@@ -382,7 +386,12 @@ class EntityFinder
         }
     }
 
-    private function deleteByPrimaryKey($primaryKeys)
+    public function deleteByPrimaryKey($primaryKeys)
+    {
+        $this->deleteByField($this->entity->getPrimaryKey(), $primaryKeys);
+    }
+
+    public function deleteByField($fieldName, $keys)
     {
         $relations = $this->entity->getRelations();
         if (empty($relations)) {
@@ -390,15 +399,15 @@ class EntityFinder
             $queryBuilder->delete($this->entity->getTable())
                 ->where(
                     $this->createInExpression(
-                        $this->entity->getPrimaryKey(),
-                        (array)$primaryKeys,
+                        $fieldName,
+                        (array)$keys,
                         $queryBuilder
                     )
                 )->query();
         } else {
             $this->deleteRecords(
                 $this->with(array_keys($relations))
-                    ->getByPrimaryKey($primaryKeys)
+                    ->getByField($fieldName, $keys)
             );
         }
     }
