@@ -344,7 +344,7 @@ class EntityFinder
                             $queryBuilder
                         )
                     )
-            )->query()
+            )->query($this->parameters)
         );
 
         if (count($primaryKeys) === 1) {
@@ -407,15 +407,9 @@ class EntityFinder
     {
         $expression = $queryBuilder->expression();
         if (count($values) === 1) {
-            $expression->eq(
-                $field,
-                $queryBuilder->createPositionalParameter(current($values))
-            );
+            $expression->eq($field, $this->parameter(current($values)));
         } else {
-            $expression->in(
-                $field,
-                array_map([$queryBuilder, 'createPositionalParameter'], $values)
-            );
+            $expression->in($field, array_map([$this, 'parameter'], $values));
         }
 
         return $expression;
