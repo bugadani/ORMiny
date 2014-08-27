@@ -43,6 +43,8 @@ class EntityManager
      */
     private $resultProcessor;
 
+    private $defaultNamespace = '';
+
     public function __construct(Driver $driver, Reader $annotationReader)
     {
         $this->driver           = $driver;
@@ -66,6 +68,11 @@ class EntityManager
         return $this->driver;
     }
 
+    public function setDefaultNamespace($namespace)
+    {
+        $this->defaultNamespace = $namespace;
+    }
+
     public function register($entityName, $className)
     {
         $this->entityClassMap[$entityName] = $className;
@@ -77,7 +84,14 @@ class EntityManager
     private function getEntityClassName($entityName)
     {
         if (!isset($this->entityClassMap[$entityName])) {
-            throw new \OutOfBoundsException("Unknown entity {$entityName}");
+            $className = $entityName;
+            if(!class_exists($className)) {
+                if(!class_exists($this->defaultNamespace . $className)) {
+                    throw new \OutOfBoundsException("Unknown entity {$entityName}");
+                }
+                $className = $this->defaultNamespace . $entityName;
+            }
+            $this->entityClassMap[$entityName] = $className;
         }
 
         return $this->entityClassMap[$entityName];
