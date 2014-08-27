@@ -45,6 +45,8 @@ class EntityFinder
     private $groupByFields = [];
     private $orderByFields = [];
 
+    private $readOnly = false;
+
     public function __construct(ResultProcessor $resultProcessor, Driver $driver, Entity $entity)
     {
         $this->resultProcessor = $resultProcessor;
@@ -131,6 +133,11 @@ class EntityFinder
         $this->parameters[] = $value;
 
         return '?';
+    }
+
+    public function readOnly()
+    {
+        $this->readOnly = true;
     }
 
     public function get()
@@ -404,6 +411,7 @@ class EntityFinder
         return $this->resultProcessor->processRecords(
             $this->entity,
             $this->with,
+            $this->readOnly,
             $this->fetchResults(
                 $results,
                 $this->entity->getPrimaryKey()

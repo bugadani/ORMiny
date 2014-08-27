@@ -11,6 +11,7 @@ namespace Modules\ORM;
 
 use Modules\DBAL\Driver;
 use Modules\DBAL\QueryBuilder;
+use Modules\DBAL\QueryBuilder\Expression;
 use Modules\ORM\Annotations\Relation;
 
 class Entity
@@ -43,6 +44,7 @@ class Entity
     private $objectRelations = [];
 
     private $relatedObjectHandles = [];
+    private $readOnlyObjectHandles = [];
 
     public function __construct(EntityManager $manager, $className, $tableName)
     {
@@ -270,6 +272,14 @@ class Entity
         );
     }
 
+    /**
+     * @return Expression
+     */
+    public function expression()
+    {
+        return $this->manager->getDriver()->getQueryBuilder()->expression();
+    }
+
     public function get($primaryKey)
     {
         return call_user_func_array([$this->find(), 'get'], func_get_args());
@@ -360,6 +370,8 @@ class Entity
             $this->originalData[$objectId]         = [];
             $this->objectRelations[$objectId]      = [];
             $this->relatedObjectHandles[$objectId] = $object;
+        } elseif (isset($this->readOnlyObjectHandles[$objectId])) {
+            return;
         }
 
         $modifiedManyManyRelations = [];
@@ -586,6 +598,18 @@ class Entity
                     $insertQuery->query([1 => $foreignKey]);
                 }
             }
+        }
+    }
+
+    public function setReadOnly($object, $readOnly = true)
+    {
+        $this->checkObjectInstance($object);
+
+        $objectId = spl_object_hash($object);
+        if ($readOnly) {
+            $this->readOnlyObjectHandles[$objectId] = true;
+        } elseif (isset($this->readOnlyObjectHandles[$objectId])) {
+            unset($this->readOnlyObjectHandles[$objectId]);
         }
     }
 }

@@ -7,11 +7,14 @@ use Modules\ORM\Annotations\Relation;
 class ResultProcessor
 {
     private $with;
+    private $readOnly;
     private $relationStack;
 
-    public function processRecords(Entity $entity, $with, array $records)
+    public function processRecords(Entity $entity, $with, $readOnly, array $records)
     {
-        $this->with          = $with;
+        $this->with     = $with;
+        $this->readOnly = $readOnly;
+
         $this->relationStack = [];
 
         return $this->process($entity, $records);
@@ -44,6 +47,9 @@ class ResultProcessor
                 }
                 $currentKey = $key;
                 $object     = $entity->create($data);
+                if($this->readOnly) {
+                    $entity->setReadOnly($object);
+                }
             }
             $recordsToProcess[] = array_diff_key($record, $fields);
         }
