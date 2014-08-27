@@ -153,14 +153,25 @@ class EntityFinder
             $parameters = [];
         }
 
+        $table  = $this->entity->getTable();
+        $fields = $this->entity->getFields();
+        if (!empty($this->with)) {
+            $fields = array_map(
+                function ($field) use ($table) {
+                    return $table . '.' . $field;
+                },
+                $fields
+            );
+        }
+
         return $this->process(
             $this->joinRelationsToQuery(
                 $this->entity,
                 $this->applyFilters(
                     $this->driver
                         ->getQueryBuilder()
-                        ->select($this->entity->getFields())
-                        ->from($this->entity->getTable())
+                        ->select($fields)
+                        ->from($table)
                 )
             )->query($parameters)
         );
@@ -246,7 +257,7 @@ class EntityFinder
                     $joinTable,
                     $joinTable,
                     (new Expression())->eq(
-                        "{$alias}.{$relation->foreignKey}",
+                        "{$leftAlias}.{$relation->foreignKey}",
                         "{$joinTable}.{$entityTable}_{$relation->foreignKey}"
                     )
                 );
@@ -306,12 +317,22 @@ class EntityFinder
     {
         $queryBuilder = $this->driver->getQueryBuilder();
 
+        $table   = $this->entity->getTable();
+        $fields = $this->entity->getFields();
+        if (!empty($this->with)) {
+            $fields = array_map(
+                function ($field) use ($table) {
+                    return $table . '.' . $field;
+                },
+                $fields
+            );
+        }
         $records = $this->process(
             $this->joinRelationsToQuery(
                 $this->entity,
                 $queryBuilder
-                    ->select($this->entity->getFields())
-                    ->from($this->entity->getTable())
+                    ->select($fields)
+                    ->from($table)
                     ->where(
                         $this->createInExpression(
                             $this->entity->getPrimaryKey(),

@@ -272,7 +272,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->expectQueries(
             [
                 [
-                    'SELECT pk, fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne' .
+                    'SELECT hasOne.pk, hasOne.fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne' .
                     ' LEFT JOIN related hasOneRelation ON fk=hasOneRelation.primaryKey WHERE pk IN(?, ?)',
                     [
                         [
@@ -321,7 +321,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     public function testGetSingleRecordWithDeepRelated()
     {
         $this->expectQuery(
-            'SELECT pk, fk, relation.pk as relation_pk, relation.fk as relation_fk, relation_hasOneRelation.primaryKey as relation_hasOneRelation_primaryKey FROM deep ' .
+            'SELECT deep.pk, deep.fk, relation.pk as relation_pk, relation.fk as relation_fk, relation_hasOneRelation.primaryKey as relation_hasOneRelation_primaryKey FROM deep ' .
             'LEFT JOIN hasOne relation ON fk=relation.pk ' .
             'LEFT JOIN related relation_hasOneRelation ON relation_fk=relation_hasOneRelation.primaryKey ' .
             'WHERE pk=?',
@@ -390,8 +390,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     public function testThatJoinTableIsAddedProperlyToManyManyRelations()
     {
         $this->expectQuery(
-            'SELECT pk, fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
-            'LEFT JOIN many_many_related ON relation.fk=many_many_related.many_many_fk ' .
+            'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
+            'LEFT JOIN many_many_related ON many_many.fk=many_many_related.many_many_fk ' .
             'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey ' .
             'WHERE pk=?',
             [
@@ -432,8 +432,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->expectQueries(
             [
                 [
-                    'SELECT pk, fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
-                    'LEFT JOIN many_many_related ON relation.fk=many_many_related.many_many_fk ' .
+                    'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
+                    'LEFT JOIN many_many_related ON many_many.fk=many_many_related.many_many_fk ' .
                     'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey ' .
                     'WHERE pk=?',
                     []
@@ -450,8 +450,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->expectQueries(
             [
                 [
-                    'SELECT pk, fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
-                    'LEFT JOIN many_many_related ON relation.fk=many_many_related.many_many_fk ' .
+                    'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
+                    'LEFT JOIN many_many_related ON many_many.fk=many_many_related.many_many_fk ' .
                     'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey ' .
                     'WHERE pk=?',
                     [
@@ -505,8 +505,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->expectQueries(
             [
                 [
-                    'SELECT pk, fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
-                    'LEFT JOIN many_many_related ON relation.fk=many_many_related.many_many_fk ' .
+                    'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
+                    'LEFT JOIN many_many_related ON many_many.fk=many_many_related.many_many_fk ' .
                     'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey ' .
                     'WHERE pk=?',
                     [
@@ -543,7 +543,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->expectQueries(
             [
                 [
-                    'SELECT pk, relation.primaryKey as relation_primaryKey, ' .
+                    'SELECT has_many.pk, relation.primaryKey as relation_primaryKey, ' .
                     'relation.foreignKey as relation_foreignKey FROM has_many ' .
                     'LEFT JOIN related relation ON pk=relation.foreignKey WHERE pk=?',
                     [
