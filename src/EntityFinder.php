@@ -344,14 +344,14 @@ class EntityFinder
                     ->where(
                         $this->createInExpression(
                             $fieldName,
-                            $keys,
+                            (array)$keys,
                             $queryBuilder
                         )
                     )
             )->query($this->parameters)
         );
 
-        if (count($keys) === 1) {
+        if (!is_array($keys) || count($keys) === 1) {
             return current($records);
         }
 
