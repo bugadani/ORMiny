@@ -1,15 +1,13 @@
 {
-    "name": "miny/orm",
-    "description": "The ORM package of the Miny Framework.",
+    "name": "bugadani/orminy",
+    "description": "A simple but effective ORM library.",
     "minimum-stability": "dev",
     "license": "MIT",
     "type": "library",
     "require": {
         "php": ">=5.4",
-        "miny/framework": "dev-master",
         "miny/dbal": "dev-master",
-        "miny/annotation": "dev-master",
-        "miny/validator": "dev-master"
+        "miny/annotation": "dev-master"
     },
     "require-dev": {
         "phpunit/phpunit": "4.2.*"
@@ -22,7 +20,7 @@
     ],
     "autoload": {
         "psr-4": {
-            "Modules\\ORM\\": "src/"
+            "ORMiny\\": "src/"
         }
     }
 }

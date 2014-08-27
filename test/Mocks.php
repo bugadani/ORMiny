@@ -1,9 +1,9 @@
 <?php
 
-namespace Modules\ORM;
+namespace ORMiny;
 
-use Modules\ORM\Annotations\Field;
-use Modules\ORM\Annotations\Relation;
+use ORMiny\Annotations\Field;
+use ORMiny\Annotations\Relation;
 
 /**
  * @Table related

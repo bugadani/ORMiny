@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\ORM;
+namespace ORMiny;
 
 use Modules\Annotation\AnnotationReader;
 use Modules\DBAL\Driver;
@@ -36,16 +36,16 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($platform));
 
         $this->entityManager = new EntityManager($this->driver, new AnnotationReader());
-        $this->entityManager->register('TestEntity', 'Modules\\ORM\\TestEntity');
-        $this->entityManager->register('RelatedEntity', 'Modules\\ORM\\RelatedEntity');
-        $this->entityManager->register('DeepRelationEntity', 'Modules\\ORM\\DeepRelationEntity');
+        $this->entityManager->register('TestEntity', 'ORMiny\\TestEntity');
+        $this->entityManager->register('RelatedEntity', 'ORMiny\\RelatedEntity');
+        $this->entityManager->register('DeepRelationEntity', 'ORMiny\\DeepRelationEntity');
         $this->entityManager->register(
             'HasOneRelationEntity',
-            'Modules\\ORM\\HasOneRelationEntity'
+            'ORMiny\\HasOneRelationEntity'
         );
         $this->entityManager->register(
             'ManyManyRelationEntity',
-            'Modules\\ORM\\ManyManyRelationEntity'
+            'ORMiny\\ManyManyRelationEntity'
         );
 
         $this->entityFinder = $this->entityManager->find('TestEntity');

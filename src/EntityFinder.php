@@ -1,13 +1,13 @@
 <?php
 
 /**
- * This file is part of the Miny framework.
+ * This file is part of the ORMiny library.
  * (c) Dániel Buga <bugadani@gmail.com>
  *
  * For licensing information see the LICENSE file.
  */
 
-namespace Modules\ORM;
+namespace ORMiny;
 
 use Modules\DBAL\AbstractQueryBuilder;
 use Modules\DBAL\Driver;
@@ -16,7 +16,7 @@ use Modules\DBAL\QueryBuilder;
 use Modules\DBAL\QueryBuilder\Expression;
 use Modules\DBAL\QueryBuilder\Insert;
 use Modules\DBAL\QueryBuilder\Select;
-use Modules\ORM\Annotations\Relation;
+use ORMiny\Annotations\Relation;
 
 class EntityFinder
 {

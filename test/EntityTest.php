@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\ORM;
+namespace ORMiny;
 
 use Modules\Annotation\AnnotationReader;
 use Modules\DBAL\Driver;
@@ -31,24 +31,24 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             ->will($this->returnValue($platform));
 
         $this->entityManager = new EntityManager($this->driver, new AnnotationReader());
-        $this->entityManager->register('TestEntity', 'Modules\\ORM\\TestEntity');
-        $this->entityManager->register('RelatedEntity', 'Modules\\ORM\\RelatedEntity');
-        $this->entityManager->register('DeepRelationEntity', 'Modules\\ORM\\DeepRelationEntity');
+        $this->entityManager->register('TestEntity', 'ORMiny\\TestEntity');
+        $this->entityManager->register('RelatedEntity', 'ORMiny\\RelatedEntity');
+        $this->entityManager->register('DeepRelationEntity', 'ORMiny\\DeepRelationEntity');
         $this->entityManager->register(
             'HasOneRelationEntity',
-            'Modules\\ORM\\HasOneRelationEntity'
+            'ORMiny\\HasOneRelationEntity'
         );
         $this->entityManager->register(
             'HasManyRelationEntity',
-            'Modules\\ORM\\HasManyRelationEntity'
+            'ORMiny\\HasManyRelationEntity'
         );
         $this->entityManager->register(
             'HasManyTargetEntity',
-            'Modules\\ORM\\HasManyTargetEntity'
+            'ORMiny\\HasManyTargetEntity'
         );
         $this->entityManager->register(
             'ManyManyRelationEntity',
-            'Modules\\ORM\\ManyManyRelationEntity'
+            'ORMiny\\ManyManyRelationEntity'
         );
     }
 
@@ -100,12 +100,12 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testCreate()
     {
-        $entity = new Entity($this->entityManager, 'Modules\\ORM\\TestEntity', 'test');
+        $entity = new Entity($this->entityManager, 'ORMiny\\TestEntity', 'test');
         $entity->addField('field', 'key');
         $entity->setPrimaryKey('key');
         $object = $entity->create(['key' => 'value']);
 
-        $this->assertInstanceOf('Modules\\ORM\\TestEntity', $object);
+        $this->assertInstanceOf('ORMiny\\TestEntity', $object);
         $this->assertEquals('value', $object->field);
     }
 
@@ -239,7 +239,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('HasOneRelationEntity');
         $object = $entity->get(5);
 
-        $this->assertInstanceOf('Modules\\ORM\\HasOneRelationEntity', $object);
+        $this->assertInstanceOf('ORMiny\\HasOneRelationEntity', $object);
         $this->assertEquals(5, $object->pk);
         $this->assertEquals(1, $object->fk);
     }
@@ -305,8 +305,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(5, $objects[5]->pk);
         $this->assertEquals(6, $objects[6]->pk);
 
-        $this->assertInstanceOf('Modules\\ORM\\RelatedEntity', $objects[5]->relation);
-        $this->assertInstanceOf('Modules\\ORM\\RelatedEntity', $objects[6]->relation);
+        $this->assertInstanceOf('ORMiny\\RelatedEntity', $objects[5]->relation);
+        $this->assertInstanceOf('ORMiny\\RelatedEntity', $objects[6]->relation);
 
         $this->assertNotSame($objects[5]->relation, $objects[6]->relation);
 
@@ -341,9 +341,9 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             ->with('relation.hasOneRelation')
             ->get(5);
 
-        $this->assertInstanceOf('Modules\\ORM\\DeepRelationEntity', $object);
-        $this->assertInstanceOf('Modules\\ORM\\HasOneRelationEntity', $object->relation[1]);
-        $this->assertInstanceOf('Modules\\ORM\\RelatedEntity', $object->relation[1]->relation);
+        $this->assertInstanceOf('ORMiny\\DeepRelationEntity', $object);
+        $this->assertInstanceOf('ORMiny\\HasOneRelationEntity', $object->relation[1]);
+        $this->assertInstanceOf('ORMiny\\RelatedEntity', $object->relation[1]->relation);
 
         $this->assertEquals(1, $object->relation[1]->relation->primaryKey);
     }
@@ -370,7 +370,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             ->groupBy('fk')
             ->get();
 
-        $this->assertInstanceOf('Modules\\ORM\\DeepRelationEntity', $object[5]);
+        $this->assertInstanceOf('ORMiny\\DeepRelationEntity', $object[5]);
 
         $this->assertEquals(5, $object[5]->pk);
     }
@@ -574,9 +574,9 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('HasManyRelationEntity');
         $object = $entity->find()->with('relation')->get(2);
 
-        $this->assertInstanceOf('Modules\\ORM\\HasManyRelationEntity', $object);
+        $this->assertInstanceOf('ORMiny\\HasManyRelationEntity', $object);
         $this->assertCount(3, $object->relation);
-        $this->assertContainsOnly('Modules\\ORM\\HasManyTargetEntity', $object->relation);
+        $this->assertContainsOnly('ORMiny\\HasManyTargetEntity', $object->relation);
 
         unset($object->relation[1]);
         $object->relation[2]->primaryKey = 5;

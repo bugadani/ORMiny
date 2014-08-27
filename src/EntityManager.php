@@ -1,23 +1,25 @@
 <?php
 
 /**
- * This file is part of the Miny framework.
+ * This file is part of the ORMiny library.
  * (c) Dániel Buga <bugadani@gmail.com>
  *
  * For licensing information see the LICENSE file.
  */
 
-namespace Modules\ORM;
+namespace ORMiny;
 
 use Modules\Annotation\Comment;
 use Modules\Annotation\Reader;
 use Modules\DBAL\Driver;
 use Modules\DBAL\QueryBuilder;
-use Modules\ORM\Exceptions\EntityDefinitionException;
-use OutOfBoundsException;
+use ORMiny\Exceptions\EntityDefinitionException;
 
 class EntityManager
 {
+    const RELATION_ANNOTATION = 'ORMiny\\Annotations\\Relation';
+    const FIELD_ANNOTATION    = 'ORMiny\\Annotations\\Field';
+
     /**
      * @var Driver
      */
@@ -85,8 +87,8 @@ class EntityManager
     {
         if (!isset($this->entityClassMap[$entityName])) {
             $className = $entityName;
-            if(!class_exists($className)) {
-                if(!class_exists($this->defaultNamespace . $className)) {
+            if (!class_exists($className)) {
+                if (!class_exists($this->defaultNamespace . $className)) {
                     throw new \OutOfBoundsException("Unknown entity {$entityName}");
                 }
                 $className = $this->defaultNamespace . $entityName;
@@ -102,7 +104,7 @@ class EntityManager
         try {
             $classAnnotations = $this->annotationReader->readClass($className);
             $entity           = new Entity($this, $className, $classAnnotations->get('Table'));
-        } catch (OutOfBoundsException $e) {
+        } catch (\OutOfBoundsException $e) {
             throw new EntityDefinitionException("Missing Table annotation of {$className}", 0, $e);
         }
 
@@ -114,7 +116,7 @@ class EntityManager
 
         $primaryKey = null;
         foreach ($properties as $property => $comment) {
-            if ($comment->hasAnnotationType('Modules\\ORM\\Annotations\\Field')) {
+            if ($comment->hasAnnotationType(self::FIELD_ANNOTATION)) {
                 $fieldName = $this->processField($comment, $property, $entity);
                 if ($comment->has('Id')) {
                     if (isset($primaryKey)) {
@@ -122,7 +124,7 @@ class EntityManager
                     }
                     $primaryKey = $fieldName;
                 }
-            } elseif ($comment->hasAnnotationType('Modules\\ORM\\Annotations\\Relation')) {
+            } elseif ($comment->hasAnnotationType(self::RELATION_ANNOTATION)) {
                 $this->processRelation($comment, $property, $entity);
             }
         }
@@ -169,7 +171,7 @@ class EntityManager
      */
     private function processField($comment, $property, $entity)
     {
-        $fieldAnnotation = current($comment->getAnnotationType('Modules\\ORM\\Annotations\\Field'));
+        $fieldAnnotation = current($comment->getAnnotationType(self::FIELD_ANNOTATION));
 
         $setter = $fieldAnnotation->setter;
         $getter = $fieldAnnotation->getter;
@@ -191,7 +193,7 @@ class EntityManager
      */
     private function processRelation($comment, $property, $entity)
     {
-        $relation = current($comment->getAnnotationType('Modules\\ORM\\Annotations\\Relation'));
+        $relation = current($comment->getAnnotationType(self::RELATION_ANNOTATION));
         $entity->addRelation($property, $relation);
 
         $setter = $relation->setter;
