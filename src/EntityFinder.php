@@ -421,11 +421,14 @@ class EntityFinder
 
     public function count(array $parameters = [])
     {
-        $count = $this->applyFilters(
-            $this->driver
-                ->getQueryBuilder()
-                ->select('count(*) as count')
-                ->from($this->entity->getTable())
+        $count = $this->joinRelationsToQuery(
+            $this->entity,
+            $this->applyFilters(
+                $this->driver
+                    ->getQueryBuilder()
+                    ->select('count(*) as count')
+                    ->from($this->entity->getTable())
+            )
         )->query($parameters + $this->parameters)->fetch();
 
         return $count['count'];
