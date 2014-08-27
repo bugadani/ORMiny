@@ -188,7 +188,11 @@ class EntityFinder
             $query->groupBy($this->groupByFields);
         }
         if (isset($this->where)) {
-            $query->where($this->where);
+            if($query->getWhere() === '') {
+                $query->where($this->where);
+            } else {
+                $query->andWhere($this->where);
+            }
         }
         if (isset($this->orderByFields)) {
             $first = true;
@@ -336,18 +340,20 @@ class EntityFinder
             );
         }
         $records = $this->process(
-            $this->joinRelationsToQuery(
-                $this->entity,
-                $queryBuilder
-                    ->select($fields)
-                    ->from($table)
-                    ->where(
-                        $this->createInExpression(
-                            $fieldName,
-                            (array)$keys,
-                            $queryBuilder
+            $this->applyFilters(
+                $this->joinRelationsToQuery(
+                    $this->entity,
+                    $queryBuilder
+                        ->select($fields)
+                        ->from($table)
+                        ->where(
+                            $this->createInExpression(
+                                $fieldName,
+                                (array)$keys,
+                                $queryBuilder
+                            )
                         )
-                    )
+                )
             )->query($this->parameters)
         );
 
