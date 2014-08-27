@@ -292,7 +292,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             ]
         );
 
-        $entity  = $this->entityManager
+        $entity = $this->entityManager
             ->get('HasOneRelationEntity');
 
         $objects = $entity
@@ -583,5 +583,17 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
         $entity->save($object);
         $entity->delete($object);
+    }
+
+    public function testThatLimitIsNotAppliedWhenTablesAreJoined()
+    {
+        $this->expectQuery(
+            'SELECT has_many.pk, relation.primaryKey as relation_primaryKey, ' .
+            'relation.foreignKey as relation_foreignKey FROM has_many ' .
+            'LEFT JOIN related relation ON pk=relation.foreignKey'
+        );
+
+        $entity = $this->entityManager->get('HasManyRelationEntity');
+        $entity->find()->with('relation')->setFirstResult(2)->get();
     }
 }

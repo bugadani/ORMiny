@@ -201,11 +201,13 @@ class EntityFinder
                 }
             }
         }
-        if (isset($this->limit)) {
-            $query->setMaxResults($this->limit);
-        }
-        if (isset($this->offset)) {
-            $query->setFirstResult($this->offset);
+        if (empty($this->with)) {
+            if (isset($this->limit)) {
+                $query->setMaxResults($this->limit);
+            }
+            if (isset($this->offset)) {
+                $query->setFirstResult($this->offset);
+            }
         }
 
         return $query;
@@ -317,7 +319,7 @@ class EntityFinder
     {
         $queryBuilder = $this->driver->getQueryBuilder();
 
-        $table   = $this->entity->getTable();
+        $table  = $this->entity->getTable();
         $fields = $this->entity->getFields();
         if (!empty($this->with)) {
             $fields = array_map(
