@@ -319,10 +319,12 @@ class EntityFinder
     {
         $queryBuilder = $this->driver->getQueryBuilder();
 
-        $table  = $this->entity->getTable();
-        $fields = $this->entity->getFields();
+        $table      = $this->entity->getTable();
+        $fields     = $this->entity->getFields();
+        $primaryKey = $this->entity->getPrimaryKey();
         if (!empty($this->with)) {
-            $fields = array_map(
+            $primaryKey = $table . '.' . $primaryKey;
+            $fields     = array_map(
                 function ($field) use ($table) {
                     return $table . '.' . $field;
                 },
@@ -337,7 +339,7 @@ class EntityFinder
                     ->from($table)
                     ->where(
                         $this->createInExpression(
-                            $this->entity->getPrimaryKey(),
+                            $primaryKey,
                             $primaryKeys,
                             $queryBuilder
                         )
