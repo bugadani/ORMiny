@@ -188,7 +188,7 @@ class EntityFinder
             $query->groupBy($this->groupByFields);
         }
         if (isset($this->where)) {
-            if($query->getWhere() === '') {
+            if ($query->getWhere() === '') {
                 $query->where($this->where);
             } else {
                 $query->andWhere($this->where);
@@ -416,6 +416,22 @@ class EntityFinder
                     ->getByField($fieldName, $keys)
             );
         }
+    }
+
+    public function update($data)
+    {
+        $tempParameters = $this->parameters;
+        $this->parameters = [];
+        $query = $this->applyFilters(
+            $this->driver->getQueryBuilder()
+                ->update($this->entity->getTable())
+                ->values(array_map([$this, 'parameter'], $data))
+        );
+        //This is a hack to prevent parameters being mixed up.
+        while(!empty($tempParameters)) {
+            $this->parameters[] = array_shift($tempParameters);
+        }
+        $query->query($this->parameters);
     }
 
     private function createInExpression($field, array $values, QueryBuilder $queryBuilder)

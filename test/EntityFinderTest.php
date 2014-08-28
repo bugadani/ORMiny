@@ -124,4 +124,11 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
 
         $this->entityFinder->delete(4, 5);
     }
+
+    public function testThatUpdateSetsFields()
+    {
+        $this->expectQuery('UPDATE test SET field2=? WHERE key=?');
+
+        $this->entityFinder->where('key=?')->update(['field2' => 'foobar']);
+    }
 }
