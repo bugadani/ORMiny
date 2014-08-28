@@ -88,7 +88,8 @@ class ManyManyRelationEntity
      *     type: 'many to many',
      *     target: 'RelatedEntity',
      *     foreignKey: 'fk',
-     *     targetKey: 'primaryKey'
+     *     targetKey: 'primaryKey',
+     *     joinTable: 'joinTable'
      * )
      */
     public $relation;

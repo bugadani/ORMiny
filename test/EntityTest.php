@@ -391,8 +391,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     {
         $this->expectQuery(
             'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
-            'LEFT JOIN many_many_related ON many_many.fk=many_many_related.many_many_fk ' .
-            'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey ' .
+            'LEFT JOIN joinTable ON many_many.fk=joinTable.many_many_fk ' .
+            'LEFT JOIN related relation ON joinTable.related_primaryKey=relation.primaryKey ' .
             'WHERE pk=?',
             [
                 [
@@ -433,8 +433,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [
                 [
                     'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
-                    'LEFT JOIN many_many_related ON many_many.fk=many_many_related.many_many_fk ' .
-                    'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey ' .
+                    'LEFT JOIN joinTable ON many_many.fk=joinTable.many_many_fk ' .
+                    'LEFT JOIN related relation ON joinTable.related_primaryKey=relation.primaryKey ' .
                     'WHERE many_many.pk=?',
                     []
                 ]
@@ -451,8 +451,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [
                 [
                     'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
-                    'LEFT JOIN many_many_related ON many_many.fk=many_many_related.many_many_fk ' .
-                    'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey ' .
+                    'LEFT JOIN joinTable ON many_many.fk=joinTable.many_many_fk ' .
+                    'LEFT JOIN related relation ON joinTable.related_primaryKey=relation.primaryKey ' .
                     'WHERE many_many.pk=?',
                     [
                         [
@@ -467,7 +467,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                         ]
                     ],
                 ],
-                ['DELETE FROM many_many_related WHERE many_many_fk IN(?, ?)'],
+                ['DELETE FROM joinTable WHERE many_many_fk=?'],
                 ['DELETE FROM many_many WHERE pk=?']
             ]
         );
@@ -506,8 +506,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [
                 [
                     'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
-                    'LEFT JOIN many_many_related ON many_many.fk=many_many_related.many_many_fk ' .
-                    'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey ' .
+                    'LEFT JOIN joinTable ON many_many.fk=joinTable.many_many_fk ' .
+                    'LEFT JOIN related relation ON joinTable.related_primaryKey=relation.primaryKey ' .
                     'WHERE many_many.pk=?',
                     [
                         [
@@ -523,9 +523,9 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
                 ['INSERT INTO related () VALUES ()'],
-                ['DELETE FROM many_many_related WHERE (many_many_fk=? AND related_primaryKey=?)'],
-                ['INSERT INTO many_many_related (many_many_fk, related_primaryKey) VALUES (?, ?)'],
-                ['INSERT INTO many_many_related (many_many_fk, related_primaryKey) VALUES (?, ?)']
+                ['DELETE FROM joinTable WHERE (many_many_fk=? AND related_primaryKey=?)'],
+                ['INSERT INTO joinTable (many_many_fk, related_primaryKey) VALUES (?, ?)'],
+                ['INSERT INTO joinTable (many_many_fk, related_primaryKey) VALUES (?, ?)']
             ]
         );
 
@@ -568,7 +568,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                 ],
                 ['UPDATE related SET primaryKey=? WHERE primaryKey=?'],
                 ['DELETE FROM related WHERE primaryKey=?'],
-                ['DELETE FROM related WHERE primaryKey IN(?, ?)'],
+                ['DELETE FROM related WHERE foreignKey=?'],
                 ['DELETE FROM has_many WHERE pk=?']
             ]
         );
@@ -591,8 +591,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     {
         $this->expectQuery(
             'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
-            'LEFT JOIN many_many_related ON many_many.fk=many_many_related.many_many_fk ' .
-            'LEFT JOIN related relation ON many_many_related.related_primaryKey=relation.primaryKey',
+            'LEFT JOIN joinTable ON many_many.fk=joinTable.many_many_fk ' .
+            'LEFT JOIN related relation ON joinTable.related_primaryKey=relation.primaryKey',
             [
                 [
                     'pk'                  => 1,

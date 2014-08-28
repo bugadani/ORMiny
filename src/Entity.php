@@ -309,49 +309,23 @@ class Entity
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
 
         foreach ($this->getRelatedEntities() as $relationName => $relatedEntity) {
-            $relatedObjects = $this->getRelationValue($object, $relationName);
-            $relation       = $this->getRelation($relationName);
-            if (empty($relatedObjects)) {
-                continue;
-            }
+            $relation   = $this->getRelation($relationName);
+            $foreignKey = $this->getFieldValue($object, $relation->foreignKey);
             switch ($relation->type) {
+                case Relation::HAS_ONE:
                 case Relation::HAS_MANY:
-                    call_user_func_array(
-                        [$relatedEntity->find(), 'delete'],
-                        array_map(
-                            function ($object) use ($relatedEntity) {
-                                if (!is_object($object)) {
-                                    return $object;
-                                }
-
-                                return $relatedEntity->getPrimaryKeyValue($object);
-                            },
-                            $relatedObjects
-                        )
-                    );
+                    $relatedEntity->find()->deleteByField($relation->targetKey, $foreignKey);
                     break;
 
                 case Relation::MANY_MANY:
                     $queryBuilder
-                        ->delete($this->getTable() . '_' . $relatedEntity->getTable())
+                        ->delete($relation->joinTable)
                         ->where(
-                            $queryBuilder->expression()->in(
+                            $queryBuilder->expression()->eq(
                                 $this->getTable() . '_' . $relation->foreignKey,
-                                array_map(
-                                    [$queryBuilder, 'createPositionalParameter'],
-                                    array_map(
-                                        [$relatedEntity, 'getPrimaryKeyValue'],
-                                        $relatedObjects
-                                    )
-                                )
+                                $queryBuilder->createPositionalParameter($foreignKey)
                             )
                         )->query();
-                    break;
-
-                case Relation::HAS_ONE:
-                    if ($relatedObjects) {
-                        $relatedEntity->delete($relatedObjects);
-                    }
                     break;
 
                 case Relation::BELONGS_TO:
@@ -585,14 +559,13 @@ class Entity
             $relation      = $this->getRelation($relationName);
             $relatedEntity = $this->getRelatedEntity($relationName);
 
-            $joinTable = $this->getTable() . '_' . $relatedEntity->getTable();
             $leftKey   = $this->getTable() . '_' . $relation->foreignKey;
             $rightKey  = $relatedEntity->getTable() . '_' . $relation->targetKey;
 
             if (!empty($keys['deleted'])) {
                 $expression = $queryBuilder->expression();
                 $queryBuilder
-                    ->delete($joinTable)
+                    ->delete($relation->joinTable)
                     ->where(
                         $expression
                             ->eq(
@@ -610,7 +583,7 @@ class Entity
             }
             if (!empty($keys['inserted'])) {
                 $insertQuery = $queryBuilder
-                    ->insert($joinTable)
+                    ->insert($relation->joinTable)
                     ->values(
                         [
                             $leftKey  => $queryBuilder->createPositionalParameter($primaryKey),

@@ -9,6 +9,9 @@
 
 namespace ORMiny\Annotations;
 
+use Doctrine\Instantiator\Exception\InvalidArgumentException;
+use Modules\Annotation\Exceptions\AnnotationException;
+
 /**
  * @Annotation
  * @DefaultAttribute name
@@ -17,6 +20,7 @@ namespace ORMiny\Annotations;
  * @Attribute('target', type: 'string')
  * @Attribute('foreignKey', type: 'string')
  * @Attribute('targetKey', type: 'string')
+ * @Attribute('joinTable', type: 'string')
  * @Attribute('setter')
  * @Attribute('getter')
  * @Target('property')
@@ -33,12 +37,19 @@ class Relation
     public $target;
     public $foreignKey;
     public $targetKey;
+    public $joinTable;
     public $setter;
     public $getter;
 
-    public function __construct($name, $type = Relation::HAS_ONE, $target = null, $foreignKey = null, $targetKey = null)
-    {
-        if($target === null) {
+    public function __construct(
+        $name,
+        $type = Relation::HAS_ONE,
+        $target = null,
+        $foreignKey = null,
+        $targetKey = null,
+        $joinTable = null
+    ) {
+        if ($target === null) {
             $target = $name;
         }
 
@@ -72,5 +83,11 @@ class Relation
         }
         $this->foreignKey = $foreignKey;
         $this->targetKey  = $targetKey;
+        if($type === Relation::MANY_MANY) {
+            if($joinTable === null) {
+                throw new AnnotationException('Many to many type relations require a join table.');
+            }
+            $this->joinTable = $joinTable;
+        }
     }
 }

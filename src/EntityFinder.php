@@ -256,23 +256,21 @@ class EntityFinder
                 break;
 
             case Relation::MANY_MANY:
-                $joinTable = $entityTable . '_' . $relatedTable;
-
                 $query->leftJoin(
                     $leftAlias,
-                    $joinTable,
-                    $joinTable,
+                    $relation->joinTable,
+                    $relation->joinTable,
                     (new Expression())->eq(
                         "{$leftAlias}.{$relation->foreignKey}",
-                        "{$joinTable}.{$entityTable}_{$relation->foreignKey}"
+                        "{$relation->joinTable}.{$entityTable}_{$relation->foreignKey}"
                     )
                 );
                 $query->leftJoin(
-                    $joinTable,
+                    $relation->joinTable,
                     $relatedTable,
                     $alias,
                     (new Expression())->eq(
-                        "{$joinTable}.{$relatedTable}_{$relation->targetKey}",
+                        "{$relation->joinTable}.{$relatedTable}_{$relation->targetKey}",
                         "{$alias}.{$relation->targetKey}"
                     )
                 );
