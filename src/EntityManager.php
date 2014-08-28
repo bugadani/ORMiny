@@ -104,6 +104,8 @@ class EntityManager
         try {
             $classAnnotations = $this->annotationReader->readClass($className);
             $entity           = new Entity($this, $className, $classAnnotations->get('Table'));
+
+            $this->entities[$className] = $entity;
         } catch (\OutOfBoundsException $e) {
             throw new EntityDefinitionException("Missing Table annotation of {$className}", 0, $e);
         }
@@ -132,14 +134,12 @@ class EntityManager
             throw new EntityDefinitionException("Class {$className} must have a primary key.");
         }
         $entity->setPrimaryKey($primaryKey);
-
-        return $entity;
     }
 
     private function getEntityByClass($className)
     {
         if (!isset($this->entities[$className])) {
-            $this->entities[$className] = $this->load($className);
+            $this->load($className);
         }
 
         return $this->entities[$className];
