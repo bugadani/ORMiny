@@ -311,6 +311,9 @@ class Entity
         foreach ($this->getRelatedEntities() as $relationName => $relatedEntity) {
             $relatedObjects = $this->getRelationValue($object, $relationName);
             $relation       = $this->getRelation($relationName);
+            if(empty($relatedObjects)) {
+                continue;
+            }
             switch ($relation->type) {
                 case Relation::HAS_MANY:
                     call_user_func_array(
@@ -479,7 +482,7 @@ class Entity
         $this->objectStates[$objectId] = self::STATE_HANDLED;
         $this->originalData[$objectId] = $this->toArray($object);
 
-        $this->updateManyToManyRelations($object, $modifiedManyManyRelations, $primaryKey);
+        $this->updateManyToManyRelations($modifiedManyManyRelations, $primaryKey);
     }
 
     private function createInExpression($field, array $values, QueryBuilder $queryBuilder)
@@ -569,11 +572,10 @@ class Entity
     }
 
     /**
-     * @param $object
      * @param $modifiedManyManyRelations
      * @param $primaryKey
      */
-    private function updateManyToManyRelations($object, $modifiedManyManyRelations, $primaryKey)
+    private function updateManyToManyRelations($modifiedManyManyRelations, $primaryKey)
     {
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
         foreach ($modifiedManyManyRelations as $relationName => $keys) {
@@ -584,7 +586,7 @@ class Entity
             $leftKey   = $this->getTable() . '_' . $relation->foreignKey;
             $rightKey  = $relatedEntity->getTable() . '_' . $relation->targetKey;
 
-            if (isset($keys['deleted'])) {
+            if (!empty($keys['deleted'])) {
                 $expression = $queryBuilder->expression();
                 $queryBuilder
                     ->delete($joinTable)
@@ -603,7 +605,7 @@ class Entity
                             )
                     )->query();
             }
-            if (isset($keys['inserted'])) {
+            if (!empty($keys['inserted'])) {
                 $insertQuery = $queryBuilder
                     ->insert($joinTable)
                     ->values(
