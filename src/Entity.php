@@ -311,7 +311,7 @@ class Entity
         foreach ($this->getRelatedEntities() as $relationName => $relatedEntity) {
             $relatedObjects = $this->getRelationValue($object, $relationName);
             $relation       = $this->getRelation($relationName);
-            if(empty($relatedObjects)) {
+            if (empty($relatedObjects)) {
                 continue;
             }
             switch ($relation->type) {
@@ -394,6 +394,9 @@ class Entity
             switch ($relation->type) {
                 case Relation::MANY_MANY:
                     $relatedObjects = $this->getRelationValue($object, $relationName);
+                    if ($relatedObjects === null) {
+                        $relatedObjects = [];
+                    }
 
                     $currentForeignKeys = array_map(
                         function ($object) use ($relatedEntity) {
@@ -554,8 +557,10 @@ class Entity
         //only save when a change is detected
         if (!empty($data)) {
             $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-            $query        = $queryBuilder
+
+            $queryBuilder
                 ->update($this->getTable())
+                ->values(array_map([$queryBuilder, 'createPositionalParameter'], $data))
                 ->where(
                     $queryBuilder->expression()->eq(
                         $this->getPrimaryKey(),
@@ -563,9 +568,7 @@ class Entity
                             $this->getOriginalData($object, $this->getPrimaryKey())
                         )
                     )
-                );
-
-            $query->values(array_map([$query, 'createPositionalParameter'], $data))->query();
+                )->query();
         }
 
         return $this->getPrimaryKeyValue($object);
