@@ -449,7 +449,9 @@ class Entity
                     } else {
                         $relatedEntity
                             ->find()
-                            ->delete($this->objectRelations[$objectId][$relationName]);
+                            ->delete(
+                                $this->getOriginalData($object, $relation->foreignKey)
+                            );
                     }
                     break;
             }

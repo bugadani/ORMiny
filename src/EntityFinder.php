@@ -407,7 +407,7 @@ class EntityFinder
                         (array)$keys,
                         $queryBuilder
                     )
-                )->query();
+                )->query($this->parameters);
         } else {
             $this->deleteRecords(
                 $this->with(array_keys($relations))

@@ -76,13 +76,17 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $queryMatchers = [];
         foreach ($queries as $query) {
             if (!is_array($query)) {
-                $query = [$query, []];
+                $query = [$query, [], []];
+            } else {
+                if (!isset($query[1])) {
+                    $query[1] = [];
+                }
+                if (!isset($query[2])) {
+                    $query[2] = [];
+                }
             }
-            if (!isset($query[1])) {
-                $query[1] = [];
-            }
-            $queryMatchers[] = [$this->equalTo($query[0])];
-            $statements[]    = $this->createMockStatement($query[1]);
+            $queryMatchers[] = [$this->equalTo($query[0]), $this->equalTo($query[1])];
+            $statements[]    = $this->createMockStatement($query[2]);
         }
 
         $driverExpect = $this->driver
@@ -93,9 +97,9 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             ->will(call_user_func_array([$this, 'onConsecutiveCalls'], $statements));
     }
 
-    private function expectQuery($query, array $return = [])
+    private function expectQuery($query, array $params = [], array $return = [])
     {
-        $this->expectQueries([[$query, $return]]);
+        $this->expectQueries([[$query, $params, $return]]);
     }
 
     public function testCreate()
@@ -135,7 +139,10 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatInsertIsCalledForRecordWithoutPrimaryKeySet()
     {
-        $this->expectQuery('INSERT INTO test (fieldWithSetter, field2) VALUES (?, ?)');
+        $this->expectQuery(
+            'INSERT INTO test (fieldWithSetter, field2) VALUES (?, ?)',
+            ['foobar via setter and getter', 'value2 via setter and getter']
+        );
 
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
@@ -151,7 +158,14 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatUpdateIsCalledForRecordsWithPrimaryKeySet()
     {
-        $this->expectQuery('UPDATE test SET fieldWithSetter=?, field2=? WHERE key=?');
+        $this->expectQuery(
+            'UPDATE test SET fieldWithSetter=?, field2=? WHERE key=?',
+            [
+                'foobar via setter and getter',
+                'value2 via setter and getter',
+                'value'
+            ]
+        );
 
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
@@ -167,7 +181,15 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatUpdateCanSetNewPrimaryKey()
     {
-        $this->expectQuery('UPDATE test SET key=?, fieldWithSetter=?, field2=? WHERE key=?');
+        $this->expectQuery(
+            'UPDATE test SET key=?, fieldWithSetter=?, field2=? WHERE key=?',
+            [
+                'foo',
+                'foobar via setter and getter',
+                'value2 via setter and getter',
+                'value'
+            ]
+        );
 
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
@@ -196,7 +218,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatDeleteIsCalledForRecordsWithPkSet()
     {
-        $this->expectQuery('DELETE FROM test WHERE key=?');
+        $this->expectQuery('DELETE FROM test WHERE key=?', ['value']);
 
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(['key' => 'value']);
@@ -206,7 +228,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatGetReturnsFalseWhenNoRecordIsReturned()
     {
-        $this->expectQuery('SELECT pk, fk FROM hasOne WHERE pk=?');
+        $this->expectQuery('SELECT pk, fk FROM hasOne WHERE pk=?', [5]);
 
         $entity = $this->entityManager->get('HasOneRelationEntity');
         $object = $entity->get(5);
@@ -216,7 +238,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatGetReturnsEmptyArrayWhenNoRecordIsReturned()
     {
-        $this->expectQuery('SELECT pk, fk FROM hasOne WHERE pk IN(?, ?)');
+        $this->expectQuery('SELECT pk, fk FROM hasOne WHERE pk IN(?, ?)', [5, 6]);
 
         $entity  = $this->entityManager->get('HasOneRelationEntity');
         $objects = $entity->get(5, 6);
@@ -228,6 +250,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     {
         $this->expectQuery(
             'SELECT pk, fk FROM hasOne WHERE pk=?',
+            [5],
             [
                 [
                     'pk' => 5,
@@ -248,6 +271,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     {
         $this->expectQuery(
             'SELECT pk, fk FROM hasOne WHERE pk IN(?, ?)',
+            [5, 6],
             [
                 [
                     'pk' => 5,
@@ -274,6 +298,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                 [
                     'SELECT hasOne.pk, hasOne.fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne' .
                     ' LEFT JOIN related hasOneRelation ON fk=hasOneRelation.primaryKey WHERE hasOne.pk IN(?, ?)',
+                    [5, 6],
                     [
                         [
                             'pk'                        => 5,
@@ -287,8 +312,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                         ]
                     ]
                 ],
-                ['UPDATE hasOne SET fk=? WHERE pk=?'],
-                ['DELETE FROM related WHERE primaryKey=?'],
+                ['UPDATE hasOne SET fk=? WHERE pk=?', [null, 5]],
+                ['DELETE FROM related WHERE primaryKey=?', [1]],
             ]
         );
 
@@ -325,6 +350,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             'LEFT JOIN hasOne relation ON fk=relation.pk ' .
             'LEFT JOIN related relation_hasOneRelation ON relation_fk=relation_hasOneRelation.primaryKey ' .
             'WHERE deep.pk=?',
+            [5],
             [
                 [
                     'pk'                                 => 5,
@@ -352,6 +378,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     {
         $this->expectQuery(
             'SELECT pk, fk FROM deep WHERE pk = ? GROUP BY fk ORDER BY pk ASC LIMIT 3 OFFSET 2',
+            [5],
             [
                 [
                     'pk' => 5,
@@ -394,6 +421,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             'LEFT JOIN joinTable ON many_many.fk=joinTable.many_many_fk ' .
             'LEFT JOIN related relation ON joinTable.related_primaryKey=relation.primaryKey ' .
             'WHERE pk=?',
+            [],
             [
                 [
                     'pk'                  => 1,
@@ -436,6 +464,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     'LEFT JOIN joinTable ON many_many.fk=joinTable.many_many_fk ' .
                     'LEFT JOIN related relation ON joinTable.related_primaryKey=relation.primaryKey ' .
                     'WHERE many_many.pk=?',
+                    [2],
                     []
                 ]
             ]
@@ -454,21 +483,22 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     'LEFT JOIN joinTable ON many_many.fk=joinTable.many_many_fk ' .
                     'LEFT JOIN related relation ON joinTable.related_primaryKey=relation.primaryKey ' .
                     'WHERE many_many.pk=?',
+                    [2],
                     [
                         [
-                            'pk'                  => 1,
+                            'pk'                  => 2,
                             'fk'                  => 1,
                             'relation_primaryKey' => 1
                         ],
                         [
-                            'pk'                  => 1,
+                            'pk'                  => 2,
                             'fk'                  => 1,
                             'relation_primaryKey' => 2
                         ]
                     ],
                 ],
-                ['DELETE FROM joinTable WHERE many_many_fk=?'],
-                ['DELETE FROM many_many WHERE pk=?']
+                ['DELETE FROM joinTable WHERE many_many_fk=?', [1]],
+                ['DELETE FROM many_many WHERE pk=?', [2]]
             ]
         );
         $this->entityManager
@@ -481,8 +511,11 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         //field2 is set because its getter returns a value
         $this->expectQueries(
             [
-                ['INSERT INTO test (fieldWithSetter, field2) VALUES (?, ?)'],
-                ['UPDATE test SET field2=? WHERE key=?']
+                [
+                    'INSERT INTO test (fieldWithSetter, field2) VALUES (?, ?)',
+                    ['foo via setter and getter', ' and getter']
+                ],
+                ['UPDATE test SET field2=? WHERE key=?', ['bar via setter and getter', null]]
             ]
         );
 
@@ -509,6 +542,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     'LEFT JOIN joinTable ON many_many.fk=joinTable.many_many_fk ' .
                     'LEFT JOIN related relation ON joinTable.related_primaryKey=relation.primaryKey ' .
                     'WHERE many_many.pk=?',
+                    [2],
                     [
                         [
                             'pk'                  => 1,
@@ -523,9 +557,12 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     ]
                 ],
                 ['INSERT INTO related () VALUES ()'],
-                ['DELETE FROM joinTable WHERE (many_many_fk=? AND related_primaryKey=?)'],
-                ['INSERT INTO joinTable (many_many_fk, related_primaryKey) VALUES (?, ?)'],
-                ['INSERT INTO joinTable (many_many_fk, related_primaryKey) VALUES (?, ?)']
+                ['DELETE FROM joinTable WHERE (many_many_fk=? AND related_primaryKey=?)', [1, 1]],
+                ['INSERT INTO joinTable (many_many_fk, related_primaryKey) VALUES (?, ?)', [1, 3]],
+                [
+                    'INSERT INTO joinTable (many_many_fk, related_primaryKey) VALUES (?, ?)',
+                    [1, null]
+                ]
             ]
         );
 
@@ -535,7 +572,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         unset($object->relation[1]);
 
         $object->relation[] = 3;
-        $object->relation[] = new RelatedEntity();
+        $object->relation[] = new RelatedEntity;
 
         $entity->save($object);
     }
@@ -548,6 +585,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     'SELECT has_many.pk, relation.primaryKey as relation_primaryKey, ' .
                     'relation.foreignKey as relation_foreignKey FROM has_many ' .
                     'LEFT JOIN related relation ON pk=relation.foreignKey WHERE has_many.pk=?',
+                    [2],
                     [
                         [
                             'pk'                  => 1,
@@ -566,10 +604,10 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                         ]
                     ]
                 ],
-                ['UPDATE related SET primaryKey=? WHERE primaryKey=?'],
-                ['DELETE FROM related WHERE primaryKey=?'],
-                ['DELETE FROM related WHERE foreignKey=?'],
-                ['DELETE FROM has_many WHERE pk=?']
+                ['UPDATE related SET primaryKey=? WHERE primaryKey=?', [5, 2]],
+                ['DELETE FROM related WHERE primaryKey=?', [1]],
+                ['DELETE FROM related WHERE foreignKey=?', [1]],
+                ['DELETE FROM has_many WHERE pk=?', [1]]
             ]
         );
 
@@ -593,6 +631,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
             'LEFT JOIN joinTable ON many_many.fk=joinTable.many_many_fk ' .
             'LEFT JOIN related relation ON joinTable.related_primaryKey=relation.primaryKey',
+            [],
             [
                 [
                     'pk'                  => 1,
