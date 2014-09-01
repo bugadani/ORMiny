@@ -283,7 +283,7 @@ class Entity
 
     public function get($primaryKey)
     {
-        return call_user_func_array([$this->find(), 'get'], func_get_args());
+        return $this->find()->getByPrimaryKey(func_get_args());
     }
 
     private function registerSetterAndGetter($fieldName, $setter, $getter)
@@ -397,10 +397,12 @@ class Entity
                 case Relation::HAS_MANY:
                     $currentForeignKeys = [];
                     foreach ($this->getRelationValue($object, $relationName) as $relatedObject) {
+                        //record the current primary key
                         $currentForeignKeys[] = $relatedEntity->getOriginalData(
                             $relatedObject,
                             $relatedEntity->getPrimaryKey()
                         );
+                        //update the foreign key to match the current object's
                         $relatedEntity->setFieldValue(
                             $this->getFieldValue($object, $relation->foreignKey),
                             $relation->targetKey,
@@ -410,7 +412,7 @@ class Entity
                     }
 
                     $deleted = array_diff($this->objectRelations[$objectId], $currentForeignKeys);
-                    call_user_func_array([$relatedEntity->find(), 'delete'], $deleted);
+                    $relatedEntity->find()->deleteByPrimaryKey($deleted);
                     $this->objectRelations[$objectId] = array_diff($deleted, $currentForeignKeys);
                     break;
 

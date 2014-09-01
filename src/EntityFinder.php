@@ -32,7 +32,6 @@ class EntityFinder
     private $parameters = [];
     private $where;
     private $with = [];
-    private $relationStack = [];
 
     /**
      * @var ResultProcessor
@@ -171,7 +170,8 @@ class EntityFinder
                     $this->driver
                         ->getQueryBuilder()
                         ->select($fields)
-                        ->from($table)
+                        ->from($table),
+                    $this->with
                 )
             )->query($parameters + $this->parameters)
         );
@@ -217,9 +217,10 @@ class EntityFinder
         return $query;
     }
 
-    private function joinToQuery(Entity $entity, Select $query, Relation $relation, $prefix)
+    private function joinToQuery(Entity $entity, Select $query, $relationName, $with, $prefix)
     {
         $entityTable   = $entity->getTable();
+        $relation      = $entity->getRelation($relationName);
         $relatedEntity = $entity->getRelatedEntity($relation->name);
         $relatedTable  = $relatedEntity->getTable();
 
@@ -276,42 +277,34 @@ class EntityFinder
                 );
                 break;
         }
-        $this->joinRelationsToQuery($relatedEntity, $query, $alias);
+        $withPrefix = $relation->name . '.';
+
+        $with = array_map(
+            function ($relationName) use ($withPrefix) {
+                return substr($relationName, strlen($withPrefix));
+            },
+            array_filter(
+                $with,
+                function ($relationName) use ($withPrefix) {
+                    return strpos($relationName, $withPrefix) === 0;
+                }
+            )
+        );
+        $this->joinRelationsToQuery($relatedEntity, $query, $with, $alias);
     }
 
     /**
      * @param Entity $entity
      * @param Select $query
+     * @param        $with
      * @param string $prefix
      *
      * @return Select
      */
-    private function joinRelationsToQuery(Entity $entity, Select $query, $prefix = '')
+    private function joinRelationsToQuery(Entity $entity, Select $query, $with, $prefix = '')
     {
-        $with = $this->with;
-        if (!empty($this->relationStack)) {
-            $withPrefix = implode('.', $this->relationStack) . '.';
-
-            $with = array_map(
-                function ($relationName) use ($withPrefix) {
-                    return substr($relationName, strlen($withPrefix));
-                },
-                array_filter(
-                    $with,
-                    function ($relationName) use ($withPrefix) {
-                        return strpos($relationName, $withPrefix) === 0;
-                    }
-                )
-            );
-        }
-
         foreach (array_filter($with, [$entity, 'hasRelation']) as $relationName) {
-            $this->relationStack[] = $relationName;
-
-            $relation = $entity->getRelation($relationName);
-            $this->joinToQuery($entity, $query, $relation, $prefix);
-
-            array_pop($this->relationStack);
+            $this->joinToQuery($entity, $query, $relationName, $with, $prefix);
         }
 
         return $query;
@@ -356,7 +349,8 @@ class EntityFinder
                                 (array)$keys,
                                 $queryBuilder
                             )
-                        )
+                        ),
+                    $this->with
                 )
             )->query($this->parameters)
         );
@@ -454,7 +448,8 @@ class EntityFinder
                 $this->driver
                     ->getQueryBuilder()
                     ->select('count(*) as count')
-                    ->from($this->entity->getTable())
+                    ->from($this->entity->getTable()),
+                $this->with
             )
         )->query($parameters + $this->parameters)->fetch();
 
