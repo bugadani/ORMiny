@@ -12,7 +12,6 @@ namespace ORMiny;
 use Modules\Annotation\Comment;
 use Modules\Annotation\Reader;
 use Modules\DBAL\Driver;
-use Modules\DBAL\QueryBuilder;
 use ORMiny\Exceptions\EntityDefinitionException;
 
 class EntityManager
@@ -169,7 +168,7 @@ class EntityManager
      *
      * @return string The field name.
      */
-    private function processField($comment, $property, $entity)
+    private function processField(Comment $comment, $property, Entity $entity)
     {
         $fieldAnnotation = current($comment->getAnnotationType(self::FIELD_ANNOTATION));
 
@@ -191,7 +190,7 @@ class EntityManager
      * @param         $property
      * @param Entity  $entity
      */
-    private function processRelation($comment, $property, $entity)
+    private function processRelation(Comment $comment, $property, Entity $entity)
     {
         $relation = current($comment->getAnnotationType(self::RELATION_ANNOTATION));
         $entity->addRelation($property, $relation);

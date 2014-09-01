@@ -33,7 +33,7 @@ class ResultProcessor
      *
      * @return array
      */
-    private function process($entity, $records)
+    private function process(Entity $entity, $records)
     {
         $pkField = $entity->getPrimaryKey();
 
@@ -73,7 +73,7 @@ class ResultProcessor
      * @param              $object
      * @param array        $recordsToProcess
      */
-    private function processRelatedRecords($entity, $object, $recordsToProcess)
+    private function processRelatedRecords(Entity $entity, $object, $recordsToProcess)
     {
         //copied from EntityFinder
         $with = $this->with;

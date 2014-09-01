@@ -9,7 +9,6 @@
 
 namespace ORMiny;
 
-use Modules\DBAL\Driver;
 use Modules\DBAL\QueryBuilder;
 use Modules\DBAL\QueryBuilder\Expression;
 use ORMiny\Annotations\Relation;

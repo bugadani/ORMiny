@@ -280,13 +280,13 @@ class EntityFinder
     }
 
     /**
-     * @param Entity $entity
-     * @param        $query
-     * @param        $prefix
+     * @param Entity               $entity
+     * @param AbstractQueryBuilder $query
+     * @param string               $prefix
      *
      * @return AbstractQueryBuilder
      */
-    private function joinRelationsToQuery($entity, $query, $prefix = '')
+    private function joinRelationsToQuery(Entity $entity, AbstractQueryBuilder $query, $prefix = '')
     {
         $with = $this->with;
         if (!empty($this->relationStack)) {
@@ -418,15 +418,15 @@ class EntityFinder
 
     public function update($data)
     {
-        $tempParameters = $this->parameters;
+        $tempParameters   = $this->parameters;
         $this->parameters = [];
-        $query = $this->applyFilters(
+        $query            = $this->applyFilters(
             $this->driver->getQueryBuilder()
                 ->update($this->entity->getTable())
                 ->values(array_map([$this, 'parameter'], $data))
         );
         //This is a hack to prevent parameters being mixed up.
-        while(!empty($tempParameters)) {
+        while (!empty($tempParameters)) {
             $this->parameters[] = array_shift($tempParameters);
         }
         $query->query($this->parameters);
@@ -478,7 +478,7 @@ class EntityFinder
      *
      * @return array
      */
-    private function fetchResults($statement, $pkField)
+    private function fetchResults(Statement $statement, $pkField)
     {
         if (empty($this->with)) {
             return $statement->fetchAll();

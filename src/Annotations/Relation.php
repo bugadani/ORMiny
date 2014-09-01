@@ -9,7 +9,6 @@
 
 namespace ORMiny\Annotations;
 
-use Doctrine\Instantiator\Exception\InvalidArgumentException;
 use Modules\Annotation\Exceptions\AnnotationException;
 
 /**
