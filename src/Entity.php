@@ -289,13 +289,13 @@ class Entity
     private function registerSetterAndGetter($fieldName, $setter, $getter)
     {
         if ($setter !== null) {
-            if (!method_exists($this->className, $setter)) {
+            if (!is_callable($this->className, $setter)) {
                 throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$setter}");
             }
             $this->setters[$fieldName] = $setter;
         }
         if ($getter !== null) {
-            if (!method_exists($this->className, $getter)) {
+            if (!is_callable($this->className, $getter)) {
                 throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$getter}");
             }
             $this->getters[$fieldName] = $getter;
