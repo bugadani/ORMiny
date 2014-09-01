@@ -729,4 +729,20 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
         $this->assertCount(2, $object->relation);
     }
+
+    public function testUpdateReceivesParametersInCorrectOrder()
+    {
+        $this->expectQuery(
+            'UPDATE related SET foreignKey=? WHERE foreignKey=?',
+            [2, 1]
+        );
+        $entity       = $this->entityManager->get('HasManyTargetEntity');
+        $entityFinder = $entity->find();
+        $entityFinder->where(
+            $entity->expression()->eq(
+                'foreignKey',
+                $entityFinder->parameter(1)
+            )
+        )->update(['foreignKey' => 2]);
+    }
 }
