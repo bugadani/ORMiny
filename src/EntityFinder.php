@@ -217,7 +217,7 @@ class EntityFinder
         return $query;
     }
 
-    private function joinToQuery(Entity $entity, Select $query, $relationName, $with, $prefix)
+    private function joinToQuery(Entity $entity, Select $query, $relationName, array $with, $prefix)
     {
         $entityTable   = $entity->getTable();
         $relation      = $entity->getRelation($relationName);
@@ -301,7 +301,7 @@ class EntityFinder
      *
      * @return Select
      */
-    private function joinRelationsToQuery(Entity $entity, Select $query, $with, $prefix = '')
+    private function joinRelationsToQuery(Entity $entity, Select $query, array $with, $prefix = '')
     {
         foreach (array_filter($with, [$entity, 'hasRelation']) as $relationName) {
             $this->joinToQuery($entity, $query, $relationName, $with, $prefix);
