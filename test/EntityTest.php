@@ -699,4 +699,34 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->assertCount(3, $objects[4]->relation);
         $this->assertCount(1, $objects[5]->relation);
     }
+
+    public function testLoadRelation()
+    {
+        $this->expectQuery(
+            'SELECT primaryKey, foreignKey FROM related WHERE foreignKey=?',
+            [1],
+            [
+                [
+                    'primaryKey' => 1,
+                    'foreignKey' => 1
+                ],
+                [
+                    'primaryKey' => 2,
+                    'foreignKey' => 1
+                ]
+            ]
+        );
+
+
+        $entity = $this->entityManager->get('HasManyRelationEntity');
+        $object = $entity->create(
+            [
+                'pk' => 1
+            ]
+        );
+
+        $entity->loadRelation($object, 'relation');
+
+        $this->assertCount(2, $object->relation);
+    }
 }

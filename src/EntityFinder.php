@@ -165,9 +165,9 @@ class EntityFinder
         }
 
         return $this->process(
-            $this->joinRelationsToQuery(
-                $this->entity,
-                $this->applyFilters(
+            $this->applyFilters(
+                $this->joinRelationsToQuery(
+                    $this->entity,
                     $this->driver
                         ->getQueryBuilder()
                         ->select($fields)
@@ -280,13 +280,13 @@ class EntityFinder
     }
 
     /**
-     * @param Entity               $entity
-     * @param AbstractQueryBuilder $query
-     * @param string               $prefix
+     * @param Entity $entity
+     * @param Select $query
+     * @param string $prefix
      *
-     * @return AbstractQueryBuilder
+     * @return Select
      */
-    private function joinRelationsToQuery(Entity $entity, AbstractQueryBuilder $query, $prefix = '')
+    private function joinRelationsToQuery(Entity $entity, Select $query, $prefix = '')
     {
         $with = $this->with;
         if (!empty($this->relationStack)) {
@@ -319,7 +319,13 @@ class EntityFinder
 
     public function getByPrimaryKey($primaryKeys)
     {
-        return $this->getByField($this->entity->getPrimaryKey(), $primaryKeys);
+        $records = $this->getByField($this->entity->getPrimaryKey(), $primaryKeys);
+
+        if (!is_array($primaryKeys) || count($primaryKeys) === 1) {
+            return current($records);
+        }
+
+        return $records;
     }
 
     public function getByField($fieldName, $keys)
@@ -354,10 +360,6 @@ class EntityFinder
                 )
             )->query($this->parameters)
         );
-
-        if (!is_array($keys) || count($keys) === 1) {
-            return current($records);
-        }
 
         return $records;
     }
@@ -446,9 +448,9 @@ class EntityFinder
 
     public function count(array $parameters = [])
     {
-        $count = $this->joinRelationsToQuery(
-            $this->entity,
-            $this->applyFilters(
+        $count = $this->applyFilters(
+            $this->joinRelationsToQuery(
+                $this->entity,
                 $this->driver
                     ->getQueryBuilder()
                     ->select('count(*) as count')

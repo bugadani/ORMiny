@@ -560,8 +560,8 @@ class Entity
             $relation      = $this->getRelation($relationName);
             $relatedEntity = $this->getRelatedEntity($relationName);
 
-            $leftKey   = $this->getTable() . '_' . $relation->foreignKey;
-            $rightKey  = $relatedEntity->getTable() . '_' . $relation->targetKey;
+            $leftKey  = $this->getTable() . '_' . $relation->foreignKey;
+            $rightKey = $relatedEntity->getTable() . '_' . $relation->targetKey;
 
             if (!empty($keys['deleted'])) {
                 $expression = $queryBuilder->expression();
@@ -608,5 +608,20 @@ class Entity
         } elseif (isset($this->readOnlyObjectHandles[$objectId])) {
             unset($this->readOnlyObjectHandles[$objectId]);
         }
+    }
+
+    public function loadRelation($object, $relationName)
+    {
+        $this->checkObjectInstance($object);
+        $relation      = $this->getRelation($relationName);
+        $relatedEntity = $this->getRelatedEntity($relationName);
+
+        $targetField = $relation->targetKey;
+        $foreignKey  = $this->getFieldValue($object, $relation->foreignKey);
+        $this->setRelationValue(
+            $object,
+            $relationName,
+            $relatedEntity->find()->getByField($targetField, $foreignKey)
+        );
     }
 }
