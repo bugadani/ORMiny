@@ -21,9 +21,14 @@ use ORMiny\Annotations\Relation;
 class EntityFinder
 {
     /**
-     * @var Entity
+     * @var EntityMetadata
      */
     private $entity;
+
+    /**
+     * @var EntityManager
+     */
+    private $manager;
 
     /**
      * @var Driver
@@ -46,10 +51,15 @@ class EntityFinder
 
     private $readOnly = false;
 
-    public function __construct(ResultProcessor $resultProcessor, Driver $driver, Entity $entity)
-    {
+    public function __construct(
+        EntityManager $manager,
+        ResultProcessor $resultProcessor,
+        Driver $driver,
+        Entity $entity
+    ) {
+        $this->manager         = $manager;
         $this->resultProcessor = $resultProcessor;
-        $this->entity          = $entity;
+        $this->entity          = $entity->getMetadata();
         $this->driver          = $driver;
     }
 
@@ -217,11 +227,16 @@ class EntityFinder
         return $query;
     }
 
-    private function joinToQuery(Entity $entity, Select $query, $relationName, array $with, $prefix)
-    {
+    private function joinToQuery(
+        EntityMetadata $entity,
+        Select $query,
+        $relationName,
+        array $with,
+        $prefix
+    ) {
         $entityTable   = $entity->getTable();
         $relation      = $entity->getRelation($relationName);
-        $relatedEntity = $entity->getRelatedEntity($relation->name);
+        $relatedEntity = $this->manager->get($relation->target)->getMetadata();
         $relatedTable  = $relatedEntity->getTable();
 
         if ($prefix !== '') {
@@ -294,15 +309,19 @@ class EntityFinder
     }
 
     /**
-     * @param Entity $entity
-     * @param Select $query
-     * @param        $with
-     * @param string $prefix
+     * @param EntityMetadata $entity
+     * @param Select         $query
+     * @param array          $with
+     * @param string         $prefix
      *
      * @return Select
      */
-    private function joinRelationsToQuery(Entity $entity, Select $query, array $with, $prefix = '')
-    {
+    private function joinRelationsToQuery(
+        EntityMetadata $entity,
+        Select $query,
+        array $with,
+        $prefix = ''
+    ) {
         foreach (array_filter($with, [$entity, 'hasRelation']) as $relationName) {
             $this->joinToQuery($entity, $query, $relationName, $with, $prefix);
         }
@@ -336,7 +355,7 @@ class EntityFinder
                 $fields
             );
         }
-        $records = $this->process(
+        return $this->process(
             $this->applyFilters(
                 $this->joinRelationsToQuery(
                     $this->entity,
@@ -354,8 +373,6 @@ class EntityFinder
                 )
             )->query($this->parameters)
         );
-
-        return $records;
     }
 
     public function delete()
@@ -515,14 +532,12 @@ class EntityFinder
 
     private function deleteRecords($records)
     {
+        $entity = $this->manager->get($this->entity->getClassName());
         if ($records !== false) {
             if (is_array($records)) {
-                array_map(
-                    [$this->entity, 'delete'],
-                    $records
-                );
+                array_map([$entity, 'delete'], $records);
             } else {
-                $this->entity->delete($records);
+                $entity->delete($records);
             }
         }
     }

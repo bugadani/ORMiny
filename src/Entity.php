@@ -18,25 +18,8 @@ class Entity
     const STATE_NEW     = 1;
     const STATE_HANDLED = 2;
 
+    private $metadata;
     private $manager;
-    private $className;
-    private $tableName;
-    private $primaryKey;
-    private $fields = [];
-    private $properties = [];
-    private $setters = [];
-    private $getters = [];
-
-    /**
-     * @var Relation[]
-     */
-    private $relations = [];
-
-    /**
-     * @var Entity[]
-     */
-    private $relatedEntities = [];
-    private $relationTargets = [];
 
     private $originalData = [];
     private $objectStates = [];
@@ -45,30 +28,16 @@ class Entity
     private $relatedObjectHandles = [];
     private $readOnlyObjectHandles = [];
 
-    public function __construct(EntityManager $manager, $className, $tableName)
+    public function __construct(EntityManager $manager, EntityMetadata $metadata)
     {
-        $this->manager   = $manager;
-        $this->className = $className;
-        $this->tableName = $tableName;
+        $this->manager  = $manager;
+        $this->metadata = $metadata;
     }
 
     //Metadata related methods
-    public function getTable()
+    public function getMetadata()
     {
-        return $this->tableName;
-    }
-
-    public function setPrimaryKey($field)
-    {
-        if (!isset($this->fields[$field])) {
-            throw new \InvalidArgumentException("Class {$this->className} does not have a property called {$field}");
-        }
-        $this->primaryKey = $field;
-    }
-
-    public function getPrimaryKey()
-    {
-        return $this->primaryKey;
+        return $this->metadata;
     }
 
     public function isPrimaryKeySet($object)
@@ -78,93 +47,30 @@ class Entity
 
     public function getPrimaryKeyValue($object)
     {
-        return $this->getFieldValue($object, $this->primaryKey);
+        return $this->getFieldValue($object, $this->metadata->getPrimaryKey());
     }
 
     public function setFieldValue($value, $field, $object)
     {
-        $this->checkObjectInstance($object);
-        if (isset($this->setters[$field])) {
-            return $object->{$this->setters[$field]}($value);
-        }
-        if (isset($this->properties[$field])) {
-            return $object->{$this->properties[$field]} = $value;
-        }
-        throw new \InvalidArgumentException("Class {$this->className} does not have a property called {$field}");
+        $this->metadata->setFieldValue($value, $field, $object);
     }
 
     public function getFieldValue($object, $field)
     {
-        $this->checkObjectInstance($object);
-        if (isset($this->getters[$field])) {
-            return $object->{$this->getters[$field]}();
-        }
-        if (isset($this->properties[$field])) {
-            return $object->{$this->properties[$field]};
-        }
-        throw new \InvalidArgumentException("Class {$this->className} does not have a property called {$field}");
-    }
-
-    private function addPropertyField($property, $fieldName = null)
-    {
-        if (!property_exists($this->className, $property)) {
-            throw new \InvalidArgumentException("Class {$this->className} does not have a property called {$property}");
-        }
-        $this->properties[$fieldName] = $property;
-    }
-
-    public function addField($property, $fieldName = null, $setter = null, $getter = null)
-    {
-        if (!is_string($fieldName) || empty($fieldName)) {
-            $fieldName = $property;
-        }
-        $this->fields[$fieldName] = $fieldName;
-        if ($setter === null && $getter === null) {
-            $this->addPropertyField($property, $fieldName);
-        } else {
-            $this->registerSetterAndGetter($fieldName, $setter, $getter);
-        }
-
-        return $fieldName;
-    }
-
-    public function addRelation($property, Relation $relation, $setter = null, $getter = null)
-    {
-        $relationName = $relation->name;
-
-        $this->relations[$relationName]       = $relation;
-        $this->relatedEntities[$relationName] = $this->manager->get($relation->target);
-        $this->relationTargets[$relationName] = $property;
-
-        $this->registerSetterAndGetter($property, $setter, $getter);
-    }
-
-    public function getRelation($name)
-    {
-        if (!isset($this->relations[$name])) {
-            throw new \OutOfBoundsException("Undefined relation: {$name}");
-        }
-
-        return $this->relations[$name];
+        return $this->metadata->getFieldValue($object, $field);
     }
 
     public function getRelationValue($object, $relationName)
     {
-        $this->checkObjectInstance($object);
-        $property = $this->relationTargets[$relationName];
-        if (isset($this->getters[$property])) {
-            return $object->{$this->getters[$property]}();
-        }
-
-        return $object->{$property};
+        return $this->metadata->getRelationValue($object, $relationName);
     }
 
     public function setRelationValue($object, $relationName, $value)
     {
-        $this->checkObjectInstance($object);
+        $this->metadata->assertObjectInstance($object);
 
-        $relatedEntity = $this->getRelatedEntity($relationName);
-        $relation      = $this->getRelation($relationName);
+        $relation      = $this->metadata->getRelation($relationName);
+        $relatedEntity = $this->manager->get($relation->target);
 
         $objectId = spl_object_hash($object);
 
@@ -195,47 +101,14 @@ class Entity
                 break;
         }
 
-        $property = $this->relationTargets[$relationName];
-        if (isset($this->setters[$property])) {
-            return $object->{$this->setters[$property]}($value);
-        }
-
-        return $object->{$property} = $value;
-    }
-
-    public function getRelatedEntity($name)
-    {
-        if (!isset($this->relatedEntities[$name])) {
-            throw new \OutOfBoundsException("Undefined relation: {$name}");
-        }
-
-        return $this->relatedEntities[$name];
-    }
-
-    public function hasRelation($relationName)
-    {
-        return isset($this->relations[$relationName]);
-    }
-
-    public function getRelations()
-    {
-        return $this->relations;
-    }
-
-    public function getRelatedEntities()
-    {
-        return $this->relatedEntities;
-    }
-
-    public function getFields()
-    {
-        return $this->fields;
+        return $this->metadata->setRelationValue($object, $relationName, $value);
     }
 
     //Entity API
     public function create(array $data = [])
     {
-        $object = new $this->className;
+        $className = $this->metadata->getClassName();
+        $object    = new $className;
         array_walk($data, [$this, 'setFieldValue'], $object);
 
         $objectId = spl_object_hash($object);
@@ -255,9 +128,9 @@ class Entity
 
     public function toArray($object)
     {
-        $this->checkObjectInstance($object);
+        $this->metadata->assertObjectInstance($object);
         $data = [];
-        foreach ($this->fields as $field) {
+        foreach ($this->metadata->getFields() as $field) {
             $data[$field] = $this->getFieldValue($object, $field);
         }
 
@@ -267,6 +140,7 @@ class Entity
     public function find()
     {
         return new EntityFinder(
+            $this->manager,
             $this->manager->getResultProcessor(),
             $this->manager->getDriver(),
             $this
@@ -286,30 +160,14 @@ class Entity
         return $this->find()->getByPrimaryKey(func_get_args());
     }
 
-    private function registerSetterAndGetter($fieldName, $setter, $getter)
-    {
-        if ($setter !== null) {
-            if (!is_callable($this->className, $setter)) {
-                throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$setter}");
-            }
-            $this->setters[$fieldName] = $setter;
-        }
-        if ($getter !== null) {
-            if (!is_callable($this->className, $getter)) {
-                throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$getter}");
-            }
-            $this->getters[$fieldName] = $getter;
-        }
-    }
-
     public function delete($object)
     {
-        $this->checkObjectInstance($object);
+        $this->metadata->assertObjectInstance($object);
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
 
-        foreach ($this->getRelatedEntities() as $relationName => $relatedEntity) {
-            $relation   = $this->getRelation($relationName);
-            $foreignKey = $this->getFieldValue($object, $relation->foreignKey);
+        foreach ($this->metadata->getRelations() as $relation) {
+            $relatedEntity = $this->manager->get($relation->target);
+            $foreignKey    = $this->getFieldValue($object, $relation->foreignKey);
             switch ($relation->type) {
                 case Relation::HAS_ONE:
                 case Relation::HAS_MANY:
@@ -321,7 +179,7 @@ class Entity
                         ->delete($relation->joinTable)
                         ->where(
                             $queryBuilder->expression()->eq(
-                                $this->getTable() . '_' . $relation->foreignKey,
+                                $this->metadata->getTable() . '_' . $relation->foreignKey,
                                 $queryBuilder->createPositionalParameter($foreignKey)
                             )
                         )->query();
@@ -334,10 +192,10 @@ class Entity
         }
 
         if ($this->isPrimaryKeySet($object)) {
-            $queryBuilder->delete($this->getTable())
+            $queryBuilder->delete($this->metadata->getTable())
                 ->where(
                     $queryBuilder->expression()->eq(
-                        $this->getPrimaryKey(),
+                        $this->metadata->getPrimaryKey(),
                         $queryBuilder->createPositionalParameter(
                             $this->getPrimaryKeyValue($object)
                         )
@@ -349,7 +207,7 @@ class Entity
 
     public function save($object)
     {
-        $this->checkObjectInstance($object);
+        $this->metadata->assertObjectInstance($object);
         $objectId = spl_object_hash($object);
 
         if (!isset($this->objectStates[$objectId]) || $this->relatedObjectHandles[$objectId] !== $object) {
@@ -362,8 +220,8 @@ class Entity
         }
 
         $modifiedManyManyRelations = [];
-        foreach ($this->getRelations() as $relationName => $relation) {
-            $relatedEntity = $this->getRelatedEntity($relationName);
+        foreach ($this->metadata->getRelations() as $relationName => $relation) {
+            $relatedEntity = $this->manager->get($relation->target);
             switch ($relation->type) {
                 case Relation::MANY_MANY:
                     $relatedObjects = $this->getRelationValue($object, $relationName);
@@ -400,7 +258,7 @@ class Entity
                         //record the current primary key
                         $currentForeignKeys[] = $relatedEntity->getOriginalData(
                             $relatedObject,
-                            $relatedEntity->getPrimaryKey()
+                            $relatedEntity->metadata->getPrimaryKey()
                         );
                         //update the foreign key to match the current object's
                         $relatedEntity->setFieldValue(
@@ -419,13 +277,7 @@ class Entity
                 case Relation::HAS_ONE:
                 case Relation::BELONGS_TO:
                     //checking the foreign key is not enough here - foreign key is not updated yet.
-                    if (isset($this->getters[$relationName])) {
-                        $foreignKeyValue = $object->{$this->getters[$relationName]}();
-                    } elseif (isset($object->{$this->relationTargets[$relationName]})) {
-                        $foreignKeyValue = $object->{$this->relationTargets[$relationName]};
-                    } else {
-                        $foreignKeyValue = null;
-                    }
+                    $foreignKeyValue = $this->metadata->getRelationValue($object, $relationName);
 
                     $this->setFieldValue($foreignKeyValue, $relation->foreignKey, $object);
                     $this->objectRelations[$objectId] = $foreignKeyValue;
@@ -439,11 +291,11 @@ class Entity
             $primaryKey = $this->update($object);
         }
 
-        foreach ($this->getRelations() as $relationName => $relation) {
+        foreach ($this->metadata->getRelations() as $relationName => $relation) {
             switch ($relation->type) {
                 case Relation::HAS_ONE:
                 case Relation::BELONGS_TO:
-                    $relatedEntity = $this->getRelatedEntity($relationName);
+                    $relatedEntity = $this->manager->get($relation->target);
                     if ($this->getFieldValue($object, $relation->foreignKey) !== null) {
                         $relatedEntity->save(
                             $this->getRelationValue($object, $relationName)
@@ -485,27 +337,15 @@ class Entity
 
     private function getOriginalData($object, $field)
     {
-        $this->checkObjectInstance($object);
+        $this->metadata->assertObjectInstance($object);
 
         return $this->originalData[spl_object_hash($object)][$field];
-    }
-
-    /**
-     * @param $object
-     *
-     * @throws \InvalidArgumentException
-     */
-    private function checkObjectInstance($object)
-    {
-        if (!$object instanceof $this->className) {
-            throw new \InvalidArgumentException("Object must be an instance of {$this->className}");
-        }
     }
 
     private function insert($object)
     {
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-        $query        = $queryBuilder->insert($this->getTable());
+        $query        = $queryBuilder->insert($this->metadata->getTable());
 
         $primaryKey = $query->values(
             array_map(
@@ -519,7 +359,7 @@ class Entity
             )
         )->query();
 
-        $this->setFieldValue($primaryKey, $this->getPrimaryKey(), $object);
+        $this->setFieldValue($primaryKey, $this->metadata->getPrimaryKey(), $object);
 
         return $primaryKey;
     }
@@ -536,13 +376,13 @@ class Entity
             $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
 
             $queryBuilder
-                ->update($this->getTable())
+                ->update($this->metadata->getTable())
                 ->values(array_map([$queryBuilder, 'createPositionalParameter'], $data))
                 ->where(
                     $queryBuilder->expression()->eq(
-                        $this->getPrimaryKey(),
+                        $this->metadata->getPrimaryKey(),
                         $queryBuilder->createPositionalParameter(
-                            $this->getOriginalData($object, $this->getPrimaryKey())
+                            $this->getOriginalData($object, $this->metadata->getPrimaryKey())
                         )
                     )
                 )->query();
@@ -559,11 +399,11 @@ class Entity
     {
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
         foreach ($modifiedManyManyRelations as $relationName => $keys) {
-            $relation      = $this->getRelation($relationName);
-            $relatedEntity = $this->getRelatedEntity($relationName);
+            $relation      = $this->metadata->getRelation($relationName);
+            $relatedEntity = $this->manager->get($relation->target);
 
-            $leftKey  = $this->getTable() . '_' . $relation->foreignKey;
-            $rightKey = $relatedEntity->getTable() . '_' . $relation->targetKey;
+            $leftKey  = $this->metadata->getTable() . '_' . $relation->foreignKey;
+            $rightKey = $relatedEntity->metadata->getTable() . '_' . $relation->targetKey;
 
             if (!empty($keys['deleted'])) {
                 $expression = $queryBuilder->expression();
@@ -602,7 +442,7 @@ class Entity
 
     public function setReadOnly($object, $readOnly = true)
     {
-        $this->checkObjectInstance($object);
+        $this->metadata->assertObjectInstance($object);
 
         $objectId = spl_object_hash($object);
         if ($readOnly) {
@@ -614,9 +454,9 @@ class Entity
 
     public function loadRelation($object, $relationName)
     {
-        $this->checkObjectInstance($object);
-        $relation      = $this->getRelation($relationName);
-        $relatedEntity = $this->getRelatedEntity($relationName);
+        $this->metadata->assertObjectInstance($object);
+        $relation      = $this->metadata->getRelation($relationName);
+        $relatedEntity = $this->manager->get($relation->target);
 
         $targetField = $relation->targetKey;
         $foreignKey  = $this->getFieldValue($object, $relation->foreignKey);

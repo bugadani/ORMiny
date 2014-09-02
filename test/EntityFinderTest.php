@@ -5,6 +5,7 @@ namespace ORMiny;
 use Modules\Annotation\AnnotationReader;
 use Modules\DBAL\Driver;
 use Modules\DBAL\Platform\MySQL;
+use ORMiny\Drivers\AnnotationMetadataDriver;
 
 class EntityFinderTest extends \PHPUnit_Framework_TestCase
 {
@@ -35,18 +36,14 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
             ->method('getPlatform')
             ->will($this->returnValue($platform));
 
-        $this->entityManager = new EntityManager($this->driver, new AnnotationReader());
+        $driver = new AnnotationMetadataDriver(new AnnotationReader());
+
+        $this->entityManager = new EntityManager($this->driver, $driver);
         $this->entityManager->register('TestEntity', 'ORMiny\\TestEntity');
         $this->entityManager->register('RelatedEntity', 'ORMiny\\RelatedEntity');
         $this->entityManager->register('DeepRelationEntity', 'ORMiny\\DeepRelationEntity');
-        $this->entityManager->register(
-            'HasOneRelationEntity',
-            'ORMiny\\HasOneRelationEntity'
-        );
-        $this->entityManager->register(
-            'ManyManyRelationEntity',
-            'ORMiny\\ManyManyRelationEntity'
-        );
+        $this->entityManager->register('HasOneRelationEntity', 'ORMiny\\HasOneRelationEntity');
+        $this->entityManager->register('ManyManyRelationEntity', 'ORMiny\\ManyManyRelationEntity');
 
         $this->entityFinder = $this->entityManager->find('TestEntity');
     }

@@ -13,11 +13,21 @@ use ORMiny\Annotations\Relation;
 
 class ResultProcessor
 {
+    /**
+     * @var EntityManager
+     */
+    private $manager;
+
     private $with;
     private $readOnly;
     private $relationStack;
 
-    public function processRecords(Entity $entity, $with, $readOnly, array $records)
+    public function __construct(EntityManager $manager)
+    {
+        $this->manager = $manager;
+    }
+
+    public function processRecords(EntityMetadata $entity, $with, $readOnly, array $records)
     {
         $this->with     = $with;
         $this->readOnly = $readOnly;
@@ -28,40 +38,41 @@ class ResultProcessor
     }
 
     /**
-     * @param Entity $entity
-     * @param array  $records
+     * @param EntityMetadata $metadata
+     * @param array          $records
      *
      * @return array
      */
-    private function process(Entity $entity, $records)
+    private function process(EntityMetadata $metadata, $records)
     {
-        $pkField = $entity->getPrimaryKey();
+        $entity  = $this->manager->get($metadata->getClassName());
+        $pkField = $metadata->getPrimaryKey();
 
         $objects          = [];
         $currentKey       = null;
         $object           = null;
         $recordsToProcess = [];
-        $fields           = $entity->getFields();
+        $fields           = $metadata->getFields();
 
         foreach ($records as $record) {
             $data = array_intersect_key($record, $fields);
             $key  = $data[$pkField];
             if ($currentKey !== $key) {
                 if ($object !== null) {
-                    $this->processRelatedRecords($entity, $object, $recordsToProcess);
+                    $this->processRelatedRecords($metadata, $object, $recordsToProcess);
                     $recordsToProcess     = [];
                     $objects[$currentKey] = $object;
                 }
                 $currentKey = $key;
                 $object     = $entity->create($data);
-                if($this->readOnly) {
+                if ($this->readOnly) {
                     $entity->setReadOnly($object);
                 }
             }
             $recordsToProcess[] = array_diff_key($record, $fields);
         }
         if ($object !== null) {
-            $this->processRelatedRecords($entity, $object, $recordsToProcess);
+            $this->processRelatedRecords($metadata, $object, $recordsToProcess);
             $objects[$key] = $object;
         }
 
@@ -69,11 +80,11 @@ class ResultProcessor
     }
 
     /**
-     * @param Entity       $entity
-     * @param              $object
-     * @param array        $recordsToProcess
+     * @param EntityMetadata $metadata
+     * @param                $object
+     * @param array          $recordsToProcess
      */
-    private function processRelatedRecords(Entity $entity, $object, $recordsToProcess)
+    private function processRelatedRecords(EntityMetadata $metadata, $object, $recordsToProcess)
     {
         //copied from EntityFinder
         $with = $this->with;
@@ -94,11 +105,13 @@ class ResultProcessor
             );
         }
 
-        foreach (array_filter($with, [$entity, 'hasRelation']) as $relationName) {
+        foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
             $this->relationStack[] = $relationName;
 
+            $relation = $metadata->getRelation($relationName);
+
             $value = $this->process(
-                $entity->getRelatedEntity($relationName),
+                $this->manager->get($relation->target)->getMetadata(),
                 array_map(
                     function ($rawRecord) use ($relationName) {
                         $record       = [];
@@ -115,13 +128,14 @@ class ResultProcessor
                     $recordsToProcess
                 )
             );
-            switch ($entity->getRelation($relationName)->type) {
+            switch ($metadata->getRelation($relationName)->type) {
                 case Relation::HAS_ONE:
                 case Relation::BELONGS_TO:
                     $value = current($value);
                     break;
             }
-            $entity->setRelationValue($object, $relationName, $value);
+            $this->manager->get($metadata->getClassName())
+                ->setRelationValue($object, $relationName, $value);
 
             array_pop($this->relationStack);
         }

@@ -9,25 +9,15 @@
 
 namespace ORMiny;
 
-use Modules\Annotation\Comment;
-use Modules\Annotation\Reader;
 use Modules\DBAL\Driver;
-use ORMiny\Exceptions\EntityDefinitionException;
+use ORMiny\Drivers\AnnotationMetadataDriver;
 
 class EntityManager
 {
-    const RELATION_ANNOTATION = 'ORMiny\\Annotations\\Relation';
-    const FIELD_ANNOTATION    = 'ORMiny\\Annotations\\Field';
-
     /**
      * @var Driver
      */
     private $driver;
-
-    /**
-     * @var Reader
-     */
-    private $annotationReader;
 
     /**
      * @var string[]
@@ -46,11 +36,16 @@ class EntityManager
 
     private $defaultNamespace = '';
 
-    public function __construct(Driver $driver, Reader $annotationReader)
+    /**
+     * @var AnnotationMetadataDriver
+     */
+    private $metadataDriver;
+
+    public function __construct(Driver $driver, MetadataDriverInterface $metadataDriver)
     {
-        $this->driver           = $driver;
-        $this->annotationReader = $annotationReader;
-        $this->resultProcessor  = new ResultProcessor;
+        $this->driver          = $driver;
+        $this->metadataDriver  = $metadataDriver;
+        $this->resultProcessor = new ResultProcessor($this);
     }
 
     /**
@@ -100,39 +95,9 @@ class EntityManager
 
     private function load($className)
     {
-        try {
-            $classAnnotations = $this->annotationReader->readClass($className);
-            $entity           = new Entity($this, $className, $classAnnotations->get('Table'));
+        $metadata = $this->metadataDriver->readEntityMetadata($className);
 
-            $this->entities[$className] = $entity;
-        } catch (\OutOfBoundsException $e) {
-            throw new EntityDefinitionException("Missing Table annotation of {$className}", 0, $e);
-        }
-
-        $filter = \ReflectionProperty::IS_PRIVATE
-            | \ReflectionProperty::IS_PROTECTED
-            | \ReflectionProperty::IS_PUBLIC;
-
-        $properties = $this->annotationReader->readProperties($className, $filter);
-
-        $primaryKey = null;
-        foreach ($properties as $property => $comment) {
-            if ($comment->hasAnnotationType(self::FIELD_ANNOTATION)) {
-                $fieldName = $this->processField($comment, $property, $entity);
-                if ($comment->has('Id')) {
-                    if (isset($primaryKey)) {
-                        throw new EntityDefinitionException("Class {$className} must only have one primary key.");
-                    }
-                    $primaryKey = $fieldName;
-                }
-            } elseif ($comment->hasAnnotationType(self::RELATION_ANNOTATION)) {
-                $this->processRelation($comment, $property, $entity);
-            }
-        }
-        if (!isset($primaryKey)) {
-            throw new EntityDefinitionException("Class {$className} must have a primary key.");
-        }
-        $entity->setPrimaryKey($primaryKey);
+        $this->entities[$className] = new Entity($this, $metadata);
     }
 
     private function getEntityByClass($className)
@@ -159,53 +124,6 @@ class EntityManager
         return $this->getEntityByClass(
             $this->getEntityClassName($entityName)
         );
-    }
-
-    /**
-     * @param Comment $comment
-     * @param         $property
-     * @param Entity  $entity
-     *
-     * @return string The field name.
-     */
-    private function processField(Comment $comment, $property, Entity $entity)
-    {
-        $fieldAnnotation = current($comment->getAnnotationType(self::FIELD_ANNOTATION));
-
-        $setter = $fieldAnnotation->setter;
-        $getter = $fieldAnnotation->getter;
-
-        if ($setter === true) {
-            $setter = 'set' . ucfirst($property);
-        }
-        if ($getter === true) {
-            $getter = 'get' . ucfirst($property);
-        }
-
-        return $entity->addField($property, $fieldAnnotation->name, $setter, $getter);
-    }
-
-    /**
-     * @param Comment $comment
-     * @param         $property
-     * @param Entity  $entity
-     */
-    private function processRelation(Comment $comment, $property, Entity $entity)
-    {
-        $relation = current($comment->getAnnotationType(self::RELATION_ANNOTATION));
-        $entity->addRelation($property, $relation);
-
-        $setter = $relation->setter;
-        $getter = $relation->getter;
-
-        if ($setter === true) {
-            $setter = 'set' . ucfirst($property);
-        }
-        if ($getter === true) {
-            $getter = 'get' . ucfirst($property);
-        }
-
-        $entity->addRelation($property, $relation, $setter, $getter);
     }
 
     /**
