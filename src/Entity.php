@@ -226,10 +226,7 @@ class Entity
             $relatedEntity = $this->manager->get($relation->target);
             switch ($relation->type) {
                 case Relation::MANY_MANY:
-                    $relatedObjects = $this->getRelationValue($object, $relationName);
-                    if ($relatedObjects === null) {
-                        $relatedObjects = [];
-                    }
+                    $relatedObjects = $this->metadata->getRelationValue($object, $relationName);
 
                     $currentForeignKeys = array_map(
                         function ($object) use ($relatedEntity) {
@@ -256,7 +253,7 @@ class Entity
 
                 case Relation::HAS_MANY:
                     $currentForeignKeys = [];
-                    foreach ($this->getRelationValue($object, $relationName) as $relatedObject) {
+                    foreach ($this->metadata->getRelationValue($object, $relationName) as $relatedObject) {
                         //record the current primary key
                         $relatedEntity->metadata->assertObjectInstance($relatedObject);
                         $currentForeignKeys[] = $relatedEntity->getOriginalData(
@@ -340,7 +337,7 @@ class Entity
                     $relatedEntity = $this->manager->get($relation->target);
                     if ($this->getFieldValue($object, $relation->foreignKey) !== null) {
                         $relatedEntity->save(
-                            $this->getRelationValue($object, $relationName)
+                            $this->metadata->getRelationValue($object, $relationName)
                         );
                     } else {
                         $relatedEntity

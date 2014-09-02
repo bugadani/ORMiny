@@ -172,7 +172,7 @@ class EntityMetadata
     public function getRelationValue($object, $relationName)
     {
         $this->assertObjectInstance($object);
-        if(!$this->hasRelation($relationName)) {
+        if (!$this->hasRelation($relationName)) {
             throw new \OutOfBoundsException("Undefined relation: {$relationName}");
         }
         $property = $this->relationTargets[$relationName];
@@ -183,7 +183,13 @@ class EntityMetadata
             return $object->{$property};
         }
 
-        return null;
+        switch ($this->relations[$relationName]->type) {
+            case Relation::HAS_MANY:
+            case Relation::MANY_MANY:
+                return [];
+            default:
+                return null;
+        }
     }
 
     public function setRelationValue($object, $relationName, $value)
