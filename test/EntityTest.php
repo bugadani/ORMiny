@@ -37,6 +37,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->entityManager->register('TestEntity', 'ORMiny\\TestEntity');
         $this->entityManager->register('RelatedEntity', 'ORMiny\\RelatedEntity');
         $this->entityManager->register('DeepRelationEntity', 'ORMiny\\DeepRelationEntity');
+        $this->entityManager->register('MultipleRelationEntity', 'ORMiny\\MultipleRelationEntity');
         $this->entityManager->register('HasOneRelationEntity', 'ORMiny\\HasOneRelationEntity');
         $this->entityManager->register('HasManyRelationEntity', 'ORMiny\\HasManyRelationEntity');
         $this->entityManager->register('HasManyTargetEntity', 'ORMiny\\HasManyTargetEntity');
@@ -772,5 +773,24 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                 $entityFinder->parameter(1)
             )
         )->update(['foreignKey' => 2]);
+    }
+
+    public function testEntityWithMultipleRelations()
+    {
+        $this->expectQuery(
+            'SELECT multiple.pk, multiple.fk, multiple.fk2, relation.pk as relation_pk, relation.fk as relation_fk, '.
+            'deepRelation.pk as deepRelation_pk, deepRelation.fk as deepRelation_fk, deepRelation_relation.pk as deepRelation_relation_pk, '.
+            'deepRelation_relation.fk as deepRelation_relation_fk, '.
+            'deepRelation_relation_hasOneRelation.primaryKey as deepRelation_relation_hasOneRelation_primaryKey ' .
+            'FROM multiple LEFT JOIN hasOne relation ON fk=relation.pk ' .
+            'LEFT JOIN deep deepRelation ON fk=deepRelation.pk ' .
+            'LEFT JOIN hasOne deepRelation_relation ON deepRelation_fk=deepRelation_relation.pk ' .
+            'LEFT JOIN related deepRelation_relation_hasOneRelation ON deepRelation_relation_fk=deepRelation_relation_hasOneRelation.primaryKey ' .
+            'WHERE multiple.pk=?',
+            [3],
+            []
+        );
+        $entity = $this->entityManager->get('MultipleRelationEntity');
+        $entity->find()->with('relation', 'deepRelation.relation.hasOneRelation')->get(3);
     }
 }

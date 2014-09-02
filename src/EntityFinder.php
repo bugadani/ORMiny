@@ -62,7 +62,7 @@ class EntityFinder
             if (!in_array($str, $with)) {
                 $with[] = $str;
             }
-            while ($token = strtok($name)) {
+            while ($token = strtok('.')) {
                 $str .= '.' . $token;
                 if (!in_array($str, $with)) {
                     $with[] = $str;
@@ -293,7 +293,7 @@ class EntityFinder
             }
             $withPrefix = $relation->name . '.';
 
-            $with = array_map(
+            $strippedWith = array_map(
                 function ($relationName) use ($withPrefix) {
                     return substr($relationName, strlen($withPrefix));
                 },
@@ -304,7 +304,7 @@ class EntityFinder
                     }
                 )
             );
-            $this->joinRelationsToQuery($relatedMetadata, $query, $with, $alias);
+            $this->joinRelationsToQuery($relatedMetadata, $query, $strippedWith, $alias);
         }
 
         return $query;

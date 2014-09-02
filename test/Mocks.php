@@ -69,6 +69,47 @@ class DeepRelationEntity
 }
 
 /**
+ * @Table multiple
+ */
+class MultipleRelationEntity
+{
+    /**
+     * @Id @Field()
+     */
+    public $pk;
+
+    /**
+     * @Field()
+     */
+    public $fk;
+
+    /**
+     * @Field()
+     */
+    public $fk2;
+
+    /**
+     * @Relation('relation',
+     *     type: 'has many',
+     *     target: 'HasOneRelationEntity',
+     *     foreignKey: 'fk',
+     *     targetKey: 'pk'
+     * )
+     */
+    public $relation;
+
+    /**
+     * @Relation('deepRelation',
+     *     type: 'has one',
+     *     target: 'DeepRelationEntity',
+     *     foreignKey: 'fk',
+     *     targetKey: 'pk'
+     * )
+     */
+    public $otherRelation;
+}
+
+/**
  * @Table many_many
  */
 class ManyManyRelationEntity
