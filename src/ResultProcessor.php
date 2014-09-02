@@ -17,8 +17,6 @@ class ResultProcessor
      * @var EntityManager
      */
     private $manager;
-
-    private $with;
     private $readOnly;
     private $relationStack;
 
@@ -29,21 +27,13 @@ class ResultProcessor
 
     public function processRecords(EntityMetadata $entity, $with, $readOnly, array $records)
     {
-        $this->with     = $with;
-        $this->readOnly = $readOnly;
-
+        $this->readOnly      = $readOnly;
         $this->relationStack = [];
 
-        return $this->process($entity, $records);
+        return $this->process($entity, $records, $with);
     }
 
-    /**
-     * @param EntityMetadata $metadata
-     * @param array          $records
-     *
-     * @return array
-     */
-    private function process(EntityMetadata $metadata, $records)
+    private function process(EntityMetadata $metadata, array $records, array $with)
     {
         $entity  = $this->manager->get($metadata->getClassName());
         $pkField = $metadata->getPrimaryKey();
@@ -55,11 +45,12 @@ class ResultProcessor
         $fields           = $metadata->getFields();
 
         foreach ($records as $record) {
+            //This loop extracts columns that are relevant for the current metadata
             $data = array_intersect_key($record, $fields);
             $key  = $data[$pkField];
             if ($currentKey !== $key) {
                 if ($object !== null) {
-                    $this->processRelatedRecords($metadata, $object, $recordsToProcess);
+                    $this->processRelatedRecords($metadata, $object, $recordsToProcess, $with);
                     $recordsToProcess     = [];
                     $objects[$currentKey] = $object;
                 }
@@ -69,32 +60,26 @@ class ResultProcessor
                     $entity->setReadOnly($object);
                 }
             }
+            //The rest of the record is stored to be processed for the related entities
             $recordsToProcess[] = array_diff_key($record, $fields);
         }
         if ($object !== null) {
-            $this->processRelatedRecords($metadata, $object, $recordsToProcess);
+            $this->processRelatedRecords($metadata, $object, $recordsToProcess, $with);
             $objects[$key] = $object;
         }
 
         return $objects;
     }
 
-    /**
-     * @param EntityMetadata $metadata
-     * @param                $object
-     * @param array          $recordsToProcess
-     */
-    private function processRelatedRecords(EntityMetadata $metadata, $object, $recordsToProcess)
+    private function processRelatedRecords(EntityMetadata $metadata, $object, $records, $with)
     {
-        //copied from EntityFinder
-        $with = $this->with;
-        if (!empty($this->relationStack)) {
-            $withPrefix   = implode('.', $this->relationStack) . '.';
-            $prefixLength = strlen($withPrefix);
+        foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
 
+            //Filter $with to remove elements that are not prefixed for the current relation
+            $withPrefix = $relationName . '.';
             $with = array_map(
-                function ($relationName) use ($prefixLength) {
-                    return substr($relationName, $prefixLength);
+                function ($relationName) use ($withPrefix) {
+                    return substr($relationName, strlen($withPrefix));
                 },
                 array_filter(
                     $with,
@@ -103,41 +88,38 @@ class ResultProcessor
                     }
                 )
             );
-        }
 
-        foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
-            $this->relationStack[] = $relationName;
-
-            $relation = $metadata->getRelation($relationName);
-
-            $value = $this->process(
-                $this->manager->get($relation->target)->getMetadata(),
-                array_map(
-                    function ($rawRecord) use ($relationName) {
-                        $record       = [];
-                        $prefixLength = strlen($relationName) + 1;
-                        foreach ($rawRecord as $key => $value) {
-                            if (strpos($key, $relationName . '_') === 0) {
-                                $key          = substr($key, $prefixLength);
-                                $record[$key] = $value;
-                            }
+            //Strip the relation prefix from the columns
+            $records = array_map(
+                function ($rawRecord) use ($relationName) {
+                    $record       = [];
+                    $prefixLength = strlen($relationName) + 1;
+                    foreach ($rawRecord as $key => $value) {
+                        if (strpos($key, $relationName . '_') === 0) {
+                            $key          = substr($key, $prefixLength);
+                            $record[$key] = $value;
                         }
+                    }
 
-                        return $record;
-                    },
-                    $recordsToProcess
-                )
+                    return $record;
+                },
+                $records
             );
-            switch ($metadata->getRelation($relationName)->type) {
+
+            $relation         = $metadata->getRelation($relationName);
+            $relationMetadata = $this->manager->get($relation->target)->getMetadata();
+            $value            = $this->process($relationMetadata, $records, $with);
+
+            switch ($relation->type) {
                 case Relation::HAS_ONE:
                 case Relation::BELONGS_TO:
                     $value = current($value);
                     break;
             }
-            $this->manager->get($metadata->getClassName())
-                ->setRelationValue($object, $relationName, $value);
 
-            array_pop($this->relationStack);
+            $this->manager
+                ->get($metadata->getClassName())
+                ->setRelationValue($object, $relationName, $value);
         }
     }
 }

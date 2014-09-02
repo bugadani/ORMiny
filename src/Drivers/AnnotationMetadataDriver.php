@@ -99,11 +99,11 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
         $fieldAnnotation = current($comment->getAnnotationType(self::FIELD_ANNOTATION));
 
         $setter = $fieldAnnotation->setter;
-        $getter = $fieldAnnotation->getter;
-
         if ($setter === true) {
             $setter = 'set' . ucfirst($property);
         }
+
+        $getter = $fieldAnnotation->getter;
         if ($getter === true) {
             $getter = 'get' . ucfirst($property);
         }
@@ -119,14 +119,13 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
     private function processRelation(Comment $comment, $property, EntityMetadata $metadata)
     {
         $relation = current($comment->getAnnotationType(self::RELATION_ANNOTATION));
-        $metadata->addRelation($property, $relation);
 
         $setter = $relation->setter;
-        $getter = $relation->getter;
-
         if ($setter === true) {
             $setter = 'set' . ucfirst($property);
         }
+
+        $getter = $relation->getter;
         if ($getter === true) {
             $getter = 'get' . ucfirst($property);
         }

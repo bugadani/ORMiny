@@ -111,7 +111,9 @@ class EntityManager
 
     public function getEntityForObject($object)
     {
-        return $this->getEntityByClass(get_class($object));
+        return $this->getEntityByClass(
+            get_class($object)
+        );
     }
 
     /**

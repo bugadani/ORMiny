@@ -350,8 +350,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     'pk'                                 => 5,
                     'fk'                                 => 1,
                     'relation_pk'                        => 1,
-                    'relation_fk'                        => 1,
-                    'relation_hasOneRelation_primaryKey' => 1
+                    'relation_fk'                        => 3,
+                    'relation_hasOneRelation_primaryKey' => 3
                 ]
             ]
         );
@@ -365,7 +365,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->assertInstanceOf('ORMiny\\HasOneRelationEntity', $object->relation[1]);
         $this->assertInstanceOf('ORMiny\\RelatedEntity', $object->relation[1]->relation);
 
-        $this->assertEquals(1, $object->relation[1]->relation->primaryKey);
+        $this->assertEquals(3, $object->relation[1]->fk);
+        $this->assertEquals(3, $object->relation[1]->relation->primaryKey);
     }
 
     public function testGetSingleRecordWithFilters()

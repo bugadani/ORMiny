@@ -23,7 +23,7 @@ class EntityFinder
     /**
      * @var EntityMetadata
      */
-    private $entity;
+    private $metadata;
 
     /**
      * @var EntityManager
@@ -38,11 +38,6 @@ class EntityFinder
     private $where;
     private $with = [];
 
-    /**
-     * @var ResultProcessor
-     */
-    private $resultProcessor;
-
     private $limit;
     private $offset;
 
@@ -51,16 +46,11 @@ class EntityFinder
 
     private $readOnly = false;
 
-    public function __construct(
-        EntityManager $manager,
-        ResultProcessor $resultProcessor,
-        Driver $driver,
-        Entity $entity
-    ) {
-        $this->manager         = $manager;
-        $this->resultProcessor = $resultProcessor;
-        $this->entity          = $entity->getMetadata();
-        $this->driver          = $driver;
+    public function __construct(EntityManager $manager, Driver $driver, EntityMetadata $metadata)
+    {
+        $this->manager  = $manager;
+        $this->driver   = $driver;
+        $this->metadata = $metadata;
     }
 
     public function with($relationName)
@@ -162,8 +152,8 @@ class EntityFinder
             $parameters = [];
         }
 
-        $table  = $this->entity->getTable();
-        $fields = $this->entity->getFields();
+        $table  = $this->metadata->getTable();
+        $fields = $this->metadata->getFields();
         if (!empty($this->with)) {
             $fields = array_map(
                 function ($field) use ($table) {
@@ -176,7 +166,7 @@ class EntityFinder
         return $this->process(
             $this->applyFilters(
                 $this->joinRelationsToQuery(
-                    $this->entity,
+                    $this->metadata,
                     $this->driver
                         ->getQueryBuilder()
                         ->select($fields)
@@ -227,89 +217,8 @@ class EntityFinder
         return $query;
     }
 
-    private function joinToQuery(
-        EntityMetadata $entity,
-        Select $query,
-        $relationName,
-        array $with,
-        $prefix
-    ) {
-        $entityTable   = $entity->getTable();
-        $relation      = $entity->getRelation($relationName);
-        $relatedEntity = $this->manager->get($relation->target)->getMetadata();
-        $relatedTable  = $relatedEntity->getTable();
-
-        if ($prefix !== '') {
-            $leftAlias = $prefix;
-            $prefix .= '_';
-        } else {
-            $leftAlias = $entityTable;
-        }
-        $alias = $prefix . $relation->name;
-
-        $query->addSelect(
-            array_map(
-                function ($item) use ($alias) {
-                    return "{$alias}.{$item} as {$alias}_{$item}";
-                },
-                array_values($relatedEntity->getFields())
-            )
-        );
-
-        switch ($relation->type) {
-            case Relation::HAS_ONE:
-            case Relation::HAS_MANY:
-            case Relation::BELONGS_TO:
-                $query->leftJoin(
-                    $leftAlias,
-                    $relatedTable,
-                    $alias,
-                    (new Expression())->eq(
-                        $prefix . $relation->foreignKey,
-                        "{$alias}.{$relation->targetKey}"
-                    )
-                );
-                break;
-
-            case Relation::MANY_MANY:
-                $query->leftJoin(
-                    $leftAlias,
-                    $relation->joinTable,
-                    $relation->joinTable,
-                    (new Expression())->eq(
-                        "{$leftAlias}.{$relation->foreignKey}",
-                        "{$relation->joinTable}.{$entityTable}_{$relation->foreignKey}"
-                    )
-                );
-                $query->leftJoin(
-                    $relation->joinTable,
-                    $relatedTable,
-                    $alias,
-                    (new Expression())->eq(
-                        "{$relation->joinTable}.{$relatedTable}_{$relation->targetKey}",
-                        "{$alias}.{$relation->targetKey}"
-                    )
-                );
-                break;
-        }
-        $withPrefix = $relation->name . '.';
-
-        $with = array_map(
-            function ($relationName) use ($withPrefix) {
-                return substr($relationName, strlen($withPrefix));
-            },
-            array_filter(
-                $with,
-                function ($relationName) use ($withPrefix) {
-                    return strpos($relationName, $withPrefix) === 0;
-                }
-            )
-        );
-        $this->joinRelationsToQuery($relatedEntity, $query, $with, $alias);
-    }
-
     /**
-     * @param EntityMetadata $entity
+     * @param EntityMetadata $metadata
      * @param Select         $query
      * @param array          $with
      * @param string         $prefix
@@ -317,13 +226,85 @@ class EntityFinder
      * @return Select
      */
     private function joinRelationsToQuery(
-        EntityMetadata $entity,
+        EntityMetadata $metadata,
         Select $query,
         array $with,
         $prefix = ''
     ) {
-        foreach (array_filter($with, [$entity, 'hasRelation']) as $relationName) {
-            $this->joinToQuery($entity, $query, $relationName, $with, $prefix);
+        $entityTable = $metadata->getTable();
+        if ($prefix === '') {
+            $leftAlias = $entityTable;
+        } else {
+            $leftAlias = $prefix;
+            $prefix .= '_';
+        }
+
+        foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
+            $relation        = $metadata->getRelation($relationName);
+            $relatedMetadata = $this->manager->get($relation->target)->getMetadata();
+            $relatedTable    = $relatedMetadata->getTable();
+
+            $alias = $prefix . $relation->name;
+
+            $query->addSelect(
+                array_map(
+                    function ($item) use ($alias) {
+                        return "{$alias}.{$item} as {$alias}_{$item}";
+                    },
+                    array_values($relatedMetadata->getFields())
+                )
+            );
+
+            switch ($relation->type) {
+                case Relation::HAS_ONE:
+                case Relation::HAS_MANY:
+                case Relation::BELONGS_TO:
+                    $query->leftJoin(
+                        $leftAlias,
+                        $relatedTable,
+                        $alias,
+                        (new Expression())->eq(
+                            $prefix . $relation->foreignKey,
+                            "{$alias}.{$relation->targetKey}"
+                        )
+                    );
+                    break;
+
+                case Relation::MANY_MANY:
+                    $query->leftJoin(
+                        $leftAlias,
+                        $relation->joinTable,
+                        $relation->joinTable,
+                        (new Expression())->eq(
+                            "{$leftAlias}.{$relation->foreignKey}",
+                            "{$relation->joinTable}.{$entityTable}_{$relation->foreignKey}"
+                        )
+                    );
+                    $query->leftJoin(
+                        $relation->joinTable,
+                        $relatedTable,
+                        $alias,
+                        (new Expression())->eq(
+                            "{$relation->joinTable}.{$relatedTable}_{$relation->targetKey}",
+                            "{$alias}.{$relation->targetKey}"
+                        )
+                    );
+                    break;
+            }
+            $withPrefix = $relation->name . '.';
+
+            $with = array_map(
+                function ($relationName) use ($withPrefix) {
+                    return substr($relationName, strlen($withPrefix));
+                },
+                array_filter(
+                    $with,
+                    function ($relationName) use ($withPrefix) {
+                        return strpos($relationName, $withPrefix) === 0;
+                    }
+                )
+            );
+            $this->joinRelationsToQuery($relatedMetadata, $query, $with, $alias);
         }
 
         return $query;
@@ -331,7 +312,7 @@ class EntityFinder
 
     public function getByPrimaryKey($primaryKeys)
     {
-        $records = $this->getByField($this->entity->getPrimaryKey(), $primaryKeys);
+        $records = $this->getByField($this->metadata->getPrimaryKey(), $primaryKeys);
 
         if (!is_array($primaryKeys) || count($primaryKeys) === 1) {
             return current($records);
@@ -342,10 +323,8 @@ class EntityFinder
 
     public function getByField($fieldName, $keys)
     {
-        $queryBuilder = $this->driver->getQueryBuilder();
-
-        $table  = $this->entity->getTable();
-        $fields = $this->entity->getFields();
+        $table  = $this->metadata->getTable();
+        $fields = $this->metadata->getFields();
         if (!empty($this->with)) {
             $fieldName = $table . '.' . $fieldName;
             $fields    = array_map(
@@ -355,10 +334,13 @@ class EntityFinder
                 $fields
             );
         }
+
+        $queryBuilder = $this->driver->getQueryBuilder();
+
         return $this->process(
             $this->applyFilters(
                 $this->joinRelationsToQuery(
-                    $this->entity,
+                    $this->metadata,
                     $queryBuilder
                         ->select($fields)
                         ->from($table)
@@ -387,13 +369,13 @@ class EntityFinder
         } else {
             $parameters = [];
         }
-        $relations = $this->entity->getRelations();
+        $relations = $this->metadata->getRelations();
 
         if (empty($relations)) {
             $this->applyFilters(
                 $this->driver
                     ->getQueryBuilder()
-                    ->delete($this->entity->getTable())
+                    ->delete($this->metadata->getTable())
             )->query($this->parameters);
         } else {
             $this->deleteRecords(
@@ -405,15 +387,15 @@ class EntityFinder
 
     public function deleteByPrimaryKey($primaryKeys)
     {
-        $this->deleteByField($this->entity->getPrimaryKey(), $primaryKeys);
+        $this->deleteByField($this->metadata->getPrimaryKey(), $primaryKeys);
     }
 
     public function deleteByField($fieldName, $keys)
     {
-        $relations = $this->entity->getRelations();
+        $relations = $this->metadata->getRelations();
         if (empty($relations)) {
             $queryBuilder = $this->driver->getQueryBuilder();
-            $queryBuilder->delete($this->entity->getTable())
+            $queryBuilder->delete($this->metadata->getTable())
                 ->where(
                     $this->createInExpression(
                         $fieldName,
@@ -435,7 +417,7 @@ class EntityFinder
         $this->parameters = [];
         $query            = $this->applyFilters(
             $this->driver->getQueryBuilder()
-                ->update($this->entity->getTable())
+                ->update($this->metadata->getTable())
                 ->values(array_map([$this, 'parameter'], $data))
         );
         //This is a hack to prevent parameters being mixed up.
@@ -461,11 +443,11 @@ class EntityFinder
     {
         $count = $this->applyFilters(
             $this->joinRelationsToQuery(
-                $this->entity,
+                $this->metadata,
                 $this->driver
                     ->getQueryBuilder()
                     ->select('count(*) as count')
-                    ->from($this->entity->getTable()),
+                    ->from($this->metadata->getTable()),
                 $this->with
             )
         )->query($parameters + $this->parameters)->fetch();
@@ -475,15 +457,17 @@ class EntityFinder
 
     private function process(Statement $results)
     {
-        return $this->resultProcessor->processRecords(
-            $this->entity,
-            $this->with,
-            $this->readOnly,
-            $this->fetchResults(
-                $results,
-                $this->entity->getPrimaryKey()
-            )
-        );
+        return $this->manager
+            ->getResultProcessor()
+            ->processRecords(
+                $this->metadata,
+                $this->with,
+                $this->readOnly,
+                $this->fetchResults(
+                    $results,
+                    $this->metadata->getPrimaryKey()
+                )
+            );
     }
 
     /**
@@ -532,7 +516,7 @@ class EntityFinder
 
     private function deleteRecords($records)
     {
-        $entity = $this->manager->get($this->entity->getClassName());
+        $entity = $this->manager->get($this->metadata->getClassName());
         if ($records !== false) {
             if (is_array($records)) {
                 array_map([$entity, 'delete'], $records);

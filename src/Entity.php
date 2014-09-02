@@ -47,7 +47,7 @@ class Entity
 
     public function getPrimaryKeyValue($object)
     {
-        return $this->getFieldValue($object, $this->metadata->getPrimaryKey());
+        return $this->metadata->getFieldValue($object, $this->metadata->getPrimaryKey());
     }
 
     public function setFieldValue($value, $field, $object)
@@ -82,7 +82,7 @@ class Entity
 
                 $this->objectRelations[$objectId] = [];
                 foreach ($value as $relatedObject) {
-                    $this->objectRelations[$objectId][] = $relatedEntity->getFieldValue(
+                    $this->objectRelations[$objectId][] = $relatedEntity->metadata->getFieldValue(
                         $relatedObject,
                         $targetKey
                     );
@@ -131,7 +131,7 @@ class Entity
         $this->metadata->assertObjectInstance($object);
         $data = [];
         foreach ($this->metadata->getFields() as $field) {
-            $data[$field] = $this->getFieldValue($object, $field);
+            $data[$field] = $this->metadata->getFieldValue($object, $field);
         }
 
         return $data;
@@ -139,12 +139,7 @@ class Entity
 
     public function find()
     {
-        return new EntityFinder(
-            $this->manager,
-            $this->manager->getResultProcessor(),
-            $this->manager->getDriver(),
-            $this
-        );
+        return new EntityFinder($this->manager, $this->manager->getDriver(), $this->metadata);
     }
 
     /**
@@ -167,7 +162,7 @@ class Entity
 
         foreach ($this->metadata->getRelations() as $relation) {
             $relatedEntity = $this->manager->get($relation->target);
-            $foreignKey    = $this->getFieldValue($object, $relation->foreignKey);
+            $foreignKey    = $this->metadata->getFieldValue($object, $relation->foreignKey);
             switch ($relation->type) {
                 case Relation::HAS_ONE:
                 case Relation::HAS_MANY:
@@ -261,8 +256,8 @@ class Entity
                             $relatedEntity->metadata->getPrimaryKey()
                         );
                         //update the foreign key to match the current object's
-                        $relatedEntity->setFieldValue(
-                            $this->getFieldValue($object, $relation->foreignKey),
+                        $relatedEntity->metadata->setFieldValue(
+                            $this->metadata->getFieldValue($object, $relation->foreignKey),
                             $relation->targetKey,
                             $relatedObject
                         );
@@ -279,7 +274,11 @@ class Entity
                     //checking the foreign key is not enough here - foreign key is not updated yet.
                     $foreignKeyValue = $this->metadata->getRelationValue($object, $relationName);
 
-                    $this->setFieldValue($foreignKeyValue, $relation->foreignKey, $object);
+                    $this->metadata->setFieldValue(
+                        $foreignKeyValue,
+                        $relation->foreignKey,
+                        $object
+                    );
                     $this->objectRelations[$objectId] = $foreignKeyValue;
                     break;
             }
@@ -344,8 +343,10 @@ class Entity
 
     private function insert($object)
     {
-        $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-        $query        = $queryBuilder->insert($this->metadata->getTable());
+        $query = $this->manager
+            ->getDriver()
+            ->getQueryBuilder()
+            ->insert($this->metadata->getTable());
 
         $primaryKey = $query->values(
             array_map(
@@ -374,15 +375,16 @@ class Entity
         //only save when a change is detected
         if (!empty($data)) {
             $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
+            $primaryKey   = $this->metadata->getPrimaryKey();
 
             $queryBuilder
                 ->update($this->metadata->getTable())
                 ->values(array_map([$queryBuilder, 'createPositionalParameter'], $data))
                 ->where(
                     $queryBuilder->expression()->eq(
-                        $this->metadata->getPrimaryKey(),
+                        $primaryKey,
                         $queryBuilder->createPositionalParameter(
-                            $this->getOriginalData($object, $this->metadata->getPrimaryKey())
+                            $this->getOriginalData($object, $primaryKey)
                         )
                     )
                 )->query();
@@ -443,8 +445,8 @@ class Entity
     public function setReadOnly($object, $readOnly = true)
     {
         $this->metadata->assertObjectInstance($object);
-
         $objectId = spl_object_hash($object);
+
         if ($readOnly) {
             $this->readOnlyObjectHandles[$objectId] = true;
         } elseif (isset($this->readOnlyObjectHandles[$objectId])) {
@@ -455,15 +457,19 @@ class Entity
     public function loadRelation($object, $relationName)
     {
         $this->metadata->assertObjectInstance($object);
-        $relation      = $this->metadata->getRelation($relationName);
-        $relatedEntity = $this->manager->get($relation->target);
 
-        $targetField = $relation->targetKey;
-        $foreignKey  = $this->getFieldValue($object, $relation->foreignKey);
+        $relation = $this->metadata->getRelation($relationName);
+
         $this->setRelationValue(
             $object,
             $relationName,
-            $relatedEntity->find()->getByField($targetField, $foreignKey)
+            $this->manager
+                ->get($relation->target)
+                ->find()
+                ->getByField(
+                    $relation->targetKey,
+                    $this->metadata->getFieldValue($object, $relation->foreignKey)
+                )
         );
     }
 }
