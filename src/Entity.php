@@ -18,7 +18,14 @@ class Entity
     const STATE_NEW     = 1;
     const STATE_HANDLED = 2;
 
+    /**
+     * @var EntityMetadata
+     */
     private $metadata;
+
+    /**
+     * @var EntityManager
+     */
     private $manager;
 
     private $originalData = [];
@@ -52,7 +59,7 @@ class Entity
 
     public function setFieldValue($value, $field, $object)
     {
-        $this->metadata->setFieldValue($value, $field, $object);
+        return $this->metadata->setFieldValue($value, $field, $object);
     }
 
     public function getFieldValue($object, $field)
@@ -105,11 +112,23 @@ class Entity
     }
 
     //Entity API
+    public function toArray($object)
+    {
+        $this->metadata->assertObjectInstance($object);
+
+        $data = [];
+        foreach ($this->metadata->getFields() as $field) {
+            $data[$field] = $this->metadata->getFieldValue($object, $field);
+        }
+
+        return $data;
+    }
+
     public function create(array $data = [])
     {
         $className = $this->metadata->getClassName();
         $object    = new $className;
-        array_walk($data, [$this, 'setFieldValue'], $object);
+        array_walk($data, [$this->metadata, 'setFieldValue'], $object);
 
         $objectId = spl_object_hash($object);
 
@@ -124,17 +143,6 @@ class Entity
         $this->relatedObjectHandles[$objectId] = $object;
 
         return $object;
-    }
-
-    public function toArray($object)
-    {
-        $this->metadata->assertObjectInstance($object);
-        $data = [];
-        foreach ($this->metadata->getFields() as $field) {
-            $data[$field] = $this->metadata->getFieldValue($object, $field);
-        }
-
-        return $data;
     }
 
     public function find()
@@ -157,12 +165,11 @@ class Entity
 
     public function delete($object)
     {
-        $this->metadata->assertObjectInstance($object);
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
 
         foreach ($this->metadata->getRelations() as $relation) {
-            $relatedEntity = $this->manager->get($relation->target);
             $foreignKey    = $this->metadata->getFieldValue($object, $relation->foreignKey);
+            $relatedEntity = $this->manager->get($relation->target);
             switch ($relation->type) {
                 case Relation::HAS_ONE:
                 case Relation::HAS_MANY:
@@ -251,10 +258,12 @@ class Entity
                     $currentForeignKeys = [];
                     foreach ($this->getRelationValue($object, $relationName) as $relatedObject) {
                         //record the current primary key
+                        $relatedEntity->metadata->assertObjectInstance($relatedObject);
                         $currentForeignKeys[] = $relatedEntity->getOriginalData(
                             $relatedObject,
                             $relatedEntity->metadata->getPrimaryKey()
                         );
+
                         //update the foreign key to match the current object's
                         $relatedEntity->metadata->setFieldValue(
                             $this->metadata->getFieldValue($object, $relation->foreignKey),
@@ -272,14 +281,44 @@ class Entity
                 case Relation::HAS_ONE:
                 case Relation::BELONGS_TO:
                     //checking the foreign key is not enough here - foreign key is not updated yet.
-                    $foreignKeyValue = $this->metadata->getRelationValue($object, $relationName);
+                    $relatedObject = $this->metadata->getRelationValue($object, $relationName);
 
-                    $this->metadata->setFieldValue(
-                        $foreignKeyValue,
-                        $relation->foreignKey,
-                        $object
+                    $originalForeignKey = $this->getOriginalData(
+                        $object,
+                        $relation->foreignKey
                     );
-                    $this->objectRelations[$objectId] = $foreignKeyValue;
+                    $currentForeignKey  = $this->metadata->getFieldValue(
+                        $object,
+                        $relation->foreignKey
+                    );
+
+                    if ($originalForeignKey !== null) {
+                        if ($relatedObject === null) {
+                            //Related object has been unset
+                            $currentForeignKey = null;
+                        } else {
+                            //Related object may have been changed
+                            $currentForeignKey = $relatedEntity->metadata->getFieldValue(
+                                $relatedObject,
+                                $relation->targetKey
+                            );
+                        }
+                    } elseif ($relatedObject !== null) {
+                        //Related object has been set
+                        $currentForeignKey = $relatedEntity->metadata->getFieldValue(
+                            $relatedObject,
+                            $relation->targetKey
+                        );
+                    }
+
+                    if ($currentForeignKey !== $originalForeignKey) {
+                        $this->metadata->setFieldValue(
+                            $currentForeignKey,
+                            $relation->foreignKey,
+                            $object
+                        );
+                        $this->objectRelations[$objectId] = $currentForeignKey;
+                    }
                     break;
             }
         }
@@ -336,8 +375,6 @@ class Entity
 
     private function getOriginalData($object, $field)
     {
-        $this->metadata->assertObjectInstance($object);
-
         return $this->originalData[spl_object_hash($object)][$field];
     }
 
@@ -400,12 +437,14 @@ class Entity
     private function updateManyToManyRelations($modifiedManyManyRelations, $primaryKey)
     {
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-        foreach ($modifiedManyManyRelations as $relationName => $keys) {
-            $relation      = $this->metadata->getRelation($relationName);
-            $relatedEntity = $this->manager->get($relation->target);
+        $tableName    = $this->metadata->getTable();
 
-            $leftKey  = $this->metadata->getTable() . '_' . $relation->foreignKey;
-            $rightKey = $relatedEntity->metadata->getTable() . '_' . $relation->targetKey;
+        foreach ($modifiedManyManyRelations as $relationName => $keys) {
+            $relation         = $this->metadata->getRelation($relationName);
+            $relatedTableName = $this->manager->get($relation->target)->metadata->getTable();
+
+            $leftKey  = $tableName . '_' . $relation->foreignKey;
+            $rightKey = $relatedTableName . '_' . $relation->targetKey;
 
             if (!empty($keys['deleted'])) {
                 $expression = $queryBuilder->expression();
@@ -456,8 +495,6 @@ class Entity
 
     public function loadRelation($object, $relationName)
     {
-        $this->metadata->assertObjectInstance($object);
-
         $relation = $this->metadata->getRelation($relationName);
 
         $this->setRelationValue(

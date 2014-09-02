@@ -37,10 +37,10 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->entityManager->register('TestEntity', 'ORMiny\\TestEntity');
         $this->entityManager->register('RelatedEntity', 'ORMiny\\RelatedEntity');
         $this->entityManager->register('DeepRelationEntity', 'ORMiny\\DeepRelationEntity');
-        $this->entityManager->register('HasOneRelationEntity','ORMiny\\HasOneRelationEntity');
-        $this->entityManager->register('HasManyRelationEntity','ORMiny\\HasManyRelationEntity');
-        $this->entityManager->register('HasManyTargetEntity','ORMiny\\HasManyTargetEntity');
-        $this->entityManager->register('ManyManyRelationEntity','ORMiny\\ManyManyRelationEntity');
+        $this->entityManager->register('HasOneRelationEntity', 'ORMiny\\HasOneRelationEntity');
+        $this->entityManager->register('HasManyRelationEntity', 'ORMiny\\HasManyRelationEntity');
+        $this->entityManager->register('HasManyTargetEntity', 'ORMiny\\HasManyTargetEntity');
+        $this->entityManager->register('ManyManyRelationEntity', 'ORMiny\\ManyManyRelationEntity');
     }
 
     private function createMockStatement(array $return)
@@ -523,6 +523,39 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity->save($object);
 
         $object->setField2('bar');
+
+        $entity->save($object);
+    }
+
+    public function testUpdateRecordWithHasOneRelation()
+    {
+        //field2 is set because its getter returns a value
+        $this->expectQueries(
+            [
+                [
+                    'SELECT hasOne.pk, hasOne.fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne' .
+                    ' LEFT JOIN related hasOneRelation ON fk=hasOneRelation.primaryKey WHERE hasOne.pk=?',
+                    [2],
+                    [
+                        [
+                            'pk'                        => 1,
+                            'fk'                        => null,
+                            'hasOneRelation_primaryKey' => null
+                        ]
+                    ]
+                ],
+                ['UPDATE hasOne SET fk=? WHERE pk=?', [2, 1]]
+            ]
+        );
+
+        $entity = $this->entityManager->get('HasOneRelationEntity');
+        $object = $entity->find()->with('hasOneRelation')->get(2);
+
+        $this->assertNull($object->relation);
+
+        $object->relation = $this->entityManager
+            ->get('RelatedEntity')
+            ->create(['primaryKey' => 2]);
 
         $entity->save($object);
     }

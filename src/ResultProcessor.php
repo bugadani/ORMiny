@@ -17,21 +17,13 @@ class ResultProcessor
      * @var EntityManager
      */
     private $manager;
-    private $readOnly;
 
     public function __construct(EntityManager $manager)
     {
         $this->manager = $manager;
     }
 
-    public function processRecords(EntityMetadata $entity, $with, $readOnly, array $records)
-    {
-        $this->readOnly = $readOnly;
-
-        return $this->process($entity, $records, $with);
-    }
-
-    private function process(EntityMetadata $metadata, array $records, array $with)
+    public function processRecords(EntityMetadata $metadata, array $with, $readOnly, array $records)
     {
         $entity  = $this->manager->get($metadata->getClassName());
         $pkField = $metadata->getPrimaryKey();
@@ -43,33 +35,39 @@ class ResultProcessor
         $fields           = $metadata->getFields();
 
         foreach ($records as $record) {
-            //This loop extracts columns that are relevant for the current metadata
+            //Extract columns that are relevant for the current metadata
             $data = array_intersect_key($record, $fields);
             $key  = $data[$pkField];
             if ($currentKey !== $key) {
                 if ($object !== null) {
-                    $this->processRelatedRecords($metadata, $object, $recordsToProcess, $with);
+                    $this->processRelated(
+                        $metadata,
+                        $object,
+                        $readOnly,
+                        $recordsToProcess,
+                        $with
+                    );
                     $recordsToProcess     = [];
                     $objects[$currentKey] = $object;
                 }
                 $currentKey = $key;
                 $object     = $entity->create($data);
-                if ($this->readOnly) {
+                if ($readOnly) {
                     $entity->setReadOnly($object);
                 }
             }
-            //The rest of the record is stored to be processed for the related entities
+            //Store the rest of the record to be processed for the related entities
             $recordsToProcess[] = array_diff_key($record, $fields);
         }
         if ($object !== null) {
-            $this->processRelatedRecords($metadata, $object, $recordsToProcess, $with);
+            $this->processRelated($metadata, $object, $readOnly, $recordsToProcess, $with);
             $objects[$key] = $object;
         }
 
         return $objects;
     }
 
-    private function processRelatedRecords(EntityMetadata $metadata, $object, $records, $with)
+    private function processRelated(EntityMetadata $metadata, $object, $readOnly, $records, $with)
     {
         foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
 
@@ -106,7 +104,9 @@ class ResultProcessor
 
             $relation         = $metadata->getRelation($relationName);
             $relationMetadata = $this->manager->get($relation->target)->getMetadata();
-            $value            = $this->process($relationMetadata, $records, $with);
+            $entity           = $this->manager->get($metadata->getClassName());
+
+            $value = $this->processRecords($relationMetadata, $with, $readOnly, $records);
 
             switch ($relation->type) {
                 case Relation::HAS_ONE:
@@ -114,10 +114,9 @@ class ResultProcessor
                     $value = current($value);
                     break;
             }
-
-            $this->manager
-                ->get($metadata->getClassName())
-                ->setRelationValue($object, $relationName, $value);
+            if ($value !== false) {
+                $entity->setRelationValue($object, $relationName, $value);
+            }
         }
     }
 }
