@@ -73,7 +73,7 @@ class ResultProcessor
 
             //Filter $with to remove elements that are not prefixed for the current relation
             $withPrefix = $relationName . '.';
-            $with       = array_map(
+            $filteredWith       = array_map(
                 function ($relationName) use ($withPrefix) {
                     return substr($relationName, strlen($withPrefix));
                 },
@@ -86,7 +86,7 @@ class ResultProcessor
             );
 
             //Strip the relation prefix from the columns
-            $records = array_map(
+            $filteredRecords = array_map(
                 function ($rawRecord) use ($relationName) {
                     $record       = [];
                     $prefixLength = strlen($relationName) + 1;
@@ -106,7 +106,7 @@ class ResultProcessor
             $relationMetadata = $this->manager->get($relation->target)->getMetadata();
             $entity           = $this->manager->get($metadata->getClassName());
 
-            $value = $this->processRecords($relationMetadata, $with, $readOnly, $records);
+            $value = $this->processRecords($relationMetadata, $filteredWith, $readOnly, $filteredRecords);
 
             switch ($relation->type) {
                 case Relation::HAS_ONE:

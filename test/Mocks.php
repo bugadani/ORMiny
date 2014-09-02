@@ -102,7 +102,7 @@ class MultipleRelationEntity
      * @Relation('deepRelation',
      *     type: 'has one',
      *     target: 'DeepRelationEntity',
-     *     foreignKey: 'fk',
+     *     foreignKey: 'fk2',
      *     targetKey: 'pk'
      * )
      */
