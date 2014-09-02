@@ -18,7 +18,6 @@ class ResultProcessor
      */
     private $manager;
     private $readOnly;
-    private $relationStack;
 
     public function __construct(EntityManager $manager)
     {
@@ -27,8 +26,7 @@ class ResultProcessor
 
     public function processRecords(EntityMetadata $entity, $with, $readOnly, array $records)
     {
-        $this->readOnly      = $readOnly;
-        $this->relationStack = [];
+        $this->readOnly = $readOnly;
 
         return $this->process($entity, $records, $with);
     }
@@ -77,7 +75,7 @@ class ResultProcessor
 
             //Filter $with to remove elements that are not prefixed for the current relation
             $withPrefix = $relationName . '.';
-            $with = array_map(
+            $with       = array_map(
                 function ($relationName) use ($withPrefix) {
                     return substr($relationName, strlen($withPrefix));
                 },
