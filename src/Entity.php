@@ -287,10 +287,6 @@ class Entity
                         $object,
                         $relation->foreignKey
                     );
-                    $currentForeignKey  = $this->metadata->getFieldValue(
-                        $object,
-                        $relation->foreignKey
-                    );
 
                     if ($originalForeignKey !== null) {
                         if ($relatedObject === null) {
@@ -303,12 +299,20 @@ class Entity
                                 $relation->targetKey
                             );
                         }
-                    } elseif ($relatedObject !== null) {
-                        //Related object has been set
-                        $currentForeignKey = $relatedEntity->metadata->getFieldValue(
-                            $relatedObject,
-                            $relation->targetKey
-                        );
+                    } else {
+                        if ($relatedObject !== null) {
+                            //Related object has been set
+                            $currentForeignKey = $relatedEntity->metadata->getFieldValue(
+                                $relatedObject,
+                                $relation->targetKey
+                            );
+                        } else {
+                            //Use the directly set foreign key
+                            $currentForeignKey = $this->metadata->getFieldValue(
+                                $object,
+                                $relation->foreignKey
+                            );
+                        }
                     }
 
                     if ($currentForeignKey !== $originalForeignKey) {
