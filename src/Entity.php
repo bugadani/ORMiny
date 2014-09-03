@@ -249,17 +249,17 @@ class Entity
 
         $hasOneRelations   = new \CallbackFilterIterator(
             $relationsIterator,
-            function ($relation) {
+            function (Relation $relation) {
                 return $relation->type === Relation::HAS_ONE || $relation->type === Relation::BELONGS_TO;
             });
         $hasManyRelations  = new \CallbackFilterIterator(
             $relationsIterator,
-            function ($relation) {
+            function (Relation $relation) {
                 return $relation->type === Relation::HAS_MANY;
             });
         $manyManyRelations = new \CallbackFilterIterator(
             $relationsIterator,
-            function ($relation) {
+            function (Relation $relation) {
                 return $relation->type === Relation::MANY_MANY;
             });
 
