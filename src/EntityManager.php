@@ -85,12 +85,16 @@ class EntityManager
         if (!isset($this->entityClassMap[$entityName])) {
             $className = $entityName;
             if (!class_exists($className)) {
-                if (!class_exists($this->defaultNamespace . $className)) {
-                    throw new \OutOfBoundsException("Unknown entity {$entityName}");
-                }
                 $className = $this->defaultNamespace . $entityName;
+                if (!class_exists($className)) {
+                    $className = false;
+                }
             }
             $this->entityClassMap[$entityName] = $className;
+        }
+
+        if($this->entityClassMap[$entityName] === false) {
+            throw new \OutOfBoundsException("Unknown entity {$entityName}");
         }
 
         return $this->entityClassMap[$entityName];
