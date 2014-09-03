@@ -23,7 +23,7 @@ class ResultProcessor
         $this->manager = $manager;
     }
 
-    public function processRecords(EntityMetadata $metadata, array $with, $readOnly, array $records)
+    public function processRecords(EntityMetadata $metadata, array $with, array $records, $readOnly)
     {
         $entity  = $this->manager->get($metadata->getClassName());
         $pkField = $metadata->getPrimaryKey();
@@ -70,53 +70,72 @@ class ResultProcessor
     private function processRelated(EntityMetadata $metadata, $object, $readOnly, $records, $with)
     {
         foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
+            $relation = $metadata->getRelation($relationName);
 
-            //Filter $with to remove elements that are not prefixed for the current relation
-            $withPrefix = $relationName . '.';
-            $filteredWith       = array_map(
-                function ($relationName) use ($withPrefix) {
-                    return substr($relationName, strlen($withPrefix));
-                },
-                array_filter(
-                    $with,
-                    function ($relationName) use ($withPrefix) {
-                        return strpos($relationName, $withPrefix) === 0;
-                    }
-                )
+            $value = $this->processRecords(
+                $this->manager->get($relation->target)->getMetadata(),
+                $this->filterRelations($with, $relationName . '.'),
+                $this->stripRelationPrefix($records, $relationName . '_'),
+                $readOnly
             );
 
-            //Strip the relation prefix from the columns
-            $filteredRecords = array_map(
-                function ($rawRecord) use ($relationName) {
-                    $record       = [];
-                    $prefixLength = strlen($relationName) + 1;
-                    foreach ($rawRecord as $key => $value) {
-                        if (strpos($key, $relationName . '_') === 0) {
-                            $key          = substr($key, $prefixLength);
-                            $record[$key] = $value;
-                        }
-                    }
-
-                    return $record;
-                },
-                $records
-            );
-
-            $relation         = $metadata->getRelation($relationName);
-            $relationMetadata = $this->manager->get($relation->target)->getMetadata();
-            $entity           = $this->manager->get($metadata->getClassName());
-
-            $value = $this->processRecords($relationMetadata, $filteredWith, $readOnly, $filteredRecords);
-
-            switch ($relation->type) {
-                case Relation::HAS_ONE:
-                case Relation::BELONGS_TO:
-                    $value = current($value);
-                    break;
+            if ($relation->type === Relation::HAS_ONE || $relation->type === Relation::BELONGS_TO) {
+                $value = current($value);
             }
-            if ($value !== false) {
+            if (!empty($value)) {
+                $entity = $this->manager->get($metadata->getClassName());
                 $entity->setRelationValue($object, $relationName, $value);
             }
         }
+    }
+
+    /**
+     * @param $records
+     * @param $prefix
+     *
+     * @return array
+     */
+    private function stripRelationPrefix(array $records, $prefix)
+    {
+        //Strip the relation prefix from the columns
+        return array_map(
+            function ($rawRecord) use ($prefix) {
+                $record       = [];
+                $prefixLength = strlen($prefix);
+                foreach ($rawRecord as $key => $value) {
+                    if (strpos($key, $prefix) === 0) {
+                        $key          = substr($key, $prefixLength);
+                        $record[$key] = $value;
+                    }
+                }
+
+                return $record;
+            },
+            $records
+        );
+    }
+
+    /**
+     * @param $with
+     * @param $prefix
+     *
+     * @return array
+     */
+    private function filterRelations(array $with, $prefix)
+    {
+        //Filter $with to remove elements that are not prefixed for the current relation
+        $prefixLength = strlen($prefix);
+
+        return array_map(
+            function ($relationName) use ($prefixLength) {
+                return substr($relationName, $prefixLength);
+            },
+            array_filter(
+                $with,
+                function ($relationName) use ($prefix) {
+                    return strpos($relationName, $prefix) === 0;
+                }
+            )
+        );
     }
 }

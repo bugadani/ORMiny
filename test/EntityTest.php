@@ -777,34 +777,41 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testEntityWithMultipleRelations()
     {
-        $this->expectQuery(
-            'SELECT multiple.pk, multiple.fk, multiple.fk2, relation.pk as relation_pk, relation.fk as relation_fk, ' .
-            'deepRelation.pk as deepRelation_pk, deepRelation.fk as deepRelation_fk, deepRelation_relation.pk as deepRelation_relation_pk, ' .
-            'deepRelation_relation.fk as deepRelation_relation_fk, ' .
-            'deepRelation_relation_hasOneRelation.primaryKey as deepRelation_relation_hasOneRelation_primaryKey ' .
-            'FROM multiple LEFT JOIN hasOne relation ON fk=relation.pk ' .
-            'LEFT JOIN deep deepRelation ON fk2=deepRelation.pk ' .
-            'LEFT JOIN hasOne deepRelation_relation ON deepRelation_fk=deepRelation_relation.pk ' .
-            'LEFT JOIN related deepRelation_relation_hasOneRelation ON deepRelation_relation_fk=deepRelation_relation_hasOneRelation.primaryKey ' .
-            'WHERE multiple.pk=?',
-            [3],
+        $this->expectQueries(
             [
                 [
-                    'pk'  => 3,
-                    'fk'  => 2,
-                    'fk2' => 5,
-                    'relation_pk' => 2,
-                    'relation_fk' => 4,
-                    'deepRelation_pk' => 5,
-                    'deepRelation_fk' => 6,
-                    'deepRelation_relation_pk' => 6,
-                    'deepRelation_relation_fk' => 4,
-                    'deepRelation_relation_hasOneRelation_primaryKey' => 4,
-                    'deepRelation_relation_hasOneRelation_foreignKey' => 8
-                ]
+                    'SELECT multiple.pk, multiple.fk, multiple.fk2, relation.pk as relation_pk, relation.fk as relation_fk, ' .
+                    'deepRelation.pk as deepRelation_pk, deepRelation.fk as deepRelation_fk, deepRelation_relation.pk as deepRelation_relation_pk, ' .
+                    'deepRelation_relation.fk as deepRelation_relation_fk, ' .
+                    'deepRelation_relation_hasOneRelation.primaryKey as deepRelation_relation_hasOneRelation_primaryKey ' .
+                    'FROM multiple LEFT JOIN hasOne relation ON fk=relation.pk ' .
+                    'LEFT JOIN deep deepRelation ON fk2=deepRelation.pk ' .
+                    'LEFT JOIN hasOne deepRelation_relation ON deepRelation_fk=deepRelation_relation.pk ' .
+                    'LEFT JOIN related deepRelation_relation_hasOneRelation ON deepRelation_relation_fk=deepRelation_relation_hasOneRelation.primaryKey ' .
+                    'WHERE multiple.pk=?',
+                    [3],
+                    [
+                        [
+                            'pk'                                              => 3,
+                            'fk'                                              => 2,
+                            'fk2'                                             => 5,
+                            'relation_pk'                                     => 2,
+                            'relation_fk'                                     => 4,
+                            'deepRelation_pk'                                 => 5,
+                            'deepRelation_fk'                                 => 6,
+                            'deepRelation_relation_pk'                        => 6,
+                            'deepRelation_relation_fk'                        => 4,
+                            'deepRelation_relation_hasOneRelation_primaryKey' => 4,
+                            'deepRelation_relation_hasOneRelation_foreignKey' => 8
+                        ]
+                    ]
+                ],
+                ['INSERT INTO multiple () VALUES ()']
             ]
         );
         $entity = $this->entityManager->get('MultipleRelationEntity');
         $entity->find()->with('relation', 'deepRelation.relation.hasOneRelation')->get(3);
+
+        $entity->save($entity->create());
     }
 }

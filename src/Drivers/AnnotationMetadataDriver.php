@@ -48,16 +48,7 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
         if (isset($this->metadata[$className])) {
             return $this->metadata[$className];
         }
-        try {
-            $classAnnotations = $this->annotationReader->readClass($className);
-
-            $metadata = new EntityMetadata($className);
-            $metadata->setTable($classAnnotations->get('Table'));
-
-            $this->metadata[$className] = $metadata;
-        } catch (\OutOfBoundsException $e) {
-            throw new EntityDefinitionException("Missing Table annotation of {$className}", 0, $e);
-        }
+        $metadata = $this->createInstance($className);
 
         $filter = \ReflectionProperty::IS_PRIVATE
             | \ReflectionProperty::IS_PROTECTED
@@ -131,5 +122,27 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
         }
 
         $metadata->addRelation($property, $relation, $setter, $getter);
+    }
+
+    /**
+     * @param $className
+     *
+     * @return EntityMetadata
+     * @throws EntityDefinitionException
+     */
+    private function createInstance($className)
+    {
+        try {
+            $classAnnotations = $this->annotationReader->readClass($className);
+
+            $metadata = new EntityMetadata($className);
+            $metadata->setTable($classAnnotations->get('Table'));
+
+            $this->metadata[$className] = $metadata;
+        } catch (\OutOfBoundsException $e) {
+            throw new EntityDefinitionException("Missing Table annotation of {$className}", 0, $e);
+        }
+
+        return $metadata;
     }
 }

@@ -31,9 +31,9 @@ class EntityFinder
     private $manager;
 
     /**
-     * @var Driver
+     * @var QueryBuilder
      */
-    private $driver;
+    private $queryBuilder;
     private $parameters = [];
     private $where;
     private $with = [];
@@ -48,9 +48,9 @@ class EntityFinder
 
     public function __construct(EntityManager $manager, Driver $driver, EntityMetadata $metadata)
     {
-        $this->manager  = $manager;
-        $this->driver   = $driver;
-        $this->metadata = $metadata;
+        $this->manager      = $manager;
+        $this->metadata     = $metadata;
+        $this->queryBuilder = $driver->getQueryBuilder();
     }
 
     public function with($relationName)
@@ -167,8 +167,7 @@ class EntityFinder
             $this->applyFilters(
                 $this->joinRelationsToQuery(
                     $this->metadata,
-                    $this->driver
-                        ->getQueryBuilder()
+                    $this->queryBuilder
                         ->select($fields)
                         ->from($table),
                     $this->with
@@ -291,11 +290,12 @@ class EntityFinder
                     );
                     break;
             }
-            $withPrefix = $relation->name . '.';
+            $withPrefix   = $relation->name . '.';
+            $prefixLength = strlen($withPrefix);
 
             $strippedWith = array_map(
-                function ($relationName) use ($withPrefix) {
-                    return substr($relationName, strlen($withPrefix));
+                function ($relationName) use ($prefixLength) {
+                    return substr($relationName, $prefixLength);
                 },
                 array_filter(
                     $with,
@@ -335,22 +335,14 @@ class EntityFinder
             );
         }
 
-        $queryBuilder = $this->driver->getQueryBuilder();
-
         return $this->process(
             $this->applyFilters(
                 $this->joinRelationsToQuery(
                     $this->metadata,
-                    $queryBuilder
+                    $this->queryBuilder
                         ->select($fields)
                         ->from($table)
-                        ->where(
-                            $this->createInExpression(
-                                $fieldName,
-                                (array)$keys,
-                                $queryBuilder
-                            )
-                        ),
+                        ->where($this->createInExpression($fieldName, (array)$keys)),
                     $this->with
                 )
             )->query($this->parameters)
@@ -373,9 +365,7 @@ class EntityFinder
 
         if (empty($relations)) {
             $this->applyFilters(
-                $this->driver
-                    ->getQueryBuilder()
-                    ->delete($this->metadata->getTable())
+                $this->queryBuilder->delete($this->metadata->getTable())
             )->query($this->parameters);
         } else {
             $this->deleteRecords(
@@ -394,15 +384,10 @@ class EntityFinder
     {
         $relations = $this->metadata->getRelations();
         if (empty($relations)) {
-            $queryBuilder = $this->driver->getQueryBuilder();
-            $queryBuilder->delete($this->metadata->getTable())
-                ->where(
-                    $this->createInExpression(
-                        $fieldName,
-                        (array)$keys,
-                        $queryBuilder
-                    )
-                )->query($this->parameters);
+            $this->queryBuilder
+                ->delete($this->metadata->getTable())
+                ->where($this->createInExpression($fieldName, (array)$keys))
+                ->query($this->parameters);
         } else {
             $this->deleteRecords(
                 $this->with(array_keys($relations))
@@ -416,7 +401,7 @@ class EntityFinder
         $tempParameters   = $this->parameters;
         $this->parameters = [];
         $query            = $this->applyFilters(
-            $this->driver->getQueryBuilder()
+            $this->queryBuilder
                 ->update($this->metadata->getTable())
                 ->values(array_map([$this, 'parameter'], $data))
         );
@@ -427,9 +412,9 @@ class EntityFinder
         $query->query($this->parameters);
     }
 
-    private function createInExpression($field, array $values, QueryBuilder $queryBuilder)
+    private function createInExpression($field, array $values)
     {
-        $expression = $queryBuilder->expression();
+        $expression = $this->queryBuilder->expression();
         if (count($values) === 1) {
             $expression->eq($field, $this->parameter(current($values)));
         } else {
@@ -444,8 +429,7 @@ class EntityFinder
         $count = $this->applyFilters(
             $this->joinRelationsToQuery(
                 $this->metadata,
-                $this->driver
-                    ->getQueryBuilder()
+                $this->queryBuilder
                     ->select('count(*) as count')
                     ->from($this->metadata->getTable()),
                 $this->with
@@ -462,11 +446,11 @@ class EntityFinder
             ->processRecords(
                 $this->metadata,
                 $this->with,
-                $this->readOnly,
                 $this->fetchResults(
                     $results,
                     $this->metadata->getPrimaryKey()
-                )
+                ),
+                $this->readOnly
             );
     }
 
@@ -516,8 +500,8 @@ class EntityFinder
 
     private function deleteRecords($records)
     {
-        $entity = $this->manager->get($this->metadata->getClassName());
         if ($records !== false) {
+            $entity = $this->manager->get($this->metadata->getClassName());
             if (is_array($records)) {
                 array_map([$entity, 'delete'], $records);
             } else {
