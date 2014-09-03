@@ -10,11 +10,10 @@
 namespace ORMiny;
 
 use Modules\DBAL\AbstractQueryBuilder;
-use Modules\DBAL\Driver;
 use Modules\DBAL\Driver\Statement;
+use Modules\DBAL\Driver;
 use Modules\DBAL\QueryBuilder;
 use Modules\DBAL\QueryBuilder\Expression;
-use Modules\DBAL\QueryBuilder\Insert;
 use Modules\DBAL\QueryBuilder\Select;
 use ORMiny\Annotations\Relation;
 
@@ -134,6 +133,11 @@ class EntityFinder
         return '?';
     }
 
+    public function parameters(array $values)
+    {
+        return array_map([$this, 'parameter'], $values);
+    }
+
     public function readOnly()
     {
         $this->readOnly = true;
@@ -165,26 +169,21 @@ class EntityFinder
 
         return $this->process(
             $this->applyFilters(
-                $this->joinRelationsToQuery(
-                    $this->metadata,
-                    $this->queryBuilder
-                        ->select($fields)
-                        ->from($table),
-                    $this->with
-                )
-            )->query($parameters + $this->parameters)
+                $this->queryBuilder
+                    ->select($fields)
+                    ->from($table)
+            )->query(array_merge($this->parameters, $parameters))
         );
     }
 
     private function applyFilters(AbstractQueryBuilder $query)
     {
-        if ($query instanceof Insert) {
-            return $query;
-        }
-
         //GroupBy is only applicable to Select
-        if ($query instanceof Select && isset($this->groupByFields)) {
-            $query->groupBy($this->groupByFields);
+        if ($query instanceof Select) {
+            if (isset($this->groupByFields)) {
+                $query->groupBy($this->groupByFields);
+            }
+            $this->joinRelationsToQuery($this->metadata, $query, $this->with);
         }
         if (isset($this->where)) {
             if ($query->getWhere() === '') {
@@ -337,14 +336,10 @@ class EntityFinder
 
         return $this->process(
             $this->applyFilters(
-                $this->joinRelationsToQuery(
-                    $this->metadata,
-                    $this->queryBuilder
-                        ->select($fields)
-                        ->from($table)
-                        ->where($this->createInExpression($fieldName, (array)$keys)),
-                    $this->with
-                )
+                $this->queryBuilder
+                    ->select($fields)
+                    ->from($table)
+                    ->where($this->createInExpression($fieldName, (array)$keys))
             )->query($this->parameters)
         );
     }
@@ -370,7 +365,7 @@ class EntityFinder
         } else {
             $this->deleteRecords(
                 $this->with(array_keys($relations))
-                    ->get($parameters + $this->parameters)
+                    ->get(array_merge($this->parameters, $parameters))
             );
         }
     }
@@ -398,18 +393,15 @@ class EntityFinder
 
     public function update($data)
     {
+        //This is a hack to prevent parameters being mixed up.
         $tempParameters   = $this->parameters;
         $this->parameters = [];
-        $query            = $this->applyFilters(
+
+        $this->applyFilters(
             $this->queryBuilder
                 ->update($this->metadata->getTable())
-                ->values(array_map([$this, 'parameter'], $data))
-        );
-        //This is a hack to prevent parameters being mixed up.
-        while (!empty($tempParameters)) {
-            $this->parameters[] = array_shift($tempParameters);
-        }
-        $query->query($this->parameters);
+                ->values($this->parameters($data))
+        )->query(array_merge($this->parameters, $tempParameters));
     }
 
     private function createInExpression($field, array $values)
@@ -418,7 +410,7 @@ class EntityFinder
         if (count($values) === 1) {
             $expression->eq($field, $this->parameter(current($values)));
         } else {
-            $expression->in($field, array_map([$this, 'parameter'], $values));
+            $expression->in($field, $this->parameters($values));
         }
 
         return $expression;
@@ -427,14 +419,10 @@ class EntityFinder
     public function count(array $parameters = [])
     {
         $count = $this->applyFilters(
-            $this->joinRelationsToQuery(
-                $this->metadata,
-                $this->queryBuilder
-                    ->select('count(*) as count')
-                    ->from($this->metadata->getTable()),
-                $this->with
-            )
-        )->query($parameters + $this->parameters)->fetch();
+            $this->queryBuilder
+                ->select('count(*) as count')
+                ->from($this->metadata->getTable())
+        )->query(array_merge($this->parameters, $parameters))->fetch();
 
         return $count['count'];
     }

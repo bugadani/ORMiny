@@ -93,7 +93,7 @@ class EntityManager
             $this->entityClassMap[$entityName] = $className;
         }
 
-        if($this->entityClassMap[$entityName] === false) {
+        if ($this->entityClassMap[$entityName] === false) {
             throw new \OutOfBoundsException("Unknown entity {$entityName}");
         }
 

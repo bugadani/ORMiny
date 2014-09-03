@@ -44,6 +44,15 @@ class EntityMetadata
         }
     }
 
+    public function create(array $data = [])
+    {
+        $className = $this->getClassName();
+        $object    = new $className;
+        array_walk($data, [$this, 'setFieldValue'], $object);
+
+        return $object;
+    }
+
     public function getClassName()
     {
         return $this->className;

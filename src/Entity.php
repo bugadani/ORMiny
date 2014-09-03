@@ -32,7 +32,7 @@ class Entity
     private $objectStates = [];
     private $objectRelations = [];
 
-    private $relatedObjectHandles = [];
+    private $objectHandles = [];
     private $readOnlyObjectHandles = [];
 
     public function __construct(EntityManager $manager, EntityMetadata $metadata)
@@ -81,7 +81,7 @@ class Entity
 
         $objectId = spl_object_hash($object);
 
-        $this->relatedObjectHandles[$objectId] = $object;
+        $this->objectHandles[$objectId] = $object;
 
         switch ($relation->type) {
             case Relation::MANY_MANY:
@@ -150,10 +150,7 @@ class Entity
 
     public function create(array $data = [])
     {
-        $className = $this->metadata->getClassName();
-        $object    = new $className;
-        array_walk($data, [$this->metadata, 'setFieldValue'], $object);
-
+        $object   = $this->metadata->create($data);
         $objectId = spl_object_hash($object);
 
         if ($this->isPrimaryKeySet($object)) {
@@ -162,9 +159,9 @@ class Entity
             $this->objectStates[$objectId] = self::STATE_NEW;
         }
 
-        $this->originalData[$objectId]         = $data;
-        $this->objectRelations[$objectId]      = $this->createEmptyRelationsArray($objectId);
-        $this->relatedObjectHandles[$objectId] = $object;
+        $this->originalData[$objectId]    = $data;
+        $this->objectHandles[$objectId]   = $object;
+        $this->objectRelations[$objectId] = $this->createEmptyRelationsArray($objectId);
 
         return $object;
     }
@@ -227,7 +224,7 @@ class Entity
                         )
                     )
                 )->query();
-            unset($this->relatedObjectHandles[spl_object_hash($object)]);
+            unset($this->objectHandles[spl_object_hash($object)]);
         }
     }
 
@@ -236,11 +233,11 @@ class Entity
         $this->metadata->assertObjectInstance($object);
         $objectId = spl_object_hash($object);
 
-        if (!isset($this->objectStates[$objectId]) || $this->relatedObjectHandles[$objectId] !== $object) {
-            $this->objectStates[$objectId]         = self::STATE_NEW;
-            $this->originalData[$objectId]         = [];
-            $this->objectRelations[$objectId]      = $this->createEmptyRelationsArray();
-            $this->relatedObjectHandles[$objectId] = $object;
+        if (!isset($this->objectStates[$objectId]) || $this->objectHandles[$objectId] !== $object) {
+            $this->objectStates[$objectId]    = self::STATE_NEW;
+            $this->originalData[$objectId]    = [];
+            $this->objectRelations[$objectId] = $this->createEmptyRelationsArray();
+            $this->objectHandles[$objectId]   = $object;
         } elseif (isset($this->readOnlyObjectHandles[$objectId])) {
             return;
         }
@@ -430,7 +427,7 @@ class Entity
             ->getQueryBuilder()
             ->insert($this->metadata->getTable());
 
-        $primaryKey = $query->values(
+        $query->values(
             array_map(
                 [$query, 'createPositionalParameter'],
                 array_filter(
@@ -440,7 +437,9 @@ class Entity
                     }
                 )
             )
-        )->query();
+        );
+
+        $primaryKey = $query->query();
 
         $this->setFieldValue($primaryKey, $this->metadata->getPrimaryKey(), $object);
 
