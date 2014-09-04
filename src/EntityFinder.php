@@ -10,8 +10,8 @@
 namespace ORMiny;
 
 use Modules\DBAL\AbstractQueryBuilder;
-use Modules\DBAL\Driver\Statement;
 use Modules\DBAL\Driver;
+use Modules\DBAL\Driver\Statement;
 use Modules\DBAL\QueryBuilder;
 use Modules\DBAL\QueryBuilder\Expression;
 use Modules\DBAL\QueryBuilder\Select;
@@ -56,20 +56,19 @@ class EntityFinder
     {
         $with = is_array($relationName) ? $relationName : func_get_args();
 
-        foreach ($with as $name) {
-            $str = strtok($name, '.');
-            if (!in_array($str, $with)) {
-                $with[] = $str;
-            }
-            while ($token = strtok('.')) {
-                $str .= '.' . $token;
-                if (!in_array($str, $with)) {
-                    $with[] = $str;
+        $this->with  = [];
+        $namePresent = [];
+        foreach ($with as $relationName) {
+            $currentName = '';
+            foreach (explode('.', $relationName) as $namePart) {
+                $currentName .= $namePart;
+                if (!isset($namePresent[$currentName])) {
+                    $namePresent[$currentName] = true;
+                    $this->with[]              = $currentName;
                 }
+                $currentName .= '.';
             }
         }
-
-        $this->with = $with;
 
         return $this;
     }
