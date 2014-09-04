@@ -10,7 +10,8 @@
         "miny/annotation": "dev-master"
     },
     "require-dev": {
-        "phpunit/phpunit": "4.2.*"
+        "phpunit/phpunit": "4.2.*",
+        "satooshi/php-coveralls": "dev-master"
     },
     "authors": [
         {
