@@ -307,8 +307,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                         ]
                     ]
                 ],
-                ['UPDATE hasOne SET fk=? WHERE pk=?', [null, 5]],
                 ['DELETE FROM related WHERE primaryKey=?', [1]],
+                ['UPDATE hasOne SET fk=? WHERE pk=?', [null, 5]],
             ]
         );
 

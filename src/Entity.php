@@ -330,6 +330,11 @@ class Entity
             if ($originalForeignKey !== null) {
                 if ($relatedObject === null) {
                     //Related object has been unset
+                    if ($originalForeignKey !== null) {
+                        $relatedEntity
+                            ->find()
+                            ->delete($originalForeignKey);
+                    }
                     $currentForeignKey = null;
                 } else {
                     //Related object may have been changed
@@ -361,6 +366,12 @@ class Entity
                     $object
                 );
                 $this->objectRelations[$objectId][$relationName] = $currentForeignKey;
+
+                if ($currentForeignKey !== null) {
+                    $relatedEntity->save(
+                        $this->metadata->getRelationValue($object, $relationName)
+                    );
+                }
             }
         }
 
@@ -368,22 +379,6 @@ class Entity
             $primaryKey = $this->insert($object);
         } else {
             $primaryKey = $this->update($object);
-        }
-
-        foreach ($hasOneRelations as $relationName => $relation) {
-            $relatedEntity = $this->manager->get($relation->target);
-            if ($this->getFieldValue($object, $relation->foreignKey) !== null) {
-                $relatedEntity->save(
-                    $this->metadata->getRelationValue($object, $relationName)
-                );
-            } else {
-                $originalForeignKey = $this->getOriginalData($object, $relation->foreignKey);
-                if ($originalForeignKey !== null) {
-                    $relatedEntity
-                        ->find()
-                        ->delete($originalForeignKey);
-                }
-            }
         }
 
         $this->objectStates[$objectId] = self::STATE_HANDLED;
