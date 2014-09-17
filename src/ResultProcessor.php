@@ -23,8 +23,12 @@ class ResultProcessor
         $this->manager = $manager;
     }
 
-    public function processRecords(EntityMetadata $metadata, array $with, array $records, $readOnly)
-    {
+    public function processRecords(
+        EntityMetadata $metadata,
+        array $with,
+        \Traversable $records,
+        $readOnly
+    ) {
         $entity  = $this->manager->get($metadata->getClassName());
         $pkField = $metadata->getPrimaryKey();
 
@@ -37,7 +41,7 @@ class ResultProcessor
         foreach ($records as $record) {
             //Extract columns that are relevant for the current metadata
             $data = array_intersect_key($record, $fields);
-            $key  = $data[$pkField];
+            $key  = $data[ $pkField ];
             if ($currentKey !== $key) {
                 if ($object !== null) {
                     $this->processRelated(
@@ -47,8 +51,8 @@ class ResultProcessor
                         $recordsToProcess,
                         $with
                     );
-                    $recordsToProcess     = [];
-                    $objects[$currentKey] = $object;
+                    $recordsToProcess       = [];
+                    $objects[ $currentKey ] = $object;
                 }
                 $currentKey = $key;
                 $object     = $entity->create($data);
@@ -61,7 +65,7 @@ class ResultProcessor
         }
         if ($object !== null) {
             $this->processRelated($metadata, $object, $readOnly, $recordsToProcess, $with);
-            $objects[$key] = $object;
+            $objects[ $key ] = $object;
         }
 
         return $objects;
@@ -75,7 +79,9 @@ class ResultProcessor
             $value = $this->processRecords(
                 $this->manager->get($relation->target)->getMetadata(),
                 $this->filterRelations($with, $relationName . '.'),
-                $this->stripRelationPrefix($records, $relationName . '_'),
+                new \ArrayIterator(
+                    $this->stripRelationPrefix($records, $relationName . '_')
+                ),
                 $readOnly
             );
 
@@ -104,8 +110,8 @@ class ResultProcessor
                 $prefixLength = strlen($prefix);
                 foreach ($rawRecord as $key => $value) {
                     if (strpos($key, $prefix) === 0) {
-                        $key          = substr($key, $prefixLength);
-                        $record[$key] = $value;
+                        $key            = substr($key, $prefixLength);
+                        $record[ $key ] = $value;
                     }
                 }
 

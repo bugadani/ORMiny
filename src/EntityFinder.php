@@ -62,9 +62,9 @@ class EntityFinder
             $currentName = '';
             foreach (explode('.', $relationName) as $namePart) {
                 $currentName .= $namePart;
-                if (!isset($namePresent[$currentName])) {
-                    $namePresent[$currentName] = true;
-                    $this->with[]              = $currentName;
+                if (!isset($namePresent[ $currentName ])) {
+                    $namePresent[ $currentName ] = true;
+                    $this->with[]                = $currentName;
                 }
                 $currentName .= '.';
             }
@@ -120,7 +120,7 @@ class EntityFinder
 
     public function addOrderBy($field, $order = 'ASC')
     {
-        $this->orderByFields[$field] = [$field, $order];
+        $this->orderByFields[ $field ] = [$field, $order];
 
         return $this;
     }
@@ -445,44 +445,24 @@ class EntityFinder
      * @param Statement $statement
      * @param           $pkField
      *
-     * @return array
+     * @return \Iterator
      */
     private function fetchResults(Statement $statement, $pkField)
     {
         if (empty($this->with)) {
-            return $statement->fetchAll();
+            return new \ArrayIterator($statement->fetchAll());
         }
         if (!isset($this->limit) && (!isset($this->offset) || $this->offset === 0)) {
-            return $statement->fetchAll();
+            return new \ArrayIterator($statement->fetchAll());
         }
 
-        $key        = null;
-        $records    = [];
-        $count      = 0;
-        $index      = 0;
-        $rowSkipped = false;
-
-        while ($record = $statement->fetch()) {
-            if ($key !== $record[$pkField]) {
-                $key = $record[$pkField];
-                if (isset($this->offset)) {
-                    $rowSkipped = $index++ < $this->offset;
-                }
-                if ($rowSkipped) {
-                    continue;
-                }
-                if (isset($this->limit) && $count++ === $this->limit) {
-                    break;
-                }
-            } elseif ($rowSkipped) {
-                continue;
-            }
-            $records[] = $record;
+        $iterator = new StatementIterator($statement, $pkField);
+        if (isset($this->limit)) {
+            $iterator->setLimit($this->limit);
         }
+        $iterator->setOffset($this->offset);
 
-        $statement->closeCursor();
-
-        return $records;
+        return $iterator;
     }
 
     private function deleteRecords($records)
