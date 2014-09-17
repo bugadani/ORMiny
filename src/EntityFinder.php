@@ -450,9 +450,17 @@ class EntityFinder
     private function fetchResults(Statement $statement, $pkField)
     {
         if (empty($this->with)) {
+            if ($statement instanceof \Traversable) {
+                return $statement;
+            }
+
             return new \ArrayIterator($statement->fetchAll());
         }
         if (!isset($this->limit) && (!isset($this->offset) || $this->offset === 0)) {
+            if ($statement instanceof \Traversable) {
+                return $statement;
+            }
+
             return new \ArrayIterator($statement->fetchAll());
         }
 
