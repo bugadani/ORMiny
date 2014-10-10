@@ -34,6 +34,9 @@ class EntityManager
      */
     private $resultProcessor;
 
+    /**
+     * @var string
+     */
     private $defaultNamespace = '';
 
     /**
@@ -79,6 +82,10 @@ class EntityManager
 
     /**
      * Returns the name of class that $entityName handles.
+     *
+     * @param $entityName
+     *
+     * @return string
      */
     private function getEntityClassName($entityName)
     {

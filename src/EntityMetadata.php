@@ -154,18 +154,31 @@ class EntityMetadata
         return $this->fields;
     }
 
+    /**
+     * @param $value
+     * @param $field
+     * @param $object
+     */
     public function setFieldValue($value, $field, $object)
     {
         $this->assertObjectInstance($object);
-        if (isset($this->setters[$field])) {
-            return $object->{$this->setters[$field]}($value);
+        if (isset($this->setters[ $field ])) {
+            $object->{$this->setters[ $field ]}($value);
+        } elseif (isset($this->properties[ $field ])) {
+            $object->{$this->properties[ $field ]} = $value;
+        } else {
+            throw new \InvalidArgumentException(
+                "Class {$this->className} does not have a property called {$field}"
+            );
         }
-        if (isset($this->properties[$field])) {
-            return $object->{$this->properties[$field]} = $value;
-        }
-        throw new \InvalidArgumentException("Class {$this->className} does not have a property called {$field}");
     }
 
+    /**
+     * @param $object
+     * @param $field
+     *
+     * @return mixed
+     */
     public function getFieldValue($object, $field)
     {
         $this->assertObjectInstance($object);

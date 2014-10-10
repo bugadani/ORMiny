@@ -59,7 +59,7 @@ class Entity
 
     public function setFieldValue($value, $field, $object)
     {
-        return $this->metadata->setFieldValue($value, $field, $object);
+        $this->metadata->setFieldValue($value, $field, $object);
     }
 
     public function getFieldValue($object, $field)
