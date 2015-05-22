@@ -60,8 +60,8 @@ class ResultProcessor
                     $entity->setReadOnly($object);
                 }
             }
-            //Store the rest of the record to be processed for the related entities
-            $recordsToProcess[] = array_diff_key($record, $fields);
+            //Store the record to be processed for the related entities
+            $recordsToProcess[] = $record;
         }
         if ($object !== null) {
             $this->processRelated($metadata, $object, $readOnly, $recordsToProcess, $with);
