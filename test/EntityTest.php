@@ -343,7 +343,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->expectQuery(
             'SELECT deep.pk, deep.fk, relation.pk as relation_pk, relation.fk as relation_fk, relation_hasOneRelation.primaryKey as relation_hasOneRelation_primaryKey FROM deep ' .
             'LEFT JOIN hasOne relation ON fk=relation.pk ' .
-            'LEFT JOIN related relation_hasOneRelation ON relation_fk=relation_hasOneRelation.primaryKey ' .
+            'LEFT JOIN related relation_hasOneRelation ON relation.fk=relation_hasOneRelation.primaryKey ' .
             'WHERE deep.pk=?',
             [5],
             [
@@ -786,8 +786,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     'deepRelation_relation_hasOneRelation.primaryKey as deepRelation_relation_hasOneRelation_primaryKey ' .
                     'FROM multiple LEFT JOIN hasOne relation ON fk=relation.pk ' .
                     'LEFT JOIN deep deepRelation ON fk2=deepRelation.pk ' .
-                    'LEFT JOIN hasOne deepRelation_relation ON deepRelation_fk=deepRelation_relation.pk ' .
-                    'LEFT JOIN related deepRelation_relation_hasOneRelation ON deepRelation_relation_fk=deepRelation_relation_hasOneRelation.primaryKey ' .
+                    'LEFT JOIN hasOne deepRelation_relation ON deepRelation.fk=deepRelation_relation.pk ' .
+                    'LEFT JOIN related deepRelation_relation_hasOneRelation ON deepRelation_relation.fk=deepRelation_relation_hasOneRelation.primaryKey ' .
                     'WHERE multiple.pk=?',
                     [3],
                     [

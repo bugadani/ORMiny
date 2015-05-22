@@ -62,9 +62,9 @@ class EntityFinder
             $currentName = '';
             foreach (explode('.', $relationName) as $namePart) {
                 $currentName .= $namePart;
-                if (!isset($namePresent[ $currentName ])) {
-                    $namePresent[ $currentName ] = true;
-                    $this->with[]                = $currentName;
+                if (!isset($namePresent[$currentName])) {
+                    $namePresent[$currentName] = true;
+                    $this->with[]              = $currentName;
                 }
                 $currentName .= '.';
             }
@@ -120,7 +120,7 @@ class EntityFinder
 
     public function addOrderBy($field, $order = 'ASC')
     {
-        $this->orderByFields[ $field ] = [$field, $order];
+        $this->orderByFields[$field] = [$field, $order];
 
         return $this;
     }
@@ -227,7 +227,8 @@ class EntityFinder
         Select $query,
         array $with,
         $prefix = ''
-    ) {
+    )
+    {
         $entityTable = $metadata->getTable();
         if ($prefix === '') {
             $leftAlias = $entityTable;
@@ -256,12 +257,13 @@ class EntityFinder
                 case Relation::HAS_ONE:
                 case Relation::HAS_MANY:
                 case Relation::BELONGS_TO:
+                    $leftJoinAlias = ($prefix === '' ? '' : $leftAlias . '.');
                     $query->leftJoin(
                         $leftAlias,
                         $relatedTable,
                         $alias,
                         (new Expression())->eq(
-                            $prefix . $relation->foreignKey,
+                            $leftJoinAlias . $relation->foreignKey,
                             "{$alias}.{$relation->targetKey}"
                         )
                     );
