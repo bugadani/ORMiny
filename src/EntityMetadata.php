@@ -164,7 +164,7 @@ class EntityMetadata
         $this->assertObjectInstance($object);
         if (isset($this->setters[ $field ])) {
             $object->{$this->setters[ $field ]}($value);
-        } elseif (isset($this->properties[ $field ])) {
+        } else if (isset($this->properties[ $field ])) {
             $object->{$this->properties[ $field ]} = $value;
         } else {
             throw new \InvalidArgumentException(
@@ -205,13 +205,7 @@ class EntityMetadata
             return $object->{$property};
         }
 
-        switch ($this->relations[$relationName]->type) {
-            case Relation::HAS_MANY:
-            case Relation::MANY_MANY:
-                return [];
-            default:
-                return null;
-        }
+        return $this->relations[$relationName]->isSingle() ? null : [];
     }
 
     public function setRelationValue($object, $relationName, $value)

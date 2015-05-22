@@ -118,12 +118,12 @@ class Entity
     {
         $this->metadata->assertObjectInstance($object);
 
-        $data = [];
-        foreach ($this->metadata->getFields() as $field) {
-            $data[$field] = $this->metadata->getFieldValue($object, $field);
-        }
-
-        return $data;
+        return array_map(
+            function ($field) use ($object) {
+                return $this->metadata->getFieldValue($object, $field);
+            },
+            $this->metadata->getFields()
+        );
     }
 
     /**
@@ -131,21 +131,12 @@ class Entity
      */
     private function createEmptyRelationsArray()
     {
-        $array = [];
-        foreach ($this->metadata->getRelations() as $relationName => $relation) {
-            switch ($relation->type) {
-                case Relation::HAS_ONE:
-                case Relation::BELONGS_TO:
-                    $array[$relationName] = null;
-                    break;
-
-                default:
-                    $array[$relationName] = [];
-                    break;
-            }
-        }
-
-        return $array;
+        return array_map(
+            function (Relation $relation) {
+                return $relation->isSingle() ? null : [];
+            },
+            $this->metadata->getRelations()
+        );
     }
 
     public function create(array $data = [])
@@ -188,6 +179,7 @@ class Entity
     {
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
 
+        $table = $this->metadata->getTable();
         foreach ($this->metadata->getRelations() as $relation) {
             $foreignKey    = $this->metadata->getFieldValue($object, $relation->foreignKey);
             $relatedEntity = $this->manager->get($relation->target);
@@ -202,7 +194,7 @@ class Entity
                         ->delete($relation->joinTable)
                         ->where(
                             $queryBuilder->expression()->eq(
-                                $this->metadata->getTable() . '_' . $relation->foreignKey,
+                                $table . '_' . $relation->foreignKey,
                                 $queryBuilder->createPositionalParameter($foreignKey)
                             )
                         )->query();
@@ -215,7 +207,7 @@ class Entity
         }
 
         if ($this->isPrimaryKeySet($object)) {
-            $queryBuilder->delete($this->metadata->getTable())
+            $queryBuilder->delete($table)
                 ->where(
                     $queryBuilder->expression()->eq(
                         $this->metadata->getPrimaryKey(),
@@ -247,7 +239,7 @@ class Entity
         $hasOneRelations   = new \CallbackFilterIterator(
             $relationsIterator,
             function (Relation $relation) {
-                return $relation->type === Relation::HAS_ONE || $relation->type === Relation::BELONGS_TO;
+                return $relation->isSingle();
             });
         $hasManyRelations  = new \CallbackFilterIterator(
             $relationsIterator,
@@ -327,36 +319,26 @@ class Entity
                 $relation->foreignKey
             );
 
-            if ($originalForeignKey !== null) {
-                if ($relatedObject === null) {
-                    //Related object has been unset
-                    if ($originalForeignKey !== null) {
-                        $relatedEntity
-                            ->find()
-                            ->delete($originalForeignKey);
-                    }
-                    $currentForeignKey = null;
-                } else {
-                    //Related object may have been changed
-                    $currentForeignKey = $relatedEntity->metadata->getFieldValue(
-                        $relatedObject,
-                        $relation->targetKey
-                    );
-                }
+            if ($relatedObject !== null) {
+                //Related object has been set
+                $currentForeignKey = $relatedEntity->metadata->getFieldValue(
+                    $relatedObject,
+                    $relation->targetKey
+                );
+            } else if ($originalForeignKey === null) {
+                //Use the directly set foreign key
+                $currentForeignKey = $this->metadata->getFieldValue(
+                    $object,
+                    $relation->foreignKey
+                );
             } else {
-                if ($relatedObject !== null) {
-                    //Related object has been set
-                    $currentForeignKey = $relatedEntity->metadata->getFieldValue(
-                        $relatedObject,
-                        $relation->targetKey
-                    );
-                } else {
-                    //Use the directly set foreign key
-                    $currentForeignKey = $this->metadata->getFieldValue(
-                        $object,
-                        $relation->foreignKey
-                    );
+                //Related object has been unset
+                if ($originalForeignKey !== null) {
+                    $relatedEntity
+                        ->find()
+                        ->delete($originalForeignKey);
                 }
+                $currentForeignKey = null;
             }
 
             if ($currentForeignKey !== $originalForeignKey) {
@@ -527,7 +509,7 @@ class Entity
 
         if ($readOnly) {
             $this->readOnlyObjectHandles[$objectId] = true;
-        } elseif (isset($this->readOnlyObjectHandles[$objectId])) {
+        } else {
             unset($this->readOnlyObjectHandles[$objectId]);
         }
     }

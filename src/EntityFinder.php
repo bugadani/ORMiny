@@ -451,14 +451,7 @@ class EntityFinder
      */
     private function fetchResults(Statement $statement, $pkField)
     {
-        if (empty($this->with)) {
-            if ($statement instanceof \Traversable) {
-                return $statement;
-            }
-
-            return new \ArrayIterator($statement->fetchAll());
-        }
-        if (!isset($this->limit) && (!isset($this->offset) || $this->offset === 0)) {
+        if (empty($this->with) || (!isset($this->limit) && (!isset($this->offset) || $this->offset === 0))) {
             if ($statement instanceof \Traversable) {
                 return $statement;
             }
@@ -477,13 +470,14 @@ class EntityFinder
 
     private function deleteRecords($records)
     {
-        if ($records !== false) {
-            $entity = $this->manager->get($this->metadata->getClassName());
-            if (is_array($records)) {
-                array_map([$entity, 'delete'], $records);
-            } else {
-                $entity->delete($records);
-            }
+        if ($records === false) {
+            return;
+        }
+        $entity = $this->manager->get($this->metadata->getClassName());
+        if (is_array($records)) {
+            array_map([$entity, 'delete'], $records);
+        } else {
+            $entity->delete($records);
         }
     }
 }

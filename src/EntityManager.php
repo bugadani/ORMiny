@@ -46,8 +46,9 @@ class EntityManager
 
     public function __construct(Driver $driver, MetadataDriverInterface $metadataDriver)
     {
-        $this->driver         = $driver;
-        $this->metadataDriver = $metadataDriver;
+        $this->driver          = $driver;
+        $this->metadataDriver  = $metadataDriver;
+        $this->resultProcessor = new ResultProcessor($this);
     }
 
     /**
@@ -55,10 +56,6 @@ class EntityManager
      */
     public function getResultProcessor()
     {
-        if (!isset($this->resultProcessor)) {
-            $this->resultProcessor = new ResultProcessor($this);
-        }
-
         return $this->resultProcessor;
     }
 

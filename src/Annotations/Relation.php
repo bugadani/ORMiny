@@ -26,10 +26,10 @@ use Modules\Annotation\Exceptions\AnnotationException;
  */
 class Relation
 {
-    const HAS_ONE    = 'has one';
-    const HAS_MANY   = 'has many';
+    const HAS_ONE = 'has one';
+    const HAS_MANY = 'has many';
     const BELONGS_TO = 'belongs to';
-    const MANY_MANY  = 'many to many';
+    const MANY_MANY = 'many to many';
 
     public $name;
     public $type;
@@ -47,7 +47,8 @@ class Relation
         $foreignKey = null,
         $targetKey = null,
         $joinTable = null
-    ) {
+    )
+    {
         if ($target === null) {
             $target = $name;
         }
@@ -56,37 +57,36 @@ class Relation
         $this->type   = $type;
         $this->target = $target;
 
-        if ($foreignKey === null) {
-            switch ($type) {
-                case Relation::BELONGS_TO:
-                case Relation::HAS_ONE:
-                    $foreignKey = $target . '_id';
-                    break;
-                case Relation::HAS_MANY:
-                case Relation::MANY_MANY:
-                    $foreignKey = 'id';
-                    break;
+        if ($this->isSingle()) {
+            if ($foreignKey === null) {
+                $foreignKey = $target . '_id';
             }
-        }
-        if ($targetKey === null) {
-            switch ($type) {
-                case Relation::BELONGS_TO:
-                case Relation::HAS_ONE:
-                    $targetKey = 'id';
-                    break;
-                case Relation::HAS_MANY:
-                case Relation::MANY_MANY:
-                    $targetKey = $target . '_id';
-                    break;
+            if ($targetKey === null) {
+                $targetKey = 'id';
+            }
+        } else {
+            if ($foreignKey === null) {
+                $foreignKey = 'id';
+            }
+            if ($targetKey === null) {
+                $targetKey = $target . '_id';
+            }
+            if ($type === Relation::MANY_MANY) {
+                if ($joinTable === null) {
+                    throw new AnnotationException('Many to many type relations require a join table.');
+                }
+                $this->joinTable = $joinTable;
             }
         }
         $this->foreignKey = $foreignKey;
         $this->targetKey  = $targetKey;
-        if($type === Relation::MANY_MANY) {
-            if($joinTable === null) {
-                throw new AnnotationException('Many to many type relations require a join table.');
-            }
-            $this->joinTable = $joinTable;
-        }
+    }
+
+    /**
+     * @return bool
+     */
+    public function isSingle()
+    {
+        return $this->type === Relation::HAS_ONE || $this->type === Relation::BELONGS_TO;
     }
 }

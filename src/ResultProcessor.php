@@ -28,7 +28,8 @@ class ResultProcessor
         array $with,
         \Traversable $records,
         $readOnly
-    ) {
+    )
+    {
         $entity  = $this->manager->get($metadata->getClassName());
         $pkField = $metadata->getPrimaryKey();
 
@@ -41,7 +42,7 @@ class ResultProcessor
         foreach ($records as $record) {
             //Extract columns that are relevant for the current metadata
             $data = array_intersect_key($record, $fields);
-            $key  = $data[ $pkField ];
+            $key  = $data[$pkField];
             if ($currentKey !== $key) {
                 if ($object !== null) {
                     $this->processRelated(
@@ -51,8 +52,8 @@ class ResultProcessor
                         $recordsToProcess,
                         $with
                     );
-                    $recordsToProcess       = [];
-                    $objects[ $currentKey ] = $object;
+                    $recordsToProcess     = [];
+                    $objects[$currentKey] = $object;
                 }
                 $currentKey = $key;
                 $object     = $entity->create($data);
@@ -65,7 +66,7 @@ class ResultProcessor
         }
         if ($object !== null) {
             $this->processRelated($metadata, $object, $readOnly, $recordsToProcess, $with);
-            $objects[ $key ] = $object;
+            $objects[$key] = $object;
         }
 
         return $objects;
@@ -73,6 +74,7 @@ class ResultProcessor
 
     private function processRelated(EntityMetadata $metadata, $object, $readOnly, $records, $with)
     {
+        $entity = $this->manager->get($metadata->getClassName());
         foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
             $relation = $metadata->getRelation($relationName);
 
@@ -85,11 +87,10 @@ class ResultProcessor
                 $readOnly
             );
 
-            if ($relation->type === Relation::HAS_ONE || $relation->type === Relation::BELONGS_TO) {
+            if ($relation->isSingle()) {
                 $value = current($value);
             }
             if (!empty($value)) {
-                $entity = $this->manager->get($metadata->getClassName());
                 $entity->setRelationValue($object, $relationName, $value);
             }
         }
@@ -104,14 +105,14 @@ class ResultProcessor
     private function stripRelationPrefix(array $records, $prefix)
     {
         //Strip the relation prefix from the columns
+        $prefixLength = strlen($prefix);
         return array_map(
-            function ($rawRecord) use ($prefix) {
-                $record       = [];
-                $prefixLength = strlen($prefix);
+            function ($rawRecord) use ($prefix, $prefixLength) {
+                $record = [];
                 foreach ($rawRecord as $key => $value) {
                     if (strpos($key, $prefix) === 0) {
-                        $key            = substr($key, $prefixLength);
-                        $record[ $key ] = $value;
+                        $key          = substr($key, $prefixLength);
+                        $record[$key] = $value;
                     }
                 }
 
@@ -144,4 +145,5 @@ class ResultProcessor
             )
         );
     }
+
 }

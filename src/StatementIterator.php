@@ -54,12 +54,12 @@ class StatementIterator implements \Iterator
             return;
         }
 
-        if ($record[ $this->pkField ] !== $this->currentKey) {
+        if ($record[$this->pkField] !== $this->currentKey) {
 
             if ($this->fetchedRecordCount === $this->limit) {
                 $record = null;
             } else {
-                $this->currentKey = $record[ $this->pkField ];
+                $this->currentKey = $record[$this->pkField];
             }
 
             $this->fetchedRecordCount++;
@@ -75,11 +75,11 @@ class StatementIterator implements \Iterator
 
     public function valid()
     {
-        if(!empty($this->currentRecord)) {
+        if (!empty($this->currentRecord)) {
             return true;
         }
 
-        if(!$this->cursorClosed) {
+        if (!$this->cursorClosed) {
             $this->statement->closeCursor();
             $this->cursorClosed = true;
         }
@@ -100,10 +100,10 @@ class StatementIterator implements \Iterator
             $key   = null;
             $index = 0;
             while ($record = $this->statement->fetch()) {
-                if ($key === $record[ $this->pkField ]) {
+                if ($key === $record[$this->pkField]) {
                     continue;
                 }
-                $key = $record[ $this->pkField ];
+                $key = $record[$this->pkField];
                 if ($index++ === $this->offset) {
                     break;
                 }
@@ -113,7 +113,7 @@ class StatementIterator implements \Iterator
             $this->currentRecord = $this->statement->fetch();
         }
         if (!empty($this->currentRecord)) {
-            $this->currentKey         = $this->currentRecord[ $this->pkField ];
+            $this->currentKey         = $this->currentRecord[$this->pkField];
             $this->fetchedRecordCount = 1;
         }
     }
