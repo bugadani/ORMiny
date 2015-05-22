@@ -15,7 +15,7 @@ use ORMiny\Annotations\Relation;
 
 class Entity
 {
-    const STATE_NEW     = 1;
+    const STATE_NEW = 1;
     const STATE_HANDLED = 2;
 
     /**
@@ -281,7 +281,7 @@ class Entity
             $originalForeignKeys = $this->objectRelations[$objectId][$relationName];
 
             $modifiedManyManyRelations[$relationName] = [
-                'deleted'  => array_diff($originalForeignKeys, $currentForeignKeys),
+                'deleted' => array_diff($originalForeignKeys, $currentForeignKeys),
                 'inserted' => array_diff($currentForeignKeys, $originalForeignKeys)
             ];
 
@@ -509,7 +509,7 @@ class Entity
                     ->insert($relation->joinTable)
                     ->values(
                         [
-                            $leftKey  => $queryBuilder->createPositionalParameter($primaryKey),
+                            $leftKey => $queryBuilder->createPositionalParameter($primaryKey),
                             $rightKey => '?'
                         ]
                     );
@@ -532,16 +532,20 @@ class Entity
         }
     }
 
-    public function loadRelation($object, $relationName)
+    public function loadRelation($object, $relationName, array $with = null)
     {
         $relation = $this->metadata->getRelation($relationName);
 
+        $entityFinder = $this->manager
+            ->get($relation->target)
+            ->find();
+        if ($with !== null) {
+            $entityFinder->with($with);
+        }
         $this->setRelationValue(
             $object,
             $relationName,
-            $this->manager
-                ->get($relation->target)
-                ->find()
+            $entityFinder
                 ->getByField(
                     $relation->targetKey,
                     $this->metadata->getFieldValue($object, $relation->foreignKey)
