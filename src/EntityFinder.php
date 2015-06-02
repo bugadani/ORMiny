@@ -156,23 +156,63 @@ class EntityFinder
         }
 
         $table  = $this->metadata->getTable();
-        $fields = $this->metadata->getFields();
-        if (!empty($this->with)) {
-            $fields = array_map(
-                function ($field) use ($table) {
-                    return $table . '.' . $field;
-                },
-                $fields
-            );
+        return $this->process(
+            $this->applyFilters(
+                $this->queryBuilder
+                    ->select($this->getFields($table))
+                    ->from($table)
+            )->query(array_merge($this->parameters, $parameters))
+        );
+    }
+
+    public function getByPrimaryKey($primaryKeys)
+    {
+        $records = $this->getByField($this->metadata->getPrimaryKey(), $primaryKeys);
+
+        if (!is_array($primaryKeys) || count($primaryKeys) === 1) {
+            return current($records);
+        }
+
+        return $records;
+    }
+
+    public function getByField($fieldName, $keys)
+    {
+        $table  = $this->metadata->getTable();
+        if(!empty($this->with)) {
+            $fieldName = "{$table}.{$fieldName}";
         }
 
         return $this->process(
             $this->applyFilters(
                 $this->queryBuilder
-                    ->select($fields)
+                    ->select($this->getFields($table))
                     ->from($table)
-            )->query(array_merge($this->parameters, $parameters))
+                    ->where($this->createInExpression($fieldName, (array)$keys))
+            )->query($this->parameters)
         );
+    }
+
+    public function getSingle()
+    {
+        $record = $this->setMaxResults(1)->get(func_get_args());
+
+        if(count($record) === 0) {
+            return null;
+        } else {
+            return reset($record);
+        }
+    }
+
+    public function getSingleByField($fieldName, $key)
+    {
+        $record = $this->setMaxResults(1)->getByField($fieldName, $key);
+
+        if(count($record) === 0) {
+            return null;
+        } else {
+            return reset($record);
+        }
     }
 
     private function applyFilters(AbstractQueryBuilder $query)
@@ -310,41 +350,6 @@ class EntityFinder
         return $query;
     }
 
-    public function getByPrimaryKey($primaryKeys)
-    {
-        $records = $this->getByField($this->metadata->getPrimaryKey(), $primaryKeys);
-
-        if (!is_array($primaryKeys) || count($primaryKeys) === 1) {
-            return current($records);
-        }
-
-        return $records;
-    }
-
-    public function getByField($fieldName, $keys)
-    {
-        $table  = $this->metadata->getTable();
-        $fields = $this->metadata->getFields();
-        if (!empty($this->with)) {
-            $fieldName = $table . '.' . $fieldName;
-            $fields    = array_map(
-                function ($field) use ($table) {
-                    return $table . '.' . $field;
-                },
-                $fields
-            );
-        }
-
-        return $this->process(
-            $this->applyFilters(
-                $this->queryBuilder
-                    ->select($fields)
-                    ->from($table)
-                    ->where($this->createInExpression($fieldName, (array)$keys))
-            )->query($this->parameters)
-        );
-    }
-
     public function delete()
     {
         if (func_num_args() > 0) {
@@ -479,5 +484,25 @@ class EntityFinder
         } else {
             $entity->delete($records);
         }
+    }
+
+    /**
+     * @param $table
+     * @return array
+     */
+    private function getFields($table)
+    {
+        $fields = $this->metadata->getFields();
+
+        if (!empty($this->with)) {
+            $fields = array_map(
+                function ($field) use ($table) {
+                    return $table . '.' . $field;
+                },
+                $fields
+            );
+        }
+
+        return $fields;
     }
 }
