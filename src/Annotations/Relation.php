@@ -20,22 +20,26 @@ use Modules\Annotation\Exceptions\AnnotationException;
  * @Attribute('foreignKey', type: 'string')
  * @Attribute('targetKey', type: 'string')
  * @Attribute('joinTable', type: 'string')
+ * @Attribute('joinTableForeignKey', type: 'string')
+ * @Attribute('joinTableTargetKey', type: 'string')
  * @Attribute('setter')
  * @Attribute('getter')
  * @Target('property')
  */
 class Relation
 {
-    const HAS_ONE = 'has one';
-    const HAS_MANY = 'has many';
+    const HAS_ONE    = 'has one';
+    const HAS_MANY   = 'has many';
     const BELONGS_TO = 'belongs to';
-    const MANY_MANY = 'many to many';
+    const MANY_MANY  = 'many to many';
 
     public $name;
     public $type;
     public $target;
     public $foreignKey;
     public $targetKey;
+    public $joinTableForeignKey;
+    public $joinTableTargetKey;
     public $joinTable;
     public $setter;
     public $getter;
@@ -46,7 +50,9 @@ class Relation
         $target = null,
         $foreignKey = null,
         $targetKey = null,
-        $joinTable = null
+        $joinTable = null,
+        $joinTableForeignKey = null,
+        $joinTableTargetKey = null
     )
     {
         if ($target === null) {
@@ -73,9 +79,12 @@ class Relation
             }
             if ($type === Relation::MANY_MANY) {
                 if ($joinTable === null) {
+                    print_r(func_get_args());
                     throw new AnnotationException('Many to many type relations require a join table.');
                 }
-                $this->joinTable = $joinTable;
+                $this->joinTable           = $joinTable;
+                $this->joinTableForeignKey = $joinTableForeignKey;
+                $this->joinTableTargetKey  = $joinTableTargetKey;
             }
         }
         $this->foreignKey = $foreignKey;

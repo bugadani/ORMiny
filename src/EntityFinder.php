@@ -302,13 +302,25 @@ class EntityFinder
                     break;
 
                 case Relation::MANY_MANY:
+                    if ($relation->joinTableForeignKey === null) {
+                        $joinTableForeignKey = "{$entityTable}_{$relation->foreignKey}";
+                    } else {
+                        $joinTableForeignKey = $relation->joinTableForeignKey;
+                    }
+
+                    if ($relation->joinTableTargetKey === null) {
+                        $joinTableTargetKey = "{$relatedTable}_{$relation->targetKey}";
+                    } else {
+                        $joinTableTargetKey = $relation->joinTableTargetKey;
+                    }
+
                     $query->leftJoin(
                         $leftAlias,
                         $relation->joinTable,
                         $relation->joinTable,
                         (new Expression())->eq(
                             "{$leftAlias}.{$relation->foreignKey}",
-                            "{$relation->joinTable}.{$entityTable}_{$relation->foreignKey}"
+                            $relation->joinTable . '.' . $joinTableForeignKey
                         )
                     );
                     $query->leftJoin(
@@ -316,7 +328,7 @@ class EntityFinder
                         $relatedTable,
                         $alias,
                         (new Expression())->eq(
-                            "{$relation->joinTable}.{$relatedTable}_{$relation->targetKey}",
+                            $relation->joinTable . '.' . $joinTableTargetKey,
                             "{$alias}.{$relation->targetKey}"
                         )
                     );
