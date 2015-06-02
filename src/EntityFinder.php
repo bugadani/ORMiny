@@ -35,7 +35,7 @@ class EntityFinder
     private $queryBuilder;
     private $parameters = [];
     private $where;
-    private $with = [];
+    private $with       = [];
 
     private $limit;
     private $offset;
@@ -155,7 +155,7 @@ class EntityFinder
             $parameters = [];
         }
 
-        $table  = $this->metadata->getTable();
+        $table = $this->metadata->getTable();
         return $this->process(
             $this->applyFilters(
                 $this->queryBuilder
@@ -178,8 +178,8 @@ class EntityFinder
 
     public function getByField($fieldName, $keys)
     {
-        $table  = $this->metadata->getTable();
-        if(!empty($this->with)) {
+        $table = $this->metadata->getTable();
+        if (!empty($this->with)) {
             $fieldName = "{$table}.{$fieldName}";
         }
 
@@ -197,22 +197,14 @@ class EntityFinder
     {
         $record = $this->setMaxResults(1)->get(func_get_args());
 
-        if(count($record) === 0) {
-            return null;
-        } else {
-            return reset($record);
-        }
+        return reset($record);
     }
 
     public function getSingleByField($fieldName, $key)
     {
         $record = $this->setMaxResults(1)->getByField($fieldName, $key);
 
-        if(count($record) === 0) {
-            return null;
-        } else {
-            return reset($record);
-        }
+        return reset($record);
     }
 
     private function applyFilters(AbstractQueryBuilder $query)
