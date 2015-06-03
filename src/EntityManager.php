@@ -9,6 +9,7 @@
 
 namespace ORMiny;
 
+use Modules\DBAL\AbstractQueryBuilder;
 use Modules\DBAL\Driver;
 use ORMiny\Drivers\AnnotationMetadataDriver;
 
@@ -43,6 +44,7 @@ class EntityManager
      * @var AnnotationMetadataDriver
      */
     private $metadataDriver;
+    private $pendingQueries = [];
 
     public function __construct(Driver $driver, MetadataDriverInterface $metadataDriver)
     {
@@ -142,5 +144,24 @@ class EntityManager
     public function find($entityName)
     {
         return $this->get($entityName)->find();
+    }
+
+    public function postPendingQuery(AbstractQueryBuilder $query, array $params = [])
+    {
+        $this->pendingQueries[] = [$query, $params];
+    }
+
+    public function commit()
+    {
+        $this->driver->inTransaction(
+            function (Driver $driver, array $pendingQueries) {
+                foreach ($pendingQueries as $item) {
+                    list($query, $params) = $item;
+                    /** @var AbstractQueryBuilder $query */
+                    $query->query($params);
+                }
+            },
+            $this->pendingQueries
+        );
     }
 }

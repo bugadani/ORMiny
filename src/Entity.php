@@ -15,7 +15,7 @@ use ORMiny\Annotations\Relation;
 
 class Entity
 {
-    const STATE_NEW = 1;
+    const STATE_NEW     = 1;
     const STATE_HANDLED = 2;
 
     /**
@@ -28,11 +28,11 @@ class Entity
      */
     private $manager;
 
-    private $originalData = [];
-    private $objectStates = [];
+    private $originalData    = [];
+    private $objectStates    = [];
     private $objectRelations = [];
 
-    private $objectHandles = [];
+    private $objectHandles         = [];
     private $readOnlyObjectHandles = [];
 
     public function __construct(EntityManager $manager, EntityMetadata $metadata)
@@ -325,20 +325,22 @@ class Entity
                     $relatedObject,
                     $relation->targetKey
                 );
-            } else if ($originalForeignKey === null) {
-                //Use the directly set foreign key
-                $currentForeignKey = $this->metadata->getFieldValue(
-                    $object,
-                    $relation->foreignKey
-                );
             } else {
-                //Related object has been unset
-                if ($originalForeignKey !== null) {
-                    $relatedEntity
-                        ->find()
-                        ->delete($originalForeignKey);
+                if ($originalForeignKey === null) {
+                    //Use the directly set foreign key
+                    $currentForeignKey = $this->metadata->getFieldValue(
+                        $object,
+                        $relation->foreignKey
+                    );
+                } else {
+                    //Related object has been unset
+                    if ($originalForeignKey !== null) {
+                        $relatedEntity
+                            ->find()
+                            ->delete($originalForeignKey);
+                    }
+                    $currentForeignKey = null;
                 }
-                $currentForeignKey = null;
             }
 
             if ($currentForeignKey !== $originalForeignKey) {
