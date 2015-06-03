@@ -175,6 +175,11 @@ class Entity
         return $this->find()->getByPrimaryKey(func_get_args());
     }
 
+    public function exists($primaryKey)
+    {
+        return $this->find()->existsByPrimaryKey(func_get_args());
+    }
+
     public function delete($object)
     {
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();

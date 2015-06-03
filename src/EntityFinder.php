@@ -208,6 +208,32 @@ class EntityFinder
         return reset($record);
     }
 
+    public function existsByField($fieldName, $key)
+    {
+        $table = $this->metadata->getTable();
+        if (!empty($this->with)) {
+            $fieldName = "{$table}.{$fieldName}";
+        }
+
+        $this->manager->commit();
+        $query = $this->applyFilters(
+            $this->queryBuilder
+                ->select($fieldName)
+                ->from($table)
+                ->where(
+                    $this->queryBuilder
+                        ->expression()
+                        ->eq($fieldName, $this->parameter($key))
+                )
+        );
+        return $query->query($this->parameters)->rowCount() !== 0;
+    }
+
+    public function existsByPrimaryKey($key)
+    {
+        return $this->existsByField($this->metadata->getPrimaryKey(), $key);
+    }
+
     private function applyFilters(AbstractQueryBuilder $query)
     {
         //GroupBy is only applicable to Select
