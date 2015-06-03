@@ -183,6 +183,7 @@ class EntityFinder
             $fieldName = "{$table}.{$fieldName}";
         }
 
+        $this->manager->commit();
         return $this->process(
             $this->applyFilters(
                 $this->queryBuilder
@@ -369,9 +370,12 @@ class EntityFinder
         $relations = $this->metadata->getRelations();
 
         if (empty($relations)) {
-            $this->applyFilters(
-                $this->queryBuilder->delete($this->metadata->getTable())
-            )->query($this->parameters);
+            $this->manager->postPendingQuery(
+                $this->applyFilters(
+                    $this->queryBuilder->delete($this->metadata->getTable())
+                ),
+                $this->parameters
+            );
         } else {
             $this->deleteRecords(
                 $this->with(array_keys($relations))
@@ -389,10 +393,12 @@ class EntityFinder
     {
         $relations = $this->metadata->getRelations();
         if (empty($relations)) {
-            $this->queryBuilder
-                ->delete($this->metadata->getTable())
-                ->where($this->createInExpression($fieldName, (array)$keys))
-                ->query($this->parameters);
+            $this->manager->postPendingQuery(
+                $this->queryBuilder
+                    ->delete($this->metadata->getTable())
+                    ->where($this->createInExpression($fieldName, (array)$keys)),
+                $this->parameters
+            );
         } else {
             $this->deleteRecords(
                 $this->with(array_keys($relations))
@@ -407,11 +413,14 @@ class EntityFinder
         $tempParameters   = $this->parameters;
         $this->parameters = [];
 
-        $this->applyFilters(
-            $this->queryBuilder
-                ->update($this->metadata->getTable())
-                ->values($this->parameters($data))
-        )->query(array_merge($this->parameters, $tempParameters));
+        $this->manager->postPendingQuery(
+            $this->applyFilters(
+                $this->queryBuilder
+                    ->update($this->metadata->getTable())
+                    ->values($this->parameters($data))
+            ),
+            array_merge($this->parameters, $tempParameters)
+        );
     }
 
     private function createInExpression($field, array $values)
@@ -428,6 +437,7 @@ class EntityFinder
 
     public function count(array $parameters = [])
     {
+        $this->manager->commit();
         $count = $this->applyFilters(
             $this->queryBuilder
                 ->select('count(*) as count')

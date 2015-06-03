@@ -151,6 +151,9 @@ class EntityManager
         $this->pendingQueries[] = [$query, $params];
     }
 
+    /**
+     * Executes pending queries
+     */
     public function commit()
     {
         $this->driver->inTransaction(
@@ -163,5 +166,6 @@ class EntityManager
             },
             $this->pendingQueries
         );
+        $this->pendingQueries = [];
     }
 }

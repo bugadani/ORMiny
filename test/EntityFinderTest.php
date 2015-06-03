@@ -113,6 +113,8 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
         $this->expectQuery('DELETE FROM test WHERE key=?');
 
         $this->entityFinder->delete(5);
+
+        $this->entityManager->commit();
     }
 
     public function testThatDeleteByPkUsesInForMultiple()
@@ -120,6 +122,8 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
         $this->expectQuery('DELETE FROM test WHERE key IN(?, ?)');
 
         $this->entityFinder->delete(4, 5);
+
+        $this->entityManager->commit();
     }
 
     public function testThatUpdateSetsFields()
@@ -127,5 +131,7 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
         $this->expectQuery('UPDATE test SET field2=? WHERE key=?');
 
         $this->entityFinder->where('key=?')->update(['field2' => 'foobar']);
+
+        $this->entityManager->commit();
     }
 }

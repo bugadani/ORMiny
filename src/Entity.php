@@ -139,12 +139,12 @@ class Entity
         );
     }
 
-    public function create(array $data = [])
+    public function create(array $data = [], $forceNew = false)
     {
         $object   = $this->metadata->create($data);
         $objectId = spl_object_hash($object);
 
-        if ($this->isPrimaryKeySet($object)) {
+        if ($this->isPrimaryKeySet($object) && !$forceNew) {
             $this->objectStates[$objectId] = self::STATE_HANDLED;
         } else {
             $this->objectStates[$objectId] = self::STATE_NEW;
@@ -190,14 +190,16 @@ class Entity
                     break;
 
                 case Relation::MANY_MANY:
-                    $queryBuilder
-                        ->delete($relation->joinTable)
-                        ->where(
-                            $queryBuilder->expression()->eq(
-                                $table . '_' . $relation->foreignKey,
-                                $queryBuilder->createPositionalParameter($foreignKey)
+                    $this->manager->postPendingQuery(
+                        $queryBuilder
+                            ->delete($relation->joinTable)
+                            ->where(
+                                $queryBuilder->expression()->eq(
+                                    $table . '_' . $relation->foreignKey,
+                                    $queryBuilder->createPositionalParameter($foreignKey)
+                                )
                             )
-                        )->query();
+                    );
                     break;
 
                 case Relation::BELONGS_TO:
@@ -207,15 +209,17 @@ class Entity
         }
 
         if ($this->isPrimaryKeySet($object)) {
-            $queryBuilder->delete($table)
-                ->where(
-                    $queryBuilder->expression()->eq(
-                        $this->metadata->getPrimaryKey(),
-                        $queryBuilder->createPositionalParameter(
-                            $this->getPrimaryKeyValue($object)
+            $this->manager->postPendingQuery(
+                $queryBuilder->delete($table)
+                    ->where(
+                        $queryBuilder->expression()->eq(
+                            $this->metadata->getPrimaryKey(),
+                            $queryBuilder->createPositionalParameter(
+                                $this->getPrimaryKeyValue($object)
+                            )
                         )
                     )
-                )->query();
+            );
             unset($this->objectHandles[spl_object_hash($object)]);
         }
     }
@@ -437,17 +441,19 @@ class Entity
             $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
             $primaryKey   = $this->metadata->getPrimaryKey();
 
-            $queryBuilder
-                ->update($this->metadata->getTable())
-                ->values(array_map([$queryBuilder, 'createPositionalParameter'], $data))
-                ->where(
-                    $queryBuilder->expression()->eq(
-                        $primaryKey,
-                        $queryBuilder->createPositionalParameter(
-                            $this->getOriginalData($object, $primaryKey)
+            $this->manager->postPendingQuery(
+                $queryBuilder
+                    ->update($this->metadata->getTable())
+                    ->values(array_map([$queryBuilder, 'createPositionalParameter'], $data))
+                    ->where(
+                        $queryBuilder->expression()->eq(
+                            $primaryKey,
+                            $queryBuilder->createPositionalParameter(
+                                $this->getOriginalData($object, $primaryKey)
+                            )
                         )
                     )
-                )->query();
+            );
         }
 
         return $this->getPrimaryKeyValue($object);

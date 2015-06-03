@@ -113,8 +113,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'key'             => 'value',
-                'field2'          => 'value2',
+                'key' => 'value',
+                'field2' => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
         );
@@ -124,12 +124,47 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals(
             [
-                'key'             => 'value',
-                'field2'          => 'value2 via setter and getter',
+                'key' => 'value',
+                'field2' => 'value2 via setter and getter',
                 'fieldWithSetter' => 'foobar via setter and getter'
             ],
             $entity->toArray($object)
         );
+    }
+
+    public function testThatSelectCommits()
+    {
+        $this->expectQueries(
+            [
+                [
+                    'UPDATE test SET fieldWithSetter=?, field2=? WHERE key=?',
+                    [
+                        'foobar via setter and getter',
+                        'value2 via setter and getter',
+                        'value'
+                    ]
+                ],
+                [
+                    'SELECT key, fieldWithSetter, field2 FROM test WHERE key=?',
+                    [
+                        5
+                    ]
+                ]
+            ]
+        );
+
+        $entity = $this->entityManager->get('TestEntity');
+        $object = $entity->create(
+            [
+                'key' => 'value',
+                'field2' => 'value2',
+                'fieldWithSetter' => 'foobar'
+            ]
+        );
+
+        $entity->save($object);
+
+        $entity->get(5);
     }
 
     public function testThatInsertIsCalledForRecordWithoutPrimaryKeySet()
@@ -142,8 +177,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'key'             => null,
-                'field2'          => 'value2',
+                'key' => null,
+                'field2' => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
         );
@@ -165,13 +200,15 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'key'             => 'value',
-                'field2'          => 'value2',
+                'key' => 'value',
+                'field2' => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
         );
 
         $entity->save($object);
+
+        $this->entityManager->commit();
     }
 
     public function testThatUpdateCanSetNewPrimaryKey()
@@ -189,8 +226,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'key'             => 'value',
-                'field2'          => 'value2',
+                'key' => 'value',
+                'field2' => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
         );
@@ -198,6 +235,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $object->field = 'foo';
 
         $entity->save($object);
+
+        $this->entityManager->commit();
     }
 
     public function testThatDeleteIsNotCalledForNewRecords()
@@ -219,6 +258,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $object = $entity->create(['key' => 'value']);
 
         $entity->delete($object);
+
+        $this->entityManager->commit();
     }
 
     public function testThatGetReturnsFalseWhenNoRecordIsReturned()
@@ -296,13 +337,13 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [5, 6],
                     [
                         [
-                            'pk'                        => 5,
-                            'fk'                        => 1,
+                            'pk' => 5,
+                            'fk' => 1,
                             'hasOneRelation_primaryKey' => 1
                         ],
                         [
-                            'pk'                        => 6,
-                            'fk'                        => 2,
+                            'pk' => 6,
+                            'fk' => 2,
                             'hasOneRelation_primaryKey' => 2
                         ]
                     ]
@@ -336,6 +377,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity->save($objects[5]);
 
         $this->assertNull($objects[5]->fk);
+
+        $this->entityManager->commit();
     }
 
     public function testGetSingleRecordWithDeepRelated()
@@ -348,10 +391,10 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [5],
             [
                 [
-                    'pk'                                 => 5,
-                    'fk'                                 => 1,
-                    'relation_pk'                        => 1,
-                    'relation_fk'                        => 3,
+                    'pk' => 5,
+                    'fk' => 1,
+                    'relation_pk' => 1,
+                    'relation_fk' => 3,
                     'relation_hasOneRelation_primaryKey' => 3
                 ]
             ]
@@ -408,6 +451,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             ->setFirstResult(1)
             ->setMaxResults(2)
             ->delete();
+
+        $this->entityManager->commit();
     }
 
     public function testThatJoinTableIsAddedProperlyToManyManyRelations()
@@ -420,23 +465,23 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [],
             [
                 [
-                    'pk'                  => 1,
-                    'fk'                  => 1,
+                    'pk' => 1,
+                    'fk' => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk'                  => 1,
-                    'fk'                  => 1,
+                    'pk' => 1,
+                    'fk' => 1,
                     'relation_primaryKey' => 2
                 ],
                 [
-                    'pk'                  => 2,
-                    'fk'                  => 1,
+                    'pk' => 2,
+                    'fk' => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk'                  => 2,
-                    'fk'                  => 1,
+                    'pk' => 2,
+                    'fk' => 1,
                     'relation_primaryKey' => 2
                 ]
             ]
@@ -468,6 +513,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->entityManager
             ->find('ManyManyRelationEntity')
             ->delete(2);
+
+        $this->entityManager->commit();
     }
 
     public function testDeletingRecordWithRelations()
@@ -482,13 +529,13 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [2],
                     [
                         [
-                            'pk'                  => 2,
-                            'fk'                  => 1,
+                            'pk' => 2,
+                            'fk' => 1,
                             'relation_primaryKey' => 1
                         ],
                         [
-                            'pk'                  => 2,
-                            'fk'                  => 1,
+                            'pk' => 2,
+                            'fk' => 1,
                             'relation_primaryKey' => 2
                         ]
                     ],
@@ -500,6 +547,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->entityManager
             ->find('ManyManyRelationEntity')
             ->delete(2);
+
+        $this->entityManager->commit();
     }
 
     public function testInsertAndUpdateSimpleRecord()
@@ -526,6 +575,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $object->setField2('bar');
 
         $entity->save($object);
+
+        $this->entityManager->commit();
     }
 
     public function testUpdateRecordWithHasOneRelation()
@@ -539,8 +590,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [2],
                     [
                         [
-                            'pk'                        => 1,
-                            'fk'                        => null,
+                            'pk' => 1,
+                            'fk' => null,
                             'hasOneRelation_primaryKey' => null
                         ]
                     ]
@@ -559,6 +610,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             ->create(['primaryKey' => 2]);
 
         $entity->save($object);
+
+        $this->entityManager->commit();
     }
 
     public function testUpdateRecordWithManyToManyRelation()
@@ -574,13 +627,13 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [2],
                     [
                         [
-                            'pk'                  => 1,
-                            'fk'                  => 1,
+                            'pk' => 1,
+                            'fk' => 1,
                             'relation_primaryKey' => 1
                         ],
                         [
-                            'pk'                  => 1,
-                            'fk'                  => 1,
+                            'pk' => 1,
+                            'fk' => 1,
                             'relation_primaryKey' => 2
                         ]
                     ]
@@ -604,6 +657,52 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $object->relation[] = new RelatedEntity;
 
         $entity->save($object);
+
+        $this->entityManager->commit();
+    }
+
+    public function testUpdateAndDeleteQueriesDontGetExecutedWithoutCommit()
+    {
+        $this->expectQueries(
+            [
+                [
+                    'SELECT has_many.pk, relation.primaryKey as relation_primaryKey, ' .
+                    'relation.foreignKey as relation_foreignKey FROM has_many ' .
+                    'LEFT JOIN related relation ON pk=relation.foreignKey WHERE has_many.pk=?',
+                    [2],
+                    [
+                        [
+                            'pk' => 1,
+                            'relation_primaryKey' => 1,
+                            'relation_foreignKey' => 1
+                        ],
+                        [
+                            'pk' => 1,
+                            'relation_primaryKey' => 2,
+                            'relation_foreignKey' => 1
+                        ],
+                        [
+                            'pk' => 1,
+                            'relation_primaryKey' => 3,
+                            'relation_foreignKey' => 1
+                        ]
+                    ]
+                ]
+            ]
+        );
+
+        $entity = $this->entityManager->get('HasManyRelationEntity');
+        $object = $entity->find()->with('relation')->get(2);
+
+        $this->assertInstanceOf('ORMiny\\HasManyRelationEntity', $object);
+        $this->assertCount(3, $object->relation);
+        $this->assertContainsOnly('ORMiny\\HasManyTargetEntity', $object->relation);
+
+        unset($object->relation[1]);
+        $object->relation[2]->primaryKey = 5;
+
+        $entity->save($object);
+        $entity->delete($object);
     }
 
     public function testUpdateRecordWithHasManyRelation()
@@ -617,17 +716,17 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [2],
                     [
                         [
-                            'pk'                  => 1,
+                            'pk' => 1,
                             'relation_primaryKey' => 1,
                             'relation_foreignKey' => 1
                         ],
                         [
-                            'pk'                  => 1,
+                            'pk' => 1,
                             'relation_primaryKey' => 2,
                             'relation_foreignKey' => 1
                         ],
                         [
-                            'pk'                  => 1,
+                            'pk' => 1,
                             'relation_primaryKey' => 3,
                             'relation_foreignKey' => 1
                         ]
@@ -652,6 +751,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
         $entity->save($object);
         $entity->delete($object);
+
+        $this->entityManager->commit();
     }
 
     public function testThatLimitIsNotAppliedWhenTablesAreJoined()
@@ -663,53 +764,53 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [],
             [
                 [
-                    'pk'                  => 1,
-                    'fk'                  => 1,
+                    'pk' => 1,
+                    'fk' => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk'                  => 1,
-                    'fk'                  => 2,
+                    'pk' => 1,
+                    'fk' => 2,
                     'relation_primaryKey' => 2
                 ],
                 [
-                    'pk'                  => 2,
-                    'fk'                  => 1,
+                    'pk' => 2,
+                    'fk' => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk'                  => 2,
-                    'fk'                  => 2,
+                    'pk' => 2,
+                    'fk' => 2,
                     'relation_primaryKey' => 2
                 ],
                 [
-                    'pk'                  => 2,
-                    'fk'                  => 3,
+                    'pk' => 2,
+                    'fk' => 3,
                     'relation_primaryKey' => 3
                 ],
                 [
-                    'pk'                  => 3,
-                    'fk'                  => 1,
+                    'pk' => 3,
+                    'fk' => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk'                  => 4,
-                    'fk'                  => 1,
+                    'pk' => 4,
+                    'fk' => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk'                  => 4,
-                    'fk'                  => 2,
+                    'pk' => 4,
+                    'fk' => 2,
                     'relation_primaryKey' => 2
                 ],
                 [
-                    'pk'                  => 4,
-                    'fk'                  => 3,
+                    'pk' => 4,
+                    'fk' => 3,
                     'relation_primaryKey' => 3
                 ],
                 [
-                    'pk'                  => 5,
-                    'fk'                  => 1,
+                    'pk' => 5,
+                    'fk' => 1,
                     'relation_primaryKey' => 1
                 ],
             ]
@@ -773,6 +874,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                 $entityFinder->parameter(1)
             )
         )->update(['foreignKey' => 2]);
+
+        $this->entityManager->commit();
     }
 
     public function testEntityWithMultipleRelations()
@@ -792,15 +895,15 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [3],
                     [
                         [
-                            'pk'                                              => 3,
-                            'fk'                                              => 2,
-                            'fk2'                                             => 5,
-                            'relation_pk'                                     => 2,
-                            'relation_fk'                                     => 4,
-                            'deepRelation_pk'                                 => 5,
-                            'deepRelation_fk'                                 => 6,
-                            'deepRelation_relation_pk'                        => 6,
-                            'deepRelation_relation_fk'                        => 4,
+                            'pk' => 3,
+                            'fk' => 2,
+                            'fk2' => 5,
+                            'relation_pk' => 2,
+                            'relation_fk' => 4,
+                            'deepRelation_pk' => 5,
+                            'deepRelation_fk' => 6,
+                            'deepRelation_relation_pk' => 6,
+                            'deepRelation_relation_fk' => 4,
                             'deepRelation_relation_hasOneRelation_primaryKey' => 4,
                             'deepRelation_relation_hasOneRelation_foreignKey' => 8
                         ]
