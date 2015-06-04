@@ -139,12 +139,12 @@ class Entity
         );
     }
 
-    public function create(array $data = [], $forceNew = false)
+    public function create(array $data = [])
     {
         $object   = $this->metadata->create($data);
         $objectId = spl_object_hash($object);
 
-        if ($this->isPrimaryKeySet($object) && !$forceNew) {
+        if ($this->isPrimaryKeySet($object)) {
             $this->objectStates[$objectId] = self::STATE_HANDLED;
         } else {
             $this->objectStates[$objectId] = self::STATE_NEW;

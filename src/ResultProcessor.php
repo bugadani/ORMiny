@@ -41,8 +41,7 @@ class ResultProcessor
 
         foreach ($records as $record) {
             //Extract columns that are relevant for the current metadata
-            $data = array_intersect_key($record, $fields);
-            $key  = $data[$pkField];
+            $key  = $record[$pkField];
             if ($currentKey !== $key) {
                 if ($object !== null) {
                     $this->processRelated(
@@ -56,6 +55,7 @@ class ResultProcessor
                     $objects[$currentKey] = $object;
                 }
                 $currentKey = $key;
+                $data = array_intersect_key($record, $fields);
                 $object     = $entity->create($data);
                 if ($readOnly) {
                     $entity->setReadOnly($object);
