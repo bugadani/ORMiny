@@ -9,8 +9,6 @@
 
 namespace ORMiny;
 
-use ORMiny\Annotations\Relation;
-
 class ResultProcessor
 {
     /**
@@ -41,7 +39,7 @@ class ResultProcessor
 
         foreach ($records as $record) {
             //Extract columns that are relevant for the current metadata
-            $key  = $record[$pkField];
+            $key = $record[$pkField];
             if ($currentKey !== $key) {
                 if ($object !== null) {
                     $this->processRelated(
@@ -55,8 +53,11 @@ class ResultProcessor
                     $objects[$currentKey] = $object;
                 }
                 $currentKey = $key;
-                $data = array_intersect_key($record, $fields);
-                $object     = $entity->create($data);
+                $object     = $entity->handle(
+                    $metadata->create(
+                        array_intersect_key($record, $fields)
+                    )
+                );
                 if ($readOnly) {
                     $entity->setReadOnly($object);
                 }

@@ -48,8 +48,12 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     {
         $mockStatement = $this->getMockBuilder('Modules\\DBAL\\Driver\\Statement')
             ->disableOriginalConstructor()
-            ->setMethods(['fetchAll', 'fetch'])
+            ->setMethods(['fetchAll', 'fetch', 'rowCount'])
             ->getMockForAbstractClass();
+
+        $mockStatement->expects($this->any())
+            ->method('rowCount')
+            ->will($this->returnValue(count($return)));
 
         $mockStatement->expects($this->any())
             ->method('fetchAll')
@@ -137,11 +141,10 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->expectQueries(
             [
                 [
-                    'UPDATE test SET fieldWithSetter=?, field2=? WHERE key=?',
+                    'INSERT INTO test (fieldWithSetter, field2) VALUES (?, ?)',
                     [
                         'foobar via setter and getter',
-                        'value2 via setter and getter',
-                        'value'
+                        'value2 via setter and getter'
                     ]
                 ],
                 [
@@ -156,7 +159,6 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'key' => 'value',
                 'field2' => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
@@ -186,14 +188,27 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity->save($object);
     }
 
-    public function testThatUpdateIsCalledForRecordsWithPrimaryKeySet()
+    public function testThatUpdateIsCalledForRecordsThatExistInDatabaseWhenPrimaryKeyIsSet()
     {
-        $this->expectQuery(
-            'UPDATE test SET fieldWithSetter=?, field2=? WHERE key=?',
+        $this->expectQueries(
             [
-                'foobar via setter and getter',
-                'value2 via setter and getter',
-                'value'
+                [
+                    'SELECT key FROM test WHERE key=?',
+                    ['value'],
+                    [
+                        [
+                            'key' => 'value'
+                        ]
+                    ]
+                ],
+                [
+                    'UPDATE test SET fieldWithSetter=?, field2=? WHERE key=?',
+                    [
+                        'foobar via setter and getter',
+                        'value2 via setter and getter',
+                        'value'
+                    ]
+                ]
             ]
         );
 
@@ -213,13 +228,26 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testThatUpdateCanSetNewPrimaryKey()
     {
-        $this->expectQuery(
-            'UPDATE test SET key=?, fieldWithSetter=?, field2=? WHERE key=?',
+        $this->expectQueries(
             [
-                'foo',
-                'foobar via setter and getter',
-                'value2 via setter and getter',
-                'value'
+                [
+                    'SELECT key FROM test WHERE key=?',
+                    ['value'],
+                    [
+                        [
+                            'key' => 'value'
+                        ]
+                    ]
+                ],
+                [
+                    'UPDATE test SET key=?, fieldWithSetter=?, field2=? WHERE key=?',
+                    [
+                        'foo',
+                        'foobar via setter and getter',
+                        'value2 via setter and getter',
+                        'value'
+                    ]
+                ]
             ]
         );
 
@@ -593,6 +621,15 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                             'pk' => 1,
                             'fk' => null,
                             'hasOneRelation_primaryKey' => null
+                        ]
+                    ]
+                ],
+                [
+                    'SELECT primaryKey FROM related WHERE primaryKey=?',
+                    [2],
+                    [
+                        [
+                            'primaryKey' => 2
                         ]
                     ]
                 ],

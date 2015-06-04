@@ -15,8 +15,9 @@ use ORMiny\Annotations\Relation;
 
 class Entity
 {
-    const STATE_NEW     = 1;
-    const STATE_HANDLED = 2;
+    const STATE_NEW                  = 1;
+    const STATE_HANDLED              = 2;
+    const STATE_NEW_WITH_PRIMARY_KEY = 3;
 
     /**
      * @var EntityMetadata
@@ -141,17 +142,29 @@ class Entity
 
     public function create(array $data = [])
     {
-        $object   = $this->metadata->create($data);
+        $object = $this->metadata->create($data);
+
+        return $this->handle($object, false);
+    }
+
+    public function handle($object, $fromDatabase = true)
+    {
+        $this->metadata->assertObjectInstance($object);
         $objectId = spl_object_hash($object);
 
         if ($this->isPrimaryKeySet($object)) {
-            $this->objectStates[$objectId] = self::STATE_HANDLED;
+            if ($fromDatabase) {
+                $this->objectStates[$objectId] = self::STATE_HANDLED;
+            } else {
+                $this->objectStates[$objectId] = self::STATE_NEW_WITH_PRIMARY_KEY;
+            }
         } else {
             $this->objectStates[$objectId] = self::STATE_NEW;
         }
 
-        $this->originalData[$objectId]    = $data;
+        $this->originalData[$objectId]    = $this->toArray($object);
         $this->objectHandles[$objectId]   = $object;
+        //TODO
         $this->objectRelations[$objectId] = $this->createEmptyRelationsArray($objectId);
 
         return $object;
@@ -170,6 +183,11 @@ class Entity
         return $this->manager->getDriver()->getQueryBuilder()->expression();
     }
 
+    /**
+     * @param $primaryKey
+     * @param ... other primary keys
+     * @return array|mixed
+     */
     public function get($primaryKey)
     {
         return $this->find()->getByPrimaryKey(func_get_args());
@@ -177,7 +195,7 @@ class Entity
 
     public function exists($primaryKey)
     {
-        return $this->find()->existsByPrimaryKey(func_get_args());
+        return $this->find()->existsByPrimaryKey($primaryKey);
     }
 
     public function delete($object)
@@ -234,6 +252,7 @@ class Entity
         $this->metadata->assertObjectInstance($object);
         $objectId = spl_object_hash($object);
 
+        //TODO
         if (!isset($this->objectStates[$objectId]) || $this->objectHandles[$objectId] !== $object) {
             $this->objectStates[$objectId]    = self::STATE_NEW;
             $this->originalData[$objectId]    = [];
@@ -368,10 +387,37 @@ class Entity
             }
         }
 
-        if ($this->objectStates[$objectId] === self::STATE_NEW) {
-            $primaryKey = $this->insert($object);
-        } else {
-            $primaryKey = $this->update($object);
+        switch ($this->objectStates[$objectId]) {
+            case self::STATE_NEW:
+                $primaryKey = $this->insert($object);
+                break;
+
+            case self::STATE_NEW_WITH_PRIMARY_KEY:
+                $pkField    = $this->metadata->getPrimaryKey();
+                $primaryKey = $this->getOriginalData($object, $pkField);
+                if($this->exists($primaryKey)) {
+                    //We may have no way of knowing what has changed, but assume that the primary key hasn't
+                    //Let's assume that the original data is actually all new
+                    $data = $this->toArray($object);
+
+                    //But only update the primary key if it really has changed
+                    if($data[$pkField] === $this->getOriginalData($object, $pkField)) {
+                        unset($data[$pkField]);
+                    }
+
+                    $primaryKey = $this->update($object, $data);
+                } else {
+                    $primaryKey = $this->insert($object);
+                }
+                break;
+
+            default:
+                $data = array_diff(
+                    $this->toArray($object),
+                    $this->originalData[spl_object_hash($object)]
+                );
+                $primaryKey = $this->update($object, $data);
+                break;
         }
 
         $this->objectStates[$objectId] = self::STATE_HANDLED;
@@ -434,13 +480,8 @@ class Entity
         return $primaryKey;
     }
 
-    private function update($object)
+    private function update($object, array $data)
     {
-        $data = array_diff(
-            $this->toArray($object),
-            $this->originalData[spl_object_hash($object)]
-        );
-
         //only save when a change is detected
         if (!empty($data)) {
             $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
