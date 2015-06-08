@@ -180,7 +180,9 @@ class EntityFinder
     {
         $table = $this->metadata->getTable();
         if (!empty($this->with)) {
-            $fieldName = "{$table}.{$fieldName}";
+            if(strpos($fieldName, '.') === false) {
+                $fieldName = "{$table}.{$fieldName}";
+            }
         }
 
         $this->manager->commit();
