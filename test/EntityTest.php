@@ -698,6 +698,18 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->entityManager->commit();
     }
 
+    public function testTableNameAliasIsUsed()
+    {
+        $this->expectQuery(
+            'SELECT alias.pk, relation.primaryKey as relation_primaryKey, ' .
+            'relation.foreignKey as relation_foreignKey FROM has_many alias ' .
+            'LEFT JOIN related relation ON pk=relation.foreignKey WHERE alias.pk=?',
+            [2]
+        );
+
+        $this->entityManager->find('HasManyRelationEntity', 'alias')->with('relation')->get(2);
+    }
+
     public function testUpdateAndDeleteQueriesDontGetExecutedWithoutCommit()
     {
         $this->expectQueries(
@@ -953,5 +965,23 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity->find()->with('relation', 'deepRelation.relation.hasOneRelation')->get(3);
 
         $entity->save($entity->create());
+    }
+
+    public function testAliasIsAppliedForEntityWithMultipleRelations()
+    {
+        $this->expectQuery(
+                    'SELECT alias.pk, alias.fk, alias.fk2, relation.pk as relation_pk, relation.fk as relation_fk, ' .
+                    'deepRelation.pk as deepRelation_pk, deepRelation.fk as deepRelation_fk, deepRelation_relation.pk as deepRelation_relation_pk, ' .
+                    'deepRelation_relation.fk as deepRelation_relation_fk, ' .
+                    'deepRelation_relation_hasOneRelation.primaryKey as deepRelation_relation_hasOneRelation_primaryKey ' .
+                    'FROM multiple alias LEFT JOIN hasOne relation ON fk=relation.pk ' .
+                    'LEFT JOIN deep deepRelation ON fk2=deepRelation.pk ' .
+                    'LEFT JOIN hasOne deepRelation_relation ON deepRelation.fk=deepRelation_relation.pk ' .
+                    'LEFT JOIN related deepRelation_relation_hasOneRelation ON deepRelation_relation.fk=deepRelation_relation_hasOneRelation.primaryKey ' .
+                    'WHERE alias.pk=?',
+                    [3]
+        );
+        $entity = $this->entityManager->get('MultipleRelationEntity');
+        $entity->find('alias')->with('relation', 'deepRelation.relation.hasOneRelation')->get(3);
     }
 }

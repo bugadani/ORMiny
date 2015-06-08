@@ -137,13 +137,14 @@ class EntityManager
     }
 
     /**
-     * @param $entityName
+     * @param        $entityName
+     * @param string $alias the table alias
      *
      * @return EntityFinder
      */
-    public function find($entityName)
+    public function find($entityName, $alias = null)
     {
-        return $this->get($entityName)->find();
+        return $this->get($entityName)->find($alias);
     }
 
     public function postPendingQuery(AbstractQueryBuilder $query, array $params = [])

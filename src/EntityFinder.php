@@ -33,6 +33,7 @@ class EntityFinder
      * @var QueryBuilder
      */
     private $queryBuilder;
+    private $alias;
     private $parameters = [];
     private $where;
     private $with       = [];
@@ -52,6 +53,18 @@ class EntityFinder
         $this->queryBuilder = $driver->getQueryBuilder();
     }
 
+    public function alias($alias)
+    {
+        $alias = (string)$alias;
+        if (in_array($alias, $this->with)) {
+            throw new \InvalidArgumentException("Cannot use alias '{$alias}' because a relation already uses it");
+        }
+
+        $this->alias = $alias;
+
+        return $this;
+    }
+
     public function with($relationName)
     {
         $with = is_array($relationName) ? $relationName : func_get_args();
@@ -59,6 +72,9 @@ class EntityFinder
         $this->with  = [];
         $namePresent = [];
         foreach ($with as $relationName) {
+            if ($this->alias === $relationName) {
+                throw new \InvalidArgumentException("Cannot use relation name '{$relationName}' because it is used as the table alias");
+            }
             $currentName = '';
             foreach (explode('.', $relationName) as $namePart) {
                 $currentName .= $namePart;
@@ -160,7 +176,7 @@ class EntityFinder
             $this->applyFilters(
                 $this->queryBuilder
                     ->select($this->getFields($table))
-                    ->from($table)
+                    ->from($table, $this->alias)
             )->query(array_merge($this->parameters, $parameters))
         );
     }
@@ -180,8 +196,8 @@ class EntityFinder
     {
         $table = $this->metadata->getTable();
         if (!empty($this->with)) {
-            if(strpos($fieldName, '.') === false) {
-                $fieldName = "{$table}.{$fieldName}";
+            if (strpos($fieldName, '.') === false) {
+                $fieldName = $this->getTableAlias($table) . '.' . $fieldName;
             }
         }
 
@@ -190,7 +206,7 @@ class EntityFinder
             $this->applyFilters(
                 $this->queryBuilder
                     ->select($this->getFields($table))
-                    ->from($table)
+                    ->from($table, $this->alias)
                     ->where($this->createInExpression($fieldName, (array)$keys))
             )->query($this->parameters)
         );
@@ -214,14 +230,14 @@ class EntityFinder
     {
         $table = $this->metadata->getTable();
         if (!empty($this->with)) {
-            $fieldName = "{$table}.{$fieldName}";
+            $fieldName = $this->getTableAlias($table) . '.' . $fieldName;
         }
 
         $this->manager->commit();
         $query = $this->applyFilters(
             $this->queryBuilder
                 ->select($fieldName)
-                ->from($table)
+                ->from($table, $this->alias)
                 ->where(
                     $this->queryBuilder
                         ->expression()
@@ -292,7 +308,7 @@ class EntityFinder
     {
         $entityTable = $metadata->getTable();
         if ($prefix === '') {
-            $leftAlias = $entityTable;
+            $leftAlias = $this->alias ?: $entityTable;
         } else {
             $leftAlias = $prefix;
             $prefix .= '_';
@@ -469,7 +485,7 @@ class EntityFinder
         $count = $this->applyFilters(
             $this->queryBuilder
                 ->select('count(*) as count')
-                ->from($this->metadata->getTable())
+                ->from($this->metadata->getTable(), $this->alias)
         )->query(array_merge($this->parameters, $parameters))->fetch();
 
         return $count['count'];
@@ -530,24 +546,33 @@ class EntityFinder
 
     /**
      * @param $table
+     * @return mixed
+     */
+    private function getTableAlias($table)
+    {
+        return $this->alias ?: $table;
+    }
+
+    /**
+     * @param $table
      * @return array
      */
     private function getFields($table)
     {
         $fields = $this->metadata->getFields();
-
-        if (!empty($this->with)) {
-            $fields = array_map(
-                function ($field) use ($table) {
-                    if (strpos($field, '.') !== false) {
-                        return $field;
-                    }
-                    return $table . '.' . $field;
-                },
-                $fields
-            );
+        if (empty($this->with) && $this->alias === null) {
+            return $fields;
         }
 
-        return $fields;
+        $table  = $this->getTableAlias($table);
+        return array_map(
+            function ($field) use ($table) {
+                if (strpos($field, '.') !== false) {
+                    return $field;
+                }
+                return $table . '.' . $field;
+            },
+            $fields
+        );
     }
 }

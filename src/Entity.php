@@ -198,9 +198,13 @@ class Entity
         return $object;
     }
 
-    public function find()
+    public function find($alias = null)
     {
-        return new EntityFinder($this->manager, $this->manager->getDriver(), $this->metadata);
+        $finder = new EntityFinder($this->manager, $this->manager->getDriver(), $this->metadata);
+        if($alias !== null) {
+            $finder->alias($alias);
+        }
+        return $finder;
     }
 
     /**
