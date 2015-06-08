@@ -537,6 +537,9 @@ class EntityFinder
         if (!empty($this->with)) {
             $fields = array_map(
                 function ($field) use ($table) {
+                    if (strpos($field, '.') !== false) {
+                        return $field;
+                    }
                     return $table . '.' . $field;
                 },
                 $fields
