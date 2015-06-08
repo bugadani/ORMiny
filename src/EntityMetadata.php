@@ -48,7 +48,9 @@ class EntityMetadata
     {
         $className = $this->getClassName();
         $object    = new $className;
-        array_walk($data, [$this, 'setFieldValue'], $object);
+        foreach($data as $key => $value) {
+            $this->setFieldValue($object, $key, $value);
+        }
 
         return $object;
     }
@@ -155,11 +157,11 @@ class EntityMetadata
     }
 
     /**
-     * @param $value
-     * @param $field
      * @param $object
+     * @param $field
+     * @param $value
      */
-    public function setFieldValue($value, $field, $object)
+    public function setFieldValue($object, $field, $value)
     {
         $this->assertObjectInstance($object);
         if (isset($this->setters[ $field ])) {

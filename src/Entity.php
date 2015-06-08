@@ -43,26 +43,54 @@ class Entity
     }
 
     //Metadata related methods
+
+    /**
+     * Return the metadata of the current entity
+     *
+     * @return EntityMetadata
+     */
     public function getMetadata()
     {
         return $this->metadata;
     }
 
+    /**
+     * Checks if the primary key is set for the object
+     *
+     * @param $object
+     * @return bool
+     */
     public function isPrimaryKeySet($object)
     {
         return $this->getPrimaryKeyValue($object) !== null;
     }
 
+    /**
+     * Returns the primary key value
+     *
+     * @param $object
+     * @return mixed
+     */
     public function getPrimaryKeyValue($object)
     {
         return $this->metadata->getFieldValue($object, $this->metadata->getPrimaryKey());
     }
 
-    public function setFieldValue($value, $field, $object)
+    /**
+     * @param $object
+     * @param $field
+     * @param $value
+     */
+    public function setFieldValue($object, $field, $value)
     {
-        $this->metadata->setFieldValue($value, $field, $object);
+        $this->metadata->setFieldValue($object, $field, $value);
     }
 
+    /**
+     * @param $object
+     * @param $field
+     * @return mixed
+     */
     public function getFieldValue($object, $field)
     {
         return $this->metadata->getFieldValue($object, $field);
@@ -247,6 +275,11 @@ class Entity
         }
     }
 
+    /**
+     * Save an object to the database
+     *
+     * @param $object
+     */
     public function save($object)
     {
         $this->metadata->assertObjectInstance($object);
@@ -320,9 +353,7 @@ class Entity
 
                 //update the foreign key to match the current object's
                 $relatedEntity->metadata->setFieldValue(
-                    $this->metadata->getFieldValue($object, $relation->foreignKey),
-                    $relation->targetKey,
-                    $relatedObject
+                    $relatedObject, $relation->targetKey, $this->metadata->getFieldValue($object, $relation->foreignKey)
                 );
                 $relatedEntity->save($relatedObject);
             }
@@ -373,9 +404,7 @@ class Entity
 
             if ($currentForeignKey !== $originalForeignKey) {
                 $this->metadata->setFieldValue(
-                    $currentForeignKey,
-                    $relation->foreignKey,
-                    $object
+                    $object, $relation->foreignKey, $currentForeignKey
                 );
                 $this->objectRelations[$objectId][$relationName] = $currentForeignKey;
 
@@ -475,7 +504,7 @@ class Entity
 
         $primaryKey = $query->query();
 
-        $this->setFieldValue($primaryKey, $this->metadata->getPrimaryKey(), $object);
+        $this->setFieldValue($object, $this->metadata->getPrimaryKey(), $primaryKey);
 
         return $primaryKey;
     }
