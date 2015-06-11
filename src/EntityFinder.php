@@ -183,6 +183,9 @@ class EntityFinder
 
     public function getByPrimaryKey($primaryKeys)
     {
+        if(is_array($primaryKeys) && empty($primaryKeys)) {
+            return [];
+        }
         $records = $this->getByField($this->metadata->getPrimaryKey(), $primaryKeys);
 
         if (!is_array($primaryKeys) || count($primaryKeys) === 1) {
