@@ -361,7 +361,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [
                 [
                     'SELECT hasOne.pk, hasOne.fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne' .
-                    ' LEFT JOIN related hasOneRelation ON fk=hasOneRelation.primaryKey WHERE hasOne.pk IN(?, ?)',
+                    ' LEFT JOIN related hasOneRelation ON hasOne.fk=hasOneRelation.primaryKey WHERE hasOne.pk IN(?, ?)',
                     [5, 6],
                     [
                         [
@@ -413,7 +413,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     {
         $this->expectQuery(
             'SELECT deep.pk, deep.fk, relation.pk as relation_pk, relation.fk as relation_fk, relation_hasOneRelation.primaryKey as relation_hasOneRelation_primaryKey FROM deep ' .
-            'LEFT JOIN hasOne relation ON fk=relation.pk ' .
+            'LEFT JOIN hasOne relation ON deep.fk=relation.pk ' .
             'LEFT JOIN related relation_hasOneRelation ON relation.fk=relation_hasOneRelation.primaryKey ' .
             'WHERE deep.pk=?',
             [5],
@@ -614,7 +614,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [
                 [
                     'SELECT hasOne.pk, hasOne.fk, hasOneRelation.primaryKey as hasOneRelation_primaryKey FROM hasOne' .
-                    ' LEFT JOIN related hasOneRelation ON fk=hasOneRelation.primaryKey WHERE hasOne.pk=?',
+                    ' LEFT JOIN related hasOneRelation ON hasOne.fk=hasOneRelation.primaryKey WHERE hasOne.pk=?',
                     [2],
                     [
                         [
@@ -703,7 +703,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->expectQuery(
             'SELECT alias.pk, relation.primaryKey as relation_primaryKey, ' .
             'relation.foreignKey as relation_foreignKey FROM has_many alias ' .
-            'LEFT JOIN related relation ON pk=relation.foreignKey WHERE alias.pk=?',
+            'LEFT JOIN related relation ON alias.pk=relation.foreignKey WHERE alias.pk=?',
             [2]
         );
 
@@ -717,7 +717,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                 [
                     'SELECT has_many.pk, relation.primaryKey as relation_primaryKey, ' .
                     'relation.foreignKey as relation_foreignKey FROM has_many ' .
-                    'LEFT JOIN related relation ON pk=relation.foreignKey WHERE has_many.pk=?',
+                    'LEFT JOIN related relation ON has_many.pk=relation.foreignKey WHERE has_many.pk=?',
                     [2],
                     [
                         [
@@ -761,7 +761,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                 [
                     'SELECT has_many.pk, relation.primaryKey as relation_primaryKey, ' .
                     'relation.foreignKey as relation_foreignKey FROM has_many ' .
-                    'LEFT JOIN related relation ON pk=relation.foreignKey WHERE has_many.pk=?',
+                    'LEFT JOIN related relation ON has_many.pk=relation.foreignKey WHERE has_many.pk=?',
                     [2],
                     [
                         [
@@ -936,8 +936,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     'deepRelation.pk as deepRelation_pk, deepRelation.fk as deepRelation_fk, deepRelation_relation.pk as deepRelation_relation_pk, ' .
                     'deepRelation_relation.fk as deepRelation_relation_fk, ' .
                     'deepRelation_relation_hasOneRelation.primaryKey as deepRelation_relation_hasOneRelation_primaryKey ' .
-                    'FROM multiple LEFT JOIN hasOne relation ON fk=relation.pk ' .
-                    'LEFT JOIN deep deepRelation ON fk2=deepRelation.pk ' .
+                    'FROM multiple LEFT JOIN hasOne relation ON multiple.fk=relation.pk ' .
+                    'LEFT JOIN deep deepRelation ON multiple.fk2=deepRelation.pk ' .
                     'LEFT JOIN hasOne deepRelation_relation ON deepRelation.fk=deepRelation_relation.pk ' .
                     'LEFT JOIN related deepRelation_relation_hasOneRelation ON deepRelation_relation.fk=deepRelation_relation_hasOneRelation.primaryKey ' .
                     'WHERE multiple.pk=?',
@@ -974,8 +974,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     'deepRelation.pk as deepRelation_pk, deepRelation.fk as deepRelation_fk, deepRelation_relation.pk as deepRelation_relation_pk, ' .
                     'deepRelation_relation.fk as deepRelation_relation_fk, ' .
                     'deepRelation_relation_hasOneRelation.primaryKey as deepRelation_relation_hasOneRelation_primaryKey ' .
-                    'FROM multiple alias LEFT JOIN hasOne relation ON fk=relation.pk ' .
-                    'LEFT JOIN deep deepRelation ON fk2=deepRelation.pk ' .
+                    'FROM multiple alias LEFT JOIN hasOne relation ON alias.fk=relation.pk ' .
+                    'LEFT JOIN deep deepRelation ON alias.fk2=deepRelation.pk ' .
                     'LEFT JOIN hasOne deepRelation_relation ON deepRelation.fk=deepRelation_relation.pk ' .
                     'LEFT JOIN related deepRelation_relation_hasOneRelation ON deepRelation_relation.fk=deepRelation_relation_hasOneRelation.primaryKey ' .
                     'WHERE alias.pk=?',

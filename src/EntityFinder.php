@@ -334,13 +334,12 @@ class EntityFinder
                 case Relation::HAS_ONE:
                 case Relation::HAS_MANY:
                 case Relation::BELONGS_TO:
-                    $leftJoinAlias = ($prefix === '' ? '' : $leftAlias . '.');
                     $query->leftJoin(
                         $leftAlias,
                         $relatedTable,
                         $alias,
                         (new Expression())->eq(
-                            $leftJoinAlias . $relation->foreignKey,
+                            "{$leftAlias}.{$relation->foreignKey}",
                             "{$alias}.{$relation->targetKey}"
                         )
                     );
@@ -365,7 +364,7 @@ class EntityFinder
                         $relation->joinTable,
                         (new Expression())->eq(
                             "{$leftAlias}.{$relation->foreignKey}",
-                            $relation->joinTable . '.' . $joinTableForeignKey
+                            "{$relation->joinTable}.{$joinTableForeignKey}"
                         )
                     );
                     $query->leftJoin(
@@ -373,7 +372,7 @@ class EntityFinder
                         $relatedTable,
                         $alias,
                         (new Expression())->eq(
-                            $relation->joinTable . '.' . $joinTableTargetKey,
+                            "{$relation->joinTable}.{$joinTableTargetKey}",
                             "{$alias}.{$relation->targetKey}"
                         )
                     );
