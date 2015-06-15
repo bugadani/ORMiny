@@ -197,6 +197,10 @@ class EntityFinder
 
     public function getByField($fieldName, $keys)
     {
+        $keys = (array)$keys;
+        if (empty($keys)) {
+            return [];
+        }
         $table = $this->metadata->getTable();
         if (!empty($this->with)) {
             if (strpos($fieldName, '.') === false) {
@@ -210,7 +214,7 @@ class EntityFinder
                 $this->queryBuilder
                     ->select($this->getFields($table))
                     ->from($table, $this->alias)
-                    ->where($this->createInExpression($fieldName, (array)$keys))
+                    ->where($this->createInExpression($fieldName, $keys))
             )->query($this->parameters)
         );
     }
