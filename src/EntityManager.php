@@ -153,6 +153,18 @@ class EntityManager
     }
 
     /**
+     * Returns the pending queries
+     *
+     * The returned array has the structure of [string $query, array $parameters]
+     *
+     * @return array the pending queries
+     */
+    public function getPendingQueries()
+    {
+        return $this->pendingQueries;
+    }
+
+    /**
      * Executes pending queries
      */
     public function commit()
