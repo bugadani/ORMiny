@@ -183,7 +183,7 @@ class EntityFinder
 
     public function getByPrimaryKey($primaryKeys)
     {
-        if(is_array($primaryKeys) && empty($primaryKeys)) {
+        if (is_array($primaryKeys) && empty($primaryKeys)) {
             return [];
         }
         $records = $this->getByField($this->metadata->getPrimaryKey(), $primaryKeys);
@@ -437,12 +437,16 @@ class EntityFinder
 
     public function deleteByField($fieldName, $keys)
     {
+        $keys = (array)$keys;
+        if (empty($keys)) {
+            return;
+        }
         $relations = $this->metadata->getRelations();
         if (empty($relations)) {
             $this->manager->postPendingQuery(
                 $this->queryBuilder
                     ->delete($this->metadata->getTable())
-                    ->where($this->createInExpression($fieldName, (array)$keys)),
+                    ->where($this->createInExpression($fieldName, $keys)),
                 $this->parameters
             );
         } else {
@@ -566,7 +570,7 @@ class EntityFinder
             return $fields;
         }
 
-        $table  = $this->getTableAlias($table);
+        $table = $this->getTableAlias($table);
         return array_map(
             function ($field) use ($table) {
                 if (strpos($field, '.') !== false) {
