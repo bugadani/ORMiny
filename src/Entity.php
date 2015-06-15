@@ -143,8 +143,8 @@ class Entity
                 break;
         }
 
-        if (!$this->relationLoaded($relationName)) {
-            $this->loadedRelations[] = $relationName;
+        if (!$this->relationLoaded($object, $relationName)) {
+            $this->loadedRelations[$objectId][] = $relationName;
         }
         return $this->metadata->setRelationValue($object, $relationName, $value);
     }
@@ -152,14 +152,7 @@ class Entity
     //Entity API
     public function toArray($object)
     {
-        $this->metadata->assertObjectInstance($object);
-
-        return array_map(
-            function ($field) use ($object) {
-                return $this->metadata->getFieldValue($object, $field);
-            },
-            $this->metadata->getFields()
-        );
+        return $this->metadata->toArray($object);
     }
 
     /**
@@ -197,14 +190,20 @@ class Entity
             $this->objectStates[$objectId] = self::STATE_NEW;
         }
 
-        $this->originalData[$objectId]  = $this->toArray($object);
-        $this->objectHandles[$objectId] = $object;
+        $this->originalData[$objectId]    = $this->toArray($object);
+        $this->objectHandles[$objectId]   = $object;
+        $this->loadedRelations[$objectId] = [];
         //TODO relations may be present in the form of both nested arrays or objects
         $this->objectRelations[$objectId] = $this->createEmptyRelationsArray($objectId);
 
         return $object;
     }
 
+    /**
+     * @param string $alias Alias to use for the table name in the query
+     *
+     * @return EntityFinder
+     */
     public function find($alias = null)
     {
         $finder = new EntityFinder($this->manager, $this->manager->getDriver(), $this->metadata);
@@ -290,9 +289,13 @@ class Entity
         }
     }
 
-    private function relationLoaded($relationName)
+    private function relationLoaded($object, $relationName)
     {
-        return in_array($relationName, $this->loadedRelations);
+        $objectId = spl_object_hash($object);
+        if (!isset($this->loadedRelations[$objectId])) {
+            return false;
+        }
+        return in_array($relationName, $this->loadedRelations[$objectId]);
     }
 
     /**
@@ -312,6 +315,7 @@ class Entity
             $this->originalData[$objectId]    = [];
             $this->objectRelations[$objectId] = $this->createEmptyRelationsArray();
             $this->objectHandles[$objectId]   = $object;
+            $this->loadedRelations[$objectId] = [];
         } elseif (isset($this->readOnlyObjectHandles[$objectId])) {
             return;
         }
@@ -407,6 +411,9 @@ class Entity
                     $relation->targetKey
                 );
             } else {
+                if (!$this->relationLoaded($object, $relationName)) {
+                    continue;
+                }
                 if ($originalForeignKey === null) {
                     //Use the directly set foreign key
                     $currentForeignKey = $this->metadata->getFieldValue(
@@ -414,7 +421,7 @@ class Entity
                         $relation->foreignKey
                     );
                 } else {
-                    if ($this->relationLoaded($relationName)) {
+                    if ($this->relationLoaded($object, $relationName)) {
                         //Related object has been unset
                         $relatedEntity
                             ->find()
@@ -463,10 +470,7 @@ class Entity
                 break;
 
             default:
-                $data       = array_diff(
-                    $this->toArray($object),
-                    $this->originalData[spl_object_hash($object)]
-                );
+                $data       = $this->getChangedFields($object);
                 $primaryKey = $this->update($object, $data);
                 break;
         }
@@ -475,6 +479,14 @@ class Entity
         $this->originalData[$objectId] = $this->toArray($object);
 
         $this->updateManyToManyRelations($modifiedManyManyRelations, $primaryKey);
+    }
+
+    private function getChangedFields($object)
+    {
+        return array_diff_assoc(
+            $this->toArray($object),
+            $this->originalData[spl_object_hash($object)]
+        );
     }
 
     private function createInExpression($field, array $values, QueryBuilder $queryBuilder)

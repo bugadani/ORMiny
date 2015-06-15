@@ -452,6 +452,13 @@ class EntityFinder
             return;
         }
         $relations = $this->metadata->getRelations();
+
+        //We don't want to delete records which this one only belongs to
+        foreach($relations as $relName => $relation) {
+            if($relation->type === Relation::BELONGS_TO) {
+                unset($relations[$relName]);
+            }
+        }
         if (empty($relations)) {
             $this->manager->postPendingQuery(
                 $this->queryBuilder

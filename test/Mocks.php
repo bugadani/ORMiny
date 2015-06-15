@@ -171,6 +171,16 @@ class HasManyTargetEntity
      * @Field()
      */
     public $foreignKey;
+
+    /**
+     * @Relation('belongs',
+     *     type: 'belongs to',
+     *     target: 'HasManyRelationEntity',
+     *     foreignKey: 'foreignKey',
+     *     targetKey: 'pk'
+     * )
+     */
+    public $belongs;
 }
 
 /**

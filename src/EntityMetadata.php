@@ -221,4 +221,16 @@ class EntityMetadata
 
         return $object->{$property} = $value;
     }
+
+    public function toArray($object)
+    {
+        $this->assertObjectInstance($object);
+
+        return array_map(
+            function ($field) use ($object) {
+                return $this->getFieldValue($object, $field);
+            },
+            $this->getFields()
+        );
+    }
 }
