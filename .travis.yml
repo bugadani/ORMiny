@@ -13,4 +13,4 @@ matrix:
 before_script:
   - composer --prefer-source --dev install
 
-script: phpunit -v phpunit.xml
+script: phpunit -v -c phpunit.xml
