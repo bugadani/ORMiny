@@ -13,7 +13,4 @@ matrix:
 before_script:
   - composer --prefer-source --dev install
 
-script: phpunit -v -c phpunit.xml --coverage-clover ./build/logs/clover.xml
-
-after_script:
-  - php vendor/bin/coveralls -v
+script: phpunit -v phpunit.xml
