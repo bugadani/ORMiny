@@ -35,6 +35,7 @@ class Entity
 
     private $objectHandles         = [];
     private $readOnlyObjectHandles = [];
+    private $loadedRelations       = [];
 
     public function __construct(EntityManager $manager, EntityMetadata $metadata)
     {
@@ -142,6 +143,9 @@ class Entity
                 break;
         }
 
+        if (!$this->relationLoaded($relationName)) {
+            $this->loadedRelations[] = $relationName;
+        }
         return $this->metadata->setRelationValue($object, $relationName, $value);
     }
 
@@ -283,6 +287,11 @@ class Entity
         }
     }
 
+    private function relationLoaded($relationName)
+    {
+        return in_array($relationName, $this->loadedRelations);
+    }
+
     /**
      * Save an object to the database
      *
@@ -401,10 +410,12 @@ class Entity
                         $relation->foreignKey
                     );
                 } else {
-                    //Related object has been unset
-                    $relatedEntity
-                        ->find()
-                        ->delete($originalForeignKey);
+                    if ($this->relationLoaded($relationName)) {
+                        //Related object has been unset
+                        $relatedEntity
+                            ->find()
+                            ->delete($originalForeignKey);
+                    }
                     $currentForeignKey = null;
                 }
             }
