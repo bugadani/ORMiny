@@ -506,7 +506,7 @@ class EntityFinder
         return $this->manager
             ->getResultProcessor()
             ->processRecords(
-                $this->metadata,
+                $this->manager->get($this->metadata->getClassName()),
                 $this->with,
                 $this->fetchResults(
                     $results,

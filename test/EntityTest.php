@@ -524,6 +524,34 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->assertCount(2, $objects);
     }
 
+
+
+    public function testThatManyManyRelationsSetPropertyToEmptyArray()
+    {
+        $this->expectQuery(
+            'SELECT many_many.pk, many_many.fk, relation.primaryKey as relation_primaryKey FROM many_many ' .
+            'LEFT JOIN joinTable ON many_many.fk=joinTable.many_many_fk ' .
+            'LEFT JOIN related relation ON joinTable.related_primaryKey=relation.primaryKey ' .
+            'WHERE many_many.pk=?',
+            [1],
+            [
+                [
+                    'pk' => 6,
+                    'fk' => 8,
+                    'relation_primaryKey' => null
+                ]
+            ]
+        );
+
+        $object = $this->entityManager
+            ->find('ManyManyRelationEntity')
+            ->with('relation')
+            ->getByPrimaryKey(1);
+
+        $this->assertInternalType('array', $object->relation);
+        $this->assertEmpty($object->relation);
+    }
+
     public function testDeletingNonexistentRecordWithRelationsOnlyPerformsSelect()
     {
         $this->expectQueries(

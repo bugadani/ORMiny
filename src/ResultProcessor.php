@@ -22,20 +22,19 @@ class ResultProcessor
     }
 
     public function processRecords(
-        EntityMetadata $metadata,
+        Entity $entity,
         array $with,
         \Traversable $records,
         $readOnly
     )
     {
-        $entity  = $this->manager->get($metadata->getClassName());
+        $metadata = $entity->getMetadata();
         $pkField = $metadata->getPrimaryKey();
 
         $objects          = [];
         $currentKey       = null;
         $object           = null;
         $recordsToProcess = [];
-        $fields           = $metadata->getFields();
 
         foreach ($records as $record) {
             //Extract columns that are relevant for the current metadata
@@ -43,7 +42,7 @@ class ResultProcessor
             if ($currentKey !== $key) {
                 if ($object !== null) {
                     $this->processRelated(
-                        $metadata,
+                        $entity,
                         $object,
                         $readOnly,
                         $recordsToProcess,
@@ -53,11 +52,7 @@ class ResultProcessor
                     $objects[$currentKey] = $object;
                 }
                 $currentKey = $key;
-                $object     = $entity->handle(
-                    $metadata->create(
-                        array_intersect_key($record, $fields)
-                    )
-                );
+                $object     = $this->createObject($entity, $record, $with);
                 if ($readOnly) {
                     $entity->setReadOnly($object);
                 }
@@ -66,21 +61,37 @@ class ResultProcessor
             $recordsToProcess[] = $record;
         }
         if ($object !== null) {
-            $this->processRelated($metadata, $object, $readOnly, $recordsToProcess, $with);
+            $this->processRelated($entity, $object, $readOnly, $recordsToProcess, $with);
             $objects[$key] = $object;
         }
 
         return $objects;
     }
 
-    private function processRelated(EntityMetadata $metadata, $object, $readOnly, $records, $with)
+    private function createObject(Entity $entity, array $record, array $with)
     {
-        $entity = $this->manager->get($metadata->getClassName());
+        $metadata = $entity->getMetadata();
+        $fields   = $metadata->getFields();
+
+        $object = $entity->handle(
+            $metadata->create(
+                array_intersect_key($record, $fields)
+            )
+        );
+        foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
+            $metadata->setRelationValue($object, $relationName, $metadata->getRelation($relationName)->isSingle() ? null : []);
+        }
+        return $object;
+    }
+
+    private function processRelated(Entity $entity, $object, $readOnly, $records, $with)
+    {
+        $metadata = $entity->getMetadata();
         foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
             $relation = $metadata->getRelation($relationName);
 
             $value = $this->processRecords(
-                $this->manager->get($relation->target)->getMetadata(),
+                $this->manager->get($relation->target),
                 $this->filterRelations($with, $relationName . '.'),
                 new \ArrayIterator(
                     $this->stripRelationPrefix($records, $relationName . '_')
@@ -91,6 +102,7 @@ class ResultProcessor
             if ($relation->isSingle()) {
                 $value = current($value);
             }
+
             if (!empty($value)) {
                 $entity->setRelationValue($object, $relationName, $value);
             }
@@ -146,5 +158,4 @@ class ResultProcessor
             )
         );
     }
-
 }
