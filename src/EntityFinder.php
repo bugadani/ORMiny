@@ -162,11 +162,17 @@ class EntityFinder
 
     public function get()
     {
-        if (func_num_args() > 0) {
-            if (!is_array(func_get_arg(0))) {
-                return $this->getByPrimaryKey(func_get_args());
+        $argCount = func_num_args();
+        if ($argCount > 0) {
+            $arg = func_get_arg(0);
+            if (!is_array($arg)) {
+                if($argCount === 1) {
+                    return $this->getByPrimaryKey($arg);
+                } else {
+                    return $this->getByPrimaryKey(func_get_args());
+                }
             }
-            $parameters = func_get_arg(0);
+            $parameters = $arg;
         } else {
             $parameters = [];
         }
@@ -188,7 +194,7 @@ class EntityFinder
         }
         $records = $this->getByField($this->metadata->getPrimaryKey(), $primaryKeys);
 
-        if (!is_array($primaryKeys) || count($primaryKeys) === 1) {
+        if (!is_array($primaryKeys)) {
             return current($records);
         }
 

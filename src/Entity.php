@@ -229,7 +229,10 @@ class Entity
      */
     public function get($primaryKey)
     {
-        return $this->find()->getByPrimaryKey(func_get_args());
+        if (func_num_args() > 1) {
+            $primaryKey = func_get_args();
+        }
+        return $this->find()->getByPrimaryKey($primaryKey);
     }
 
     public function exists($primaryKey)
@@ -359,6 +362,7 @@ class Entity
             $this->objectRelations[$objectId][$relationName] = $currentForeignKeys;
         }
 
+        //TODO: has many type relations can only be saved when the object's primary key is known
         foreach ($hasManyRelations as $relationName => $relation) {
             $relatedEntity      = $this->manager->get($relation->target);
             $currentForeignKeys = [];
