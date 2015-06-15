@@ -402,11 +402,9 @@ class Entity
                     );
                 } else {
                     //Related object has been unset
-                    if ($originalForeignKey !== null) {
-                        $relatedEntity
-                            ->find()
-                            ->delete($originalForeignKey);
-                    }
+                    $relatedEntity
+                        ->find()
+                        ->delete($originalForeignKey);
                     $currentForeignKey = null;
                 }
             }
