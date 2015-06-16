@@ -15,10 +15,6 @@ use ORMiny\Annotations\Relation;
 
 class Entity
 {
-    const STATE_NEW                  = 1;
-    const STATE_HANDLED              = 2;
-    const STATE_NEW_WITH_PRIMARY_KEY = 3;
-
     /**
      * @var EntityMetadata
      */
@@ -29,13 +25,15 @@ class Entity
      */
     private $manager;
 
-    private $originalData    = [];
-    private $objectStates    = [];
+    /**
+     * @var array
+     */
     private $objectRelations = [];
 
-    private $objectHandles         = [];
-    private $readOnlyObjectHandles = [];
-    private $loadedRelations       = [];
+    /**
+     * @var EntityState[]
+     */
+    private $entityStates = [];
 
     public function __construct(EntityManager $manager, EntityMetadata $metadata)
     {
@@ -44,6 +42,19 @@ class Entity
     }
 
     //Metadata related methods
+
+    /**
+     * @param $object
+     * @return EntityState
+     */
+    public function getState($object)
+    {
+        $objectId = spl_object_hash($object);
+        if (!isset($this->entityStates[$objectId])) {
+            throw new \OutOfBoundsException("Entity state is not found");
+        }
+        return $this->entityStates[$objectId];
+    }
 
     /**
      * Return the metadata of the current entity
@@ -111,8 +122,6 @@ class Entity
 
         $objectId = spl_object_hash($object);
 
-        $this->objectHandles[$objectId] = $object;
-
         switch ($relation->type) {
             case Relation::MANY_MANY:
                 $targetKey = $relation->targetKey;
@@ -143,9 +152,7 @@ class Entity
                 break;
         }
 
-        if (!$this->relationLoaded($object, $relationName)) {
-            $this->loadedRelations[$objectId][] = $relationName;
-        }
+        $this->getState($object)->setRelationLoaded($relationName);
         return $this->metadata->setRelationValue($object, $relationName, $value);
     }
 
@@ -177,22 +184,18 @@ class Entity
 
     public function handle($object, $fromDatabase = true)
     {
-        $this->metadata->assertObjectInstance($object);
         $objectId = spl_object_hash($object);
 
         if ($this->isPrimaryKeySet($object)) {
             if ($fromDatabase) {
-                $this->objectStates[$objectId] = self::STATE_HANDLED;
+                $state = EntityState::STATE_HANDLED;
             } else {
-                $this->objectStates[$objectId] = self::STATE_NEW_WITH_PRIMARY_KEY;
+                $state = EntityState::STATE_NEW_WITH_PRIMARY_KEY;
             }
         } else {
-            $this->objectStates[$objectId] = self::STATE_NEW;
+            $state = EntityState::STATE_NEW;
         }
-
-        $this->originalData[$objectId]    = $this->toArray($object);
-        $this->objectHandles[$objectId]   = $object;
-        $this->loadedRelations[$objectId] = [];
+        $this->entityStates[$objectId] = new EntityState($object, $this->metadata, $state);
         //TODO relations may be present in the form of both nested arrays or objects
         $this->objectRelations[$objectId] = $this->createEmptyRelationsArray($objectId);
 
@@ -285,17 +288,8 @@ class Entity
                         )
                     )
             );
-            unset($this->objectHandles[spl_object_hash($object)]);
+            unset($this->entityStates[spl_object_hash($object)]);
         }
-    }
-
-    private function relationLoaded($object, $relationName)
-    {
-        $objectId = spl_object_hash($object);
-        if (!isset($this->loadedRelations[$objectId])) {
-            return false;
-        }
-        return in_array($relationName, $this->loadedRelations[$objectId]);
     }
 
     /**
@@ -310,14 +304,15 @@ class Entity
         $objectId = spl_object_hash($object);
 
         //TODO this could be merged with handle()
-        if (!isset($this->objectStates[$objectId]) || $this->objectHandles[$objectId] !== $object) {
-            $this->objectStates[$objectId]    = self::STATE_NEW;
-            $this->originalData[$objectId]    = [];
+        if (!isset($this->entityStates[$objectId]) || $this->entityStates[$objectId]->getObject() !== $object) {
+            $state                            = new EntityState($object, $this->metadata);
+            $this->entityStates[$objectId]    = $state;
             $this->objectRelations[$objectId] = $this->createEmptyRelationsArray();
-            $this->objectHandles[$objectId]   = $object;
-            $this->loadedRelations[$objectId] = [];
-        } elseif (isset($this->readOnlyObjectHandles[$objectId])) {
-            return;
+        } else {
+            $state = $this->getState($object);
+            if ($state->isReadOnly()) {
+                return;
+            }
         }
 
         $relationsIterator = new \ArrayIterator($this->metadata->getRelations());
@@ -372,8 +367,7 @@ class Entity
             $currentForeignKeys = [];
             foreach ($this->metadata->getRelationValue($object, $relationName) as $relatedObject) {
                 //record the current primary key
-                $currentForeignKeys[] = $relatedEntity->getOriginalData(
-                    $relatedObject,
+                $currentForeignKeys[] = $relatedEntity->getState($relatedObject)->getOriginalFieldData(
                     $relatedEntity->metadata->getPrimaryKey()
                 );
 
@@ -399,10 +393,7 @@ class Entity
             //checking the foreign key is not enough here - foreign key is not updated yet.
             $relatedObject = $this->metadata->getRelationValue($object, $relationName);
 
-            $originalForeignKey = $this->getOriginalData(
-                $object,
-                $relation->foreignKey
-            );
+            $originalForeignKey = $state->getOriginalFieldData($relation->foreignKey);
 
             if ($relatedObject !== null) {
                 //Related object has been set
@@ -411,7 +402,7 @@ class Entity
                     $relation->targetKey
                 );
             } else {
-                if (!$this->relationLoaded($object, $relationName)) {
+                if (!$state->isRelationLoaded($relationName)) {
                     continue;
                 }
                 if ($originalForeignKey === null) {
@@ -421,12 +412,10 @@ class Entity
                         $relation->foreignKey
                     );
                 } else {
-                    if ($this->relationLoaded($object, $relationName)) {
-                        //Related object has been unset
-                        $relatedEntity
-                            ->find()
-                            ->delete($originalForeignKey);
-                    }
+                    //Related object has been unset
+                    $relatedEntity
+                        ->find()
+                        ->delete($originalForeignKey);
                     $currentForeignKey = null;
                 }
             }
@@ -445,21 +434,23 @@ class Entity
             }
         }
 
-        switch ($this->objectStates[$objectId]) {
-            case self::STATE_NEW:
+        switch ($state->getObjectState()) {
+            case EntityState::STATE_NEW:
                 $primaryKey = $this->insert($object);
                 break;
 
-            case self::STATE_NEW_WITH_PRIMARY_KEY:
+            case EntityState::STATE_NEW_WITH_PRIMARY_KEY:
                 $pkField    = $this->metadata->getPrimaryKey();
-                $primaryKey = $this->getOriginalData($object, $pkField);
+                $primaryKey = $state->getOriginalFieldData($pkField);
+
+                //Check if the record exists in the database
                 if ($this->exists($primaryKey)) {
                     //We may have no way of knowing what has changed, but assume that the primary key hasn't
                     //Let's assume that the original data is actually all new
                     $data = $this->toArray($object);
 
                     //But only update the primary key if it really has changed
-                    if ($data[$pkField] === $this->getOriginalData($object, $pkField)) {
+                    if ($data[$pkField] === $state->getOriginalFieldData($pkField)) {
                         unset($data[$pkField]);
                     }
 
@@ -470,23 +461,15 @@ class Entity
                 break;
 
             default:
-                $data       = $this->getChangedFields($object);
+                $data       = $state->getChangedFields();
                 $primaryKey = $this->update($object, $data);
                 break;
         }
 
-        $this->objectStates[$objectId] = self::STATE_HANDLED;
-        $this->originalData[$objectId] = $this->toArray($object);
+        $state->setState(EntityState::STATE_HANDLED);
+        $state->refreshOriginalData();
 
         $this->updateManyToManyRelations($modifiedManyManyRelations, $primaryKey);
-    }
-
-    private function getChangedFields($object)
-    {
-        return array_diff_assoc(
-            $this->toArray($object),
-            $this->originalData[spl_object_hash($object)]
-        );
     }
 
     private function createInExpression($field, array $values, QueryBuilder $queryBuilder)
@@ -505,16 +488,6 @@ class Entity
         }
 
         return $expression;
-    }
-
-    private function getOriginalData($object, $field)
-    {
-        $objectId = spl_object_hash($object);
-        if (isset($this->originalData[$objectId][$field])) {
-            return $this->originalData[$objectId][$field];
-        }
-
-        return null;
     }
 
     private function insert($object)
@@ -558,7 +531,7 @@ class Entity
                         $queryBuilder->expression()->eq(
                             $primaryKey,
                             $queryBuilder->createPositionalParameter(
-                                $this->getOriginalData($object, $primaryKey)
+                                $this->getState($object)->getOriginalFieldData($primaryKey)
                             )
                         )
                     )
@@ -621,14 +594,7 @@ class Entity
 
     public function setReadOnly($object, $readOnly = true)
     {
-        $this->metadata->assertObjectInstance($object);
-        $objectId = spl_object_hash($object);
-
-        if ($readOnly) {
-            $this->readOnlyObjectHandles[$objectId] = true;
-        } else {
-            unset($this->readOnlyObjectHandles[$objectId]);
-        }
+        $this->getState($object)->setReadOnly($readOnly);
     }
 
     public function loadRelation($object, $relationName, array $with = null)
