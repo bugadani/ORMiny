@@ -214,14 +214,20 @@ class EntityFinder
             }
         }
 
+        $query = $this->queryBuilder
+            ->select($this->getFields($table))
+            ->from($table, $this->alias);
+
+        $this->applyFilters($query);
+        if($query->getWhere() === '') {
+            $query->where($this->createInExpression($fieldName, $keys));
+        } else {
+            $query->andWhere($this->createInExpression($fieldName, $keys));
+        }
+
         $this->manager->commit();
         return $this->process(
-            $this->applyFilters(
-                $this->queryBuilder
-                    ->select($this->getFields($table))
-                    ->from($table, $this->alias)
-                    ->where($this->createInExpression($fieldName, $keys))
-            )->query($this->parameters)
+            $query->query($this->parameters)
         );
     }
 
@@ -247,16 +253,23 @@ class EntityFinder
         }
 
         $this->manager->commit();
-        $query = $this->applyFilters(
-            $this->queryBuilder
-                ->select($fieldName)
-                ->from($table, $this->alias)
-                ->where(
-                    $this->queryBuilder
-                        ->expression()
-                        ->eq($fieldName, $this->parameter($key))
-                )
-        );
+
+        $query = $this->queryBuilder
+            ->select($fieldName)
+            ->from($table, $this->alias);
+
+        $this->applyFilters($query);
+        if($query->getWhere() === '') {
+            $query->where($this->queryBuilder
+                ->expression()
+                ->eq($fieldName, $this->parameter($key)));
+        } else {
+            $query->andWhere($this->queryBuilder
+                ->expression()
+                ->eq($fieldName, $this->parameter($key)));
+        }
+
+        //$this->applyFilters($query);
         return $query->query($this->parameters)->rowCount() !== 0;
     }
 

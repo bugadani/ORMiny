@@ -1010,4 +1010,17 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('MultipleRelationEntity');
         $entity->find('alias')->with('relation', 'deepRelation.relation.hasOneRelation')->get(3);
     }
+
+    public function testParameterOrderIsCorrect()
+    {
+        $this->expectQuery(
+            'SELECT pk, fk FROM hasOne WHERE (a=?) AND pk IN(?, ?)',
+            [2, 5, 6],
+            []
+        );
+
+        $entity = $this->entityManager->get('HasOneRelationEntity');
+        $finder = $entity->find();
+        $finder->where($entity->expression()->eq('a', $finder->parameter(2)))->get(5, 6);
+    }
 }
