@@ -16,15 +16,15 @@ class EntityMetadata
     private $className;
     private $tableName;
     private $primaryKey;
-    private $fields = [];
+    private $fields     = [];
     private $properties = [];
-    private $setters = [];
-    private $getters = [];
+    private $setters    = [];
+    private $getters    = [];
 
     /**
      * @var Relation[]
      */
-    private $relations = [];
+    private $relations       = [];
     private $relationTargets = [];
 
     public function __construct($className)
@@ -48,7 +48,7 @@ class EntityMetadata
     {
         $className = $this->getClassName();
         $object    = new $className;
-        foreach($data as $key => $value) {
+        foreach ($data as $key => $value) {
             $this->setFieldValue($object, $key, $value);
         }
 
@@ -72,7 +72,7 @@ class EntityMetadata
 
     public function setPrimaryKey($field)
     {
-        if (!isset($this->fields[$field])) {
+        if (!isset($this->fields[ $field ])) {
             throw new \InvalidArgumentException("Class {$this->className} does not have a property called {$field}");
         }
         $this->primaryKey = $field;
@@ -88,7 +88,7 @@ class EntityMetadata
         if (!property_exists($this->className, $property)) {
             throw new \InvalidArgumentException("Class {$this->className} does not have a property called {$property}");
         }
-        $this->properties[$fieldName] = $property;
+        $this->properties[ $fieldName ] = $property;
     }
 
     public function addField($property, $fieldName = null, $setter = null, $getter = null)
@@ -96,7 +96,7 @@ class EntityMetadata
         if (!is_string($fieldName) || empty($fieldName)) {
             $fieldName = $property;
         }
-        $this->fields[$fieldName] = $fieldName;
+        $this->fields[ $fieldName ] = $fieldName;
         if ($setter === null && $getter === null) {
             $this->addPropertyField($property, $fieldName);
         } else {
@@ -112,13 +112,13 @@ class EntityMetadata
             if (!is_callable($this->className, $setter)) {
                 throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$setter}");
             }
-            $this->setters[$fieldName] = $setter;
+            $this->setters[ $fieldName ] = $setter;
         }
         if ($getter !== null) {
             if (!is_callable($this->className, $getter)) {
                 throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$getter}");
             }
-            $this->getters[$fieldName] = $getter;
+            $this->getters[ $fieldName ] = $getter;
         }
     }
 
@@ -126,24 +126,24 @@ class EntityMetadata
     {
         $relationName = $relation->name;
 
-        $this->relations[$relationName]       = $relation;
-        $this->relationTargets[$relationName] = $property;
+        $this->relations[ $relationName ]       = $relation;
+        $this->relationTargets[ $relationName ] = $property;
 
         $this->registerSetterAndGetter($property, $setter, $getter);
     }
 
     public function getRelation($name)
     {
-        if (!isset($this->relations[$name])) {
+        if (!isset($this->relations[ $name ])) {
             throw new \OutOfBoundsException("Undefined relation: {$name}");
         }
 
-        return $this->relations[$name];
+        return $this->relations[ $name ];
     }
 
     public function hasRelation($relationName)
     {
-        return isset($this->relations[$relationName]);
+        return isset($this->relations[ $relationName ]);
     }
 
     public function getRelations()
@@ -184,11 +184,11 @@ class EntityMetadata
     public function getFieldValue($object, $field)
     {
         $this->assertObjectInstance($object);
-        if (isset($this->getters[$field])) {
-            return $object->{$this->getters[$field]}();
+        if (isset($this->getters[ $field ])) {
+            return $object->{$this->getters[ $field ]}();
         }
-        if (isset($this->properties[$field])) {
-            return $object->{$this->properties[$field]};
+        if (isset($this->properties[ $field ])) {
+            return $object->{$this->properties[ $field ]};
         }
         throw new \InvalidArgumentException("Class {$this->className} does not have a property called {$field}");
     }
@@ -199,24 +199,24 @@ class EntityMetadata
         if (!$this->hasRelation($relationName)) {
             throw new \OutOfBoundsException("Undefined relation: {$relationName}");
         }
-        $property = $this->relationTargets[$relationName];
-        if (isset($this->getters[$property])) {
-            return $object->{$this->getters[$property]}();
+        $property = $this->relationTargets[ $relationName ];
+        if (isset($this->getters[ $property ])) {
+            return $object->{$this->getters[ $property ]}();
         }
         if (isset($object->{$property})) {
             return $object->{$property};
         }
 
-        return $this->relations[$relationName]->isSingle() ? null : [];
+        return $this->relations[ $relationName ]->isSingle() ? null : [];
     }
 
     public function setRelationValue($object, $relationName, $value)
     {
         $this->assertObjectInstance($object);
 
-        $property = $this->relationTargets[$relationName];
-        if (isset($this->setters[$property])) {
-            return $object->{$this->setters[$property]}($value);
+        $property = $this->relationTargets[ $relationName ];
+        if (isset($this->setters[ $property ])) {
+            return $object->{$this->setters[ $property ]}($value);
         }
 
         return $object->{$property} = $value;

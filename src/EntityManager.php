@@ -76,7 +76,7 @@ class EntityManager
 
     public function register($entityName, $className)
     {
-        $this->entityClassMap[$entityName] = $className;
+        $this->entityClassMap[ $entityName ] = $className;
     }
 
     /**
@@ -88,7 +88,7 @@ class EntityManager
      */
     private function getEntityClassName($entityName)
     {
-        if (!isset($this->entityClassMap[$entityName])) {
+        if (!isset($this->entityClassMap[ $entityName ])) {
             $className = $entityName;
             if (!class_exists($className)) {
                 $className = $this->defaultNamespace . $entityName;
@@ -96,25 +96,25 @@ class EntityManager
                     $className = false;
                 }
             }
-            $this->entityClassMap[$entityName] = $className;
+            $this->entityClassMap[ $entityName ] = $className;
         }
 
-        if ($this->entityClassMap[$entityName] === false) {
+        if ($this->entityClassMap[ $entityName ] === false) {
             throw new \OutOfBoundsException("Unknown entity {$entityName}");
         }
 
-        return $this->entityClassMap[$entityName];
+        return $this->entityClassMap[ $entityName ];
     }
 
     private function getEntityByClass($className)
     {
-        if (!isset($this->entities[$className])) {
+        if (!isset($this->entities[ $className ])) {
             $metadata = $this->metadataDriver->readEntityMetadata($className);
 
-            $this->entities[$className] = new Entity($this, $metadata);
+            $this->entities[ $className ] = new Entity($this, $metadata);
         }
 
-        return $this->entities[$className];
+        return $this->entities[ $className ];
     }
 
     public function getEntityForObject($object)

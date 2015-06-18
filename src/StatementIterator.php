@@ -15,10 +15,10 @@ class StatementIterator implements \Iterator
     private $fetchedRecordCount = 0;
 
     private $offset = 0;
-    private $limit = PHP_INT_MAX;
+    private $limit  = PHP_INT_MAX;
 
     private $iterationStarted = false;
-    private $cursorClosed = false;
+    private $cursorClosed     = false;
 
     public function __construct(Statement $statement, $pkField)
     {
@@ -54,12 +54,12 @@ class StatementIterator implements \Iterator
             return;
         }
 
-        if ($record[$this->pkField] !== $this->currentKey) {
+        if ($record[ $this->pkField ] !== $this->currentKey) {
 
             if ($this->fetchedRecordCount === $this->limit) {
                 $record = null;
             } else {
-                $this->currentKey = $record[$this->pkField];
+                $this->currentKey = $record[ $this->pkField ];
             }
 
             $this->fetchedRecordCount++;
@@ -83,6 +83,7 @@ class StatementIterator implements \Iterator
             $this->statement->closeCursor();
             $this->cursorClosed = true;
         }
+
         return false;
     }
 
@@ -100,10 +101,10 @@ class StatementIterator implements \Iterator
             $key   = null;
             $index = 0;
             while ($record = $this->statement->fetch()) {
-                if ($key === $record[$this->pkField]) {
+                if ($key === $record[ $this->pkField ]) {
                     continue;
                 }
-                $key = $record[$this->pkField];
+                $key = $record[ $this->pkField ];
                 if ($index++ === $this->offset) {
                     break;
                 }
@@ -113,7 +114,7 @@ class StatementIterator implements \Iterator
             $this->currentRecord = $this->statement->fetch();
         }
         if (!empty($this->currentRecord)) {
-            $this->currentKey         = $this->currentRecord[$this->pkField];
+            $this->currentKey         = $this->currentRecord[ $this->pkField ];
             $this->fetchedRecordCount = 1;
         }
     }

@@ -23,13 +23,13 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     {
         $platform     = new MySQL();
         $this->driver = $this->getMockBuilder('Modules\\DBAL\\Driver')
-            ->disableOriginalConstructor()
-            ->setMethods(['getPlatform', 'query'])
-            ->getMockForAbstractClass();
+                             ->disableOriginalConstructor()
+                             ->setMethods(['getPlatform', 'query'])
+                             ->getMockForAbstractClass();
 
         $this->driver->expects($this->any())
-            ->method('getPlatform')
-            ->will($this->returnValue($platform));
+                     ->method('getPlatform')
+                     ->will($this->returnValue($platform));
 
         $driver = new AnnotationMetadataDriver(new AnnotationReader());
 
@@ -47,21 +47,21 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     private function createMockStatement(array $return)
     {
         $mockStatement = $this->getMockBuilder('Modules\\DBAL\\Driver\\Statement')
-            ->disableOriginalConstructor()
-            ->setMethods(['fetchAll', 'fetch', 'rowCount'])
-            ->getMockForAbstractClass();
+                              ->disableOriginalConstructor()
+                              ->setMethods(['fetchAll', 'fetch', 'rowCount'])
+                              ->getMockForAbstractClass();
 
         $mockStatement->expects($this->any())
-            ->method('rowCount')
-            ->will($this->returnValue(count($return)));
+                      ->method('rowCount')
+                      ->will($this->returnValue(count($return)));
 
         $mockStatement->expects($this->any())
-            ->method('fetchAll')
-            ->will($this->returnValue($return));
+                      ->method('fetchAll')
+                      ->will($this->returnValue($return));
 
         $mockStatement->expects($this->any())
-            ->method('fetch')
-            ->will(call_user_func_array([$this, 'onConsecutiveCalls'], $return));
+                      ->method('fetch')
+                      ->will(call_user_func_array([$this, 'onConsecutiveCalls'], $return));
 
         return $mockStatement;
     }
@@ -117,8 +117,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'key' => 'value',
-                'field2' => 'value2',
+                'key'             => 'value',
+                'field2'          => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
         );
@@ -128,8 +128,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals(
             [
-                'key' => 'value',
-                'field2' => 'value2 via setter and getter',
+                'key'             => 'value',
+                'field2'          => 'value2 via setter and getter',
                 'fieldWithSetter' => 'foobar via setter and getter'
             ],
             $entity->toArray($object)
@@ -159,7 +159,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'field2' => 'value2',
+                'field2'          => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
         );
@@ -179,8 +179,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'key' => null,
-                'field2' => 'value2',
+                'key'             => null,
+                'field2'          => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
         );
@@ -215,8 +215,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'key' => 'value',
-                'field2' => 'value2',
+                'key'             => 'value',
+                'field2'          => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
         );
@@ -254,8 +254,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $entity = $this->entityManager->get('TestEntity');
         $object = $entity->create(
             [
-                'key' => 'value',
-                'field2' => 'value2',
+                'key'             => 'value',
+                'field2'          => 'value2',
                 'fieldWithSetter' => 'foobar'
             ]
         );
@@ -273,7 +273,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $object = $entity->create();
 
         $this->driver->expects($this->never())
-            ->method('query');
+                     ->method('query');
 
         $entity->delete($object);
     }
@@ -365,13 +365,13 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [5, 6],
                     [
                         [
-                            'pk' => 5,
-                            'fk' => 1,
+                            'pk'                        => 5,
+                            'fk'                        => 1,
                             'hasOneRelation_primaryKey' => 1
                         ],
                         [
-                            'pk' => 6,
-                            'fk' => 2,
+                            'pk'                        => 6,
+                            'fk'                        => 2,
                             'hasOneRelation_primaryKey' => 2
                         ]
                     ]
@@ -418,10 +418,10 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [5],
             [
                 [
-                    'pk' => 5,
-                    'fk' => 1,
-                    'relation_pk' => 1,
-                    'relation_fk' => 3,
+                    'pk'                                 => 5,
+                    'fk'                                 => 1,
+                    'relation_pk'                        => 1,
+                    'relation_fk'                        => 3,
                     'relation_hasOneRelation_primaryKey' => 3
                 ]
             ]
@@ -492,23 +492,23 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [],
             [
                 [
-                    'pk' => 1,
-                    'fk' => 1,
+                    'pk'                  => 1,
+                    'fk'                  => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk' => 1,
-                    'fk' => 1,
+                    'pk'                  => 1,
+                    'fk'                  => 1,
                     'relation_primaryKey' => 2
                 ],
                 [
-                    'pk' => 2,
-                    'fk' => 1,
+                    'pk'                  => 2,
+                    'fk'                  => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk' => 2,
-                    'fk' => 1,
+                    'pk'                  => 2,
+                    'fk'                  => 1,
                     'relation_primaryKey' => 2
                 ]
             ]
@@ -534,8 +534,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [1],
             [
                 [
-                    'pk' => 6,
-                    'fk' => 8,
+                    'pk'                  => 6,
+                    'fk'                  => 8,
                     'relation_primaryKey' => null
                 ]
             ]
@@ -583,13 +583,13 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [2],
                     [
                         [
-                            'pk' => 2,
-                            'fk' => 1,
+                            'pk'                  => 2,
+                            'fk'                  => 1,
                             'relation_primaryKey' => 1
                         ],
                         [
-                            'pk' => 2,
-                            'fk' => 1,
+                            'pk'                  => 2,
+                            'fk'                  => 1,
                             'relation_primaryKey' => 2
                         ]
                     ],
@@ -644,8 +644,8 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [2],
                     [
                         [
-                            'pk' => 1,
-                            'fk' => null,
+                            'pk'                        => 1,
+                            'fk'                        => null,
                             'hasOneRelation_primaryKey' => null
                         ]
                     ]
@@ -690,13 +690,13 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [2],
                     [
                         [
-                            'pk' => 1,
-                            'fk' => 1,
+                            'pk'                  => 1,
+                            'fk'                  => 1,
                             'relation_primaryKey' => 1
                         ],
                         [
-                            'pk' => 1,
-                            'fk' => 1,
+                            'pk'                  => 1,
+                            'fk'                  => 1,
                             'relation_primaryKey' => 2
                         ]
                     ]
@@ -747,17 +747,17 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [2],
                     [
                         [
-                            'pk' => 1,
+                            'pk'                  => 1,
                             'relation_primaryKey' => 1,
                             'relation_foreignKey' => 1
                         ],
                         [
-                            'pk' => 1,
+                            'pk'                  => 1,
                             'relation_primaryKey' => 2,
                             'relation_foreignKey' => 1
                         ],
                         [
-                            'pk' => 1,
+                            'pk'                  => 1,
                             'relation_primaryKey' => 3,
                             'relation_foreignKey' => 1
                         ]
@@ -791,17 +791,17 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [2],
                     [
                         [
-                            'pk' => 1,
+                            'pk'                  => 1,
                             'relation_primaryKey' => 1,
                             'relation_foreignKey' => 1
                         ],
                         [
-                            'pk' => 1,
+                            'pk'                  => 1,
                             'relation_primaryKey' => 2,
                             'relation_foreignKey' => 1
                         ],
                         [
-                            'pk' => 1,
+                            'pk'                  => 1,
                             'relation_primaryKey' => 3,
                             'relation_foreignKey' => 1
                         ]
@@ -839,53 +839,53 @@ class EntityTest extends \PHPUnit_Framework_TestCase
             [],
             [
                 [
-                    'pk' => 1,
-                    'fk' => 1,
+                    'pk'                  => 1,
+                    'fk'                  => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk' => 1,
-                    'fk' => 2,
+                    'pk'                  => 1,
+                    'fk'                  => 2,
                     'relation_primaryKey' => 2
                 ],
                 [
-                    'pk' => 2,
-                    'fk' => 1,
+                    'pk'                  => 2,
+                    'fk'                  => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk' => 2,
-                    'fk' => 2,
+                    'pk'                  => 2,
+                    'fk'                  => 2,
                     'relation_primaryKey' => 2
                 ],
                 [
-                    'pk' => 2,
-                    'fk' => 3,
+                    'pk'                  => 2,
+                    'fk'                  => 3,
                     'relation_primaryKey' => 3
                 ],
                 [
-                    'pk' => 3,
-                    'fk' => 1,
+                    'pk'                  => 3,
+                    'fk'                  => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk' => 4,
-                    'fk' => 1,
+                    'pk'                  => 4,
+                    'fk'                  => 1,
                     'relation_primaryKey' => 1
                 ],
                 [
-                    'pk' => 4,
-                    'fk' => 2,
+                    'pk'                  => 4,
+                    'fk'                  => 2,
                     'relation_primaryKey' => 2
                 ],
                 [
-                    'pk' => 4,
-                    'fk' => 3,
+                    'pk'                  => 4,
+                    'fk'                  => 3,
                     'relation_primaryKey' => 3
                 ],
                 [
-                    'pk' => 5,
-                    'fk' => 1,
+                    'pk'                  => 5,
+                    'fk'                  => 1,
                     'relation_primaryKey' => 1
                 ],
             ]
@@ -893,10 +893,10 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
         $entity  = $this->entityManager->get('ManyManyRelationEntity');
         $objects = $entity->find()
-            ->with('relation')
-            ->setFirstResult(2)
-            ->setMaxResults(3)
-            ->get();
+                          ->with('relation')
+                          ->setFirstResult(2)
+                          ->setMaxResults(3)
+                          ->get();
 
         $this->assertCount(3, $objects);
 
@@ -970,15 +970,15 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                     [3],
                     [
                         [
-                            'pk' => 3,
-                            'fk' => 2,
-                            'fk2' => 5,
-                            'relation_pk' => 2,
-                            'relation_fk' => 4,
-                            'deepRelation_pk' => 5,
-                            'deepRelation_fk' => 6,
-                            'deepRelation_relation_pk' => 6,
-                            'deepRelation_relation_fk' => 4,
+                            'pk'                                              => 3,
+                            'fk'                                              => 2,
+                            'fk2'                                             => 5,
+                            'relation_pk'                                     => 2,
+                            'relation_fk'                                     => 4,
+                            'deepRelation_pk'                                 => 5,
+                            'deepRelation_fk'                                 => 6,
+                            'deepRelation_relation_pk'                        => 6,
+                            'deepRelation_relation_fk'                        => 4,
                             'deepRelation_relation_hasOneRelation_primaryKey' => 4,
                             'deepRelation_relation_hasOneRelation_foreignKey' => 8
                         ]

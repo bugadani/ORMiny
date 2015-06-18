@@ -78,9 +78,9 @@ class EntityFinder
             $currentName = '';
             foreach (explode('.', $relationName) as $namePart) {
                 $currentName .= $namePart;
-                if (!isset($namePresent[$currentName])) {
-                    $namePresent[$currentName] = true;
-                    $this->with[]              = $currentName;
+                if (!isset($namePresent[ $currentName ])) {
+                    $namePresent[ $currentName ] = true;
+                    $this->with[]                = $currentName;
                 }
                 $currentName .= '.';
             }
@@ -136,7 +136,7 @@ class EntityFinder
 
     public function addOrderBy($field, $order = 'ASC')
     {
-        $this->orderByFields[$field] = [$field, $order];
+        $this->orderByFields[ $field ] = [$field, $order];
 
         return $this;
     }
@@ -166,7 +166,7 @@ class EntityFinder
         if ($argCount > 0) {
             $arg = func_get_arg(0);
             if (!is_array($arg)) {
-                if($argCount === 1) {
+                if ($argCount === 1) {
                     return $this->getByPrimaryKey($arg);
                 } else {
                     return $this->getByPrimaryKey(func_get_args());
@@ -178,6 +178,7 @@ class EntityFinder
         }
 
         $table = $this->metadata->getTable();
+
         return $this->process(
             $this->applyFilters(
                 $this->queryBuilder
@@ -219,13 +220,14 @@ class EntityFinder
             ->from($table, $this->alias);
 
         $this->applyFilters($query);
-        if($query->getWhere() === '') {
+        if ($query->getWhere() === '') {
             $query->where($this->createInExpression($fieldName, $keys));
         } else {
             $query->andWhere($this->createInExpression($fieldName, $keys));
         }
 
         $this->manager->commit();
+
         return $this->process(
             $query->query($this->parameters)
         );
@@ -259,7 +261,7 @@ class EntityFinder
             ->from($table, $this->alias);
 
         $this->applyFilters($query);
-        if($query->getWhere() === '') {
+        if ($query->getWhere() === '') {
             $query->where($this->queryBuilder
                 ->expression()
                 ->eq($fieldName, $this->parameter($key)));
@@ -448,7 +450,7 @@ class EntityFinder
         } else {
             $this->deleteRecords(
                 $this->with(array_keys($relations))
-                    ->get(array_merge($this->parameters, $parameters))
+                     ->get(array_merge($this->parameters, $parameters))
             );
         }
     }
@@ -467,9 +469,9 @@ class EntityFinder
         $relations = $this->metadata->getRelations();
 
         //We don't want to delete records which this one only belongs to
-        foreach($relations as $relName => $relation) {
-            if($relation->type === Relation::BELONGS_TO) {
-                unset($relations[$relName]);
+        foreach ($relations as $relName => $relation) {
+            if ($relation->type === Relation::BELONGS_TO) {
+                unset($relations[ $relName ]);
             }
         }
         if (empty($relations)) {
@@ -482,7 +484,7 @@ class EntityFinder
         } else {
             $this->deleteRecords(
                 $this->with(array_keys($relations))
-                    ->getByField($fieldName, $keys)
+                     ->getByField($fieldName, $keys)
             );
         }
     }
@@ -601,11 +603,13 @@ class EntityFinder
         }
 
         $table = $this->getTableAlias($table);
+
         return array_map(
             function ($field) use ($table) {
                 if (strpos($field, '.') !== false) {
                     return $field;
                 }
+
                 return $table . '.' . $field;
             },
             $fields

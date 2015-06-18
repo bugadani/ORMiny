@@ -21,12 +21,12 @@ class EntityState
     /**
      * @var bool Whether the object is read-only
      */
-    private $readOnly     = false;
+    private $readOnly = false;
 
     /**
      * @var array The loaded relations
      */
-    private $relations    = [];
+    private $relations = [];
 
     /**
      * @var EntityMetadata metadata for the handled object
@@ -42,7 +42,7 @@ class EntityState
     {
         $this->objectState = $state;
         foreach (array_keys($metadata->getRelations()) as $relationName) {
-            $this->relations[$relationName] = false;
+            $this->relations[ $relationName ] = false;
         }
         $this->metadata = $metadata;
         $this->object   = $object;
@@ -75,18 +75,19 @@ class EntityState
 
     public function isRelationLoaded($relationName)
     {
-        if (!isset($this->relations[$relationName])) {
+        if (!isset($this->relations[ $relationName ])) {
             throw new \OutOfBoundsException("Unknown relation: {$relationName}");
         }
-        return $this->relations[$relationName];
+
+        return $this->relations[ $relationName ];
     }
 
     public function setRelationLoaded($relationName, $isLoaded = true)
     {
-        if (!isset($this->relations[$relationName])) {
+        if (!isset($this->relations[ $relationName ])) {
             throw new \OutOfBoundsException("Unknown relation: {$relationName}");
         }
-        $this->relations[$relationName] = $isLoaded;
+        $this->relations[ $relationName ] = $isLoaded;
     }
 
     public function refreshOriginalData()
@@ -125,8 +126,8 @@ class EntityState
 
     public function getOriginalFieldData($field)
     {
-        if (isset($this->originalData[$field])) {
-            return $this->originalData[$field];
+        if (isset($this->originalData[ $field ])) {
+            return $this->originalData[ $field ];
         }
 
         return null;

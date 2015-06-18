@@ -50,10 +50,11 @@ class Entity
     public function getState($object)
     {
         $objectId = spl_object_hash($object);
-        if (!isset($this->entityStates[$objectId])) {
+        if (!isset($this->entityStates[ $objectId ])) {
             throw new \OutOfBoundsException("Entity state is not found");
         }
-        return $this->entityStates[$objectId];
+
+        return $this->entityStates[ $objectId ];
     }
 
     /**
@@ -126,9 +127,9 @@ class Entity
             case Relation::MANY_MANY:
                 $targetKey = $relation->targetKey;
 
-                $this->objectRelations[$objectId][$relationName] = [];
+                $this->objectRelations[ $objectId ][ $relationName ] = [];
                 foreach ($value as $relatedObject) {
-                    $this->objectRelations[$objectId][$relationName][] = $relatedEntity->metadata->getFieldValue(
+                    $this->objectRelations[ $objectId ][ $relationName ][] = $relatedEntity->metadata->getFieldValue(
                         $relatedObject,
                         $targetKey
                     );
@@ -136,7 +137,7 @@ class Entity
                 break;
 
             case Relation::HAS_MANY:
-                $this->objectRelations[$objectId][$relationName] = array_map(
+                $this->objectRelations[ $objectId ][ $relationName ] = array_map(
                     [$relatedEntity, 'getPrimaryKeyValue'],
                     (array)$value
                 );
@@ -146,13 +147,14 @@ class Entity
                 if (is_array($value)) {
                     $value = current($value);
                 }
-                $this->objectRelations[$objectId][$relationName] = $relatedEntity->getPrimaryKeyValue(
+                $this->objectRelations[ $objectId ][ $relationName ] = $relatedEntity->getPrimaryKeyValue(
                     $value
                 );
                 break;
         }
 
         $this->getState($object)->setRelationLoaded($relationName);
+
         return $this->metadata->setRelationValue($object, $relationName, $value);
     }
 
@@ -195,9 +197,9 @@ class Entity
         } else {
             $state = EntityState::STATE_NEW;
         }
-        $this->entityStates[$objectId] = new EntityState($object, $this->metadata, $state);
+        $this->entityStates[ $objectId ] = new EntityState($object, $this->metadata, $state);
         //TODO relations may be present in the form of both nested arrays or objects
-        $this->objectRelations[$objectId] = $this->createEmptyRelationsArray($objectId);
+        $this->objectRelations[ $objectId ] = $this->createEmptyRelationsArray($objectId);
 
         return $object;
     }
@@ -213,6 +215,7 @@ class Entity
         if ($alias !== null) {
             $finder->alias($alias);
         }
+
         return $finder;
     }
 
@@ -234,6 +237,7 @@ class Entity
         if (func_num_args() > 1) {
             $primaryKey = func_get_args();
         }
+
         return $this->find()->getByPrimaryKey($primaryKey);
     }
 
@@ -288,7 +292,7 @@ class Entity
                         )
                     )
             );
-            unset($this->entityStates[spl_object_hash($object)]);
+            unset($this->entityStates[ spl_object_hash($object) ]);
         }
     }
 
@@ -304,10 +308,10 @@ class Entity
         $objectId = spl_object_hash($object);
 
         //TODO this could be merged with handle()
-        if (!isset($this->entityStates[$objectId]) || $this->entityStates[$objectId]->getObject() !== $object) {
-            $state                            = new EntityState($object, $this->metadata);
-            $this->entityStates[$objectId]    = $state;
-            $this->objectRelations[$objectId] = $this->createEmptyRelationsArray();
+        if (!isset($this->entityStates[ $objectId ]) || $this->entityStates[ $objectId ]->getObject() !== $object) {
+            $state                              = new EntityState($object, $this->metadata);
+            $this->entityStates[ $objectId ]    = $state;
+            $this->objectRelations[ $objectId ] = $this->createEmptyRelationsArray();
         } else {
             $state = $this->getState($object);
             if ($state->isReadOnly()) {
@@ -351,14 +355,14 @@ class Entity
                 $relatedObjects
             );
 
-            $originalForeignKeys = $this->objectRelations[$objectId][$relationName];
+            $originalForeignKeys = $this->objectRelations[ $objectId ][ $relationName ];
 
-            $modifiedManyManyRelations[$relationName] = [
-                'deleted' => array_diff($originalForeignKeys, $currentForeignKeys),
+            $modifiedManyManyRelations[ $relationName ] = [
+                'deleted'  => array_diff($originalForeignKeys, $currentForeignKeys),
                 'inserted' => array_diff($currentForeignKeys, $originalForeignKeys)
             ];
 
-            $this->objectRelations[$objectId][$relationName] = $currentForeignKeys;
+            $this->objectRelations[ $objectId ][ $relationName ] = $currentForeignKeys;
         }
 
         //TODO: has many type relations can only be saved when the object's primary key is known
@@ -379,13 +383,13 @@ class Entity
             }
 
             $deleted = array_diff(
-                $this->objectRelations[$objectId][$relationName],
+                $this->objectRelations[ $objectId ][ $relationName ],
                 $currentForeignKeys
             );
             if (!empty($deleted)) {
                 $relatedEntity->find()->deleteByPrimaryKey($deleted);
             }
-            $this->objectRelations[$objectId][$relationName] = $currentForeignKeys;
+            $this->objectRelations[ $objectId ][ $relationName ] = $currentForeignKeys;
         }
 
         foreach ($hasOneRelations as $relationName => $relation) {
@@ -424,7 +428,7 @@ class Entity
                 $this->metadata->setFieldValue(
                     $object, $relation->foreignKey, $currentForeignKey
                 );
-                $this->objectRelations[$objectId][$relationName] = $currentForeignKey;
+                $this->objectRelations[ $objectId ][ $relationName ] = $currentForeignKey;
 
                 if ($currentForeignKey !== null) {
                     $relatedEntity->save(
@@ -450,8 +454,8 @@ class Entity
                     $data = $this->toArray($object);
 
                     //But only update the primary key if it really has changed
-                    if ($data[$pkField] === $state->getOriginalFieldData($pkField)) {
-                        unset($data[$pkField]);
+                    if ($data[ $pkField ] === $state->getOriginalFieldData($pkField)) {
+                        unset($data[ $pkField ]);
                     }
 
                     $primaryKey = $this->update($object, $data);
@@ -581,7 +585,7 @@ class Entity
                     ->insert($relation->joinTable)
                     ->values(
                         [
-                            $leftKey => $queryBuilder->createPositionalParameter($primaryKey),
+                            $leftKey  => $queryBuilder->createPositionalParameter($primaryKey),
                             $rightKey => '?'
                         ]
                     );

@@ -28,13 +28,13 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
     {
         $platform     = new MySQL();
         $this->driver = $this->getMockBuilder('Modules\\DBAL\\Driver')
-            ->disableOriginalConstructor()
-            ->setMethods(['getPlatform', 'query'])
-            ->getMockForAbstractClass();
+                             ->disableOriginalConstructor()
+                             ->setMethods(['getPlatform', 'query'])
+                             ->getMockForAbstractClass();
 
         $this->driver->expects($this->any())
-            ->method('getPlatform')
-            ->will($this->returnValue($platform));
+                     ->method('getPlatform')
+                     ->will($this->returnValue($platform));
 
         $driver = new AnnotationMetadataDriver(new AnnotationReader());
 
@@ -51,17 +51,17 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
     private function createMockStatement($return)
     {
         $mockStatement = $this->getMockBuilder('Modules\\DBAL\\Driver\\Statement')
-            ->disableOriginalConstructor()
-            ->setMethods(['fetchAll', 'fetch'])
-            ->getMockForAbstractClass();
+                              ->disableOriginalConstructor()
+                              ->setMethods(['fetchAll', 'fetch'])
+                              ->getMockForAbstractClass();
 
         $mockStatement->expects($this->any())
-            ->method('fetchAll')
-            ->will($this->returnValue($return));
+                      ->method('fetchAll')
+                      ->will($this->returnValue($return));
 
         $mockStatement->expects($this->any())
-            ->method('fetch')
-            ->will(call_user_func_array([$this, 'onConsecutiveCalls'], $return));
+                      ->method('fetch')
+                      ->will(call_user_func_array([$this, 'onConsecutiveCalls'], $return));
 
         return $mockStatement;
     }

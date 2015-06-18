@@ -29,7 +29,7 @@ class ResultProcessor
     )
     {
         $metadata = $entity->getMetadata();
-        $pkField = $metadata->getPrimaryKey();
+        $pkField  = $metadata->getPrimaryKey();
 
         $objects          = [];
         $currentKey       = null;
@@ -38,7 +38,7 @@ class ResultProcessor
 
         foreach ($records as $record) {
             //Extract columns that are relevant for the current metadata
-            $key = $record[$pkField];
+            $key = $record[ $pkField ];
             if ($currentKey !== $key) {
                 if ($object !== null) {
                     $this->processRelated(
@@ -48,8 +48,8 @@ class ResultProcessor
                         $recordsToProcess,
                         $with
                     );
-                    $recordsToProcess     = [];
-                    $objects[$currentKey] = $object;
+                    $recordsToProcess       = [];
+                    $objects[ $currentKey ] = $object;
                 }
                 $currentKey = $key;
                 $object     = $this->createObject($entity, $record, $with);
@@ -62,7 +62,7 @@ class ResultProcessor
         }
         if ($object !== null) {
             $this->processRelated($entity, $object, $readOnly, $recordsToProcess, $with);
-            $objects[$key] = $object;
+            $objects[ $key ] = $object;
         }
 
         return $objects;
@@ -79,8 +79,10 @@ class ResultProcessor
             )
         );
         foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
-            $metadata->setRelationValue($object, $relationName, $metadata->getRelation($relationName)->isSingle() ? null : []);
+            $metadata->setRelationValue($object, $relationName, $metadata->getRelation($relationName)
+                                                                         ->isSingle() ? null : []);
         }
+
         return $object;
     }
 
@@ -119,13 +121,14 @@ class ResultProcessor
     {
         //Strip the relation prefix from the columns
         $prefixLength = strlen($prefix);
+
         return array_map(
             function ($rawRecord) use ($prefix, $prefixLength) {
                 $record = [];
                 foreach ($rawRecord as $key => $value) {
                     if (strpos($key, $prefix) === 0) {
-                        $key          = substr($key, $prefixLength);
-                        $record[$key] = $value;
+                        $key            = substr($key, $prefixLength);
+                        $record[ $key ] = $value;
                     }
                 }
 

@@ -23,13 +23,13 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase
     {
         $platform     = new MySQL();
         $this->driver = $this->getMockBuilder('Modules\\DBAL\\Driver')
-            ->disableOriginalConstructor()
-            ->setMethods(['getPlatform', 'query'])
-            ->getMockForAbstractClass();
+                             ->disableOriginalConstructor()
+                             ->setMethods(['getPlatform', 'query'])
+                             ->getMockForAbstractClass();
 
         $this->driver->expects($this->any())
-            ->method('getPlatform')
-            ->will($this->returnValue($platform));
+                     ->method('getPlatform')
+                     ->will($this->returnValue($platform));
 
         $driver = new AnnotationMetadataDriver(new AnnotationReader());
 
