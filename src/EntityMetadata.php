@@ -24,8 +24,9 @@ class EntityMetadata
     /**
      * @var Relation[]
      */
-    private $relations       = [];
-    private $relationTargets = [];
+    private $relations             = [];
+    private $relationTargets       = [];
+    private $relationsByForeignKey = [];
 
     public function __construct($className)
     {
@@ -126,8 +127,9 @@ class EntityMetadata
     {
         $relationName = $relation->name;
 
-        $this->relations[ $relationName ]       = $relation;
-        $this->relationTargets[ $relationName ] = $property;
+        $this->relations[ $relationName ]                     = $relation;
+        $this->relationTargets[ $relationName ]               = $property;
+        $this->relationsByForeignKey[ $relation->foreignKey ] = $relation;
 
         $this->registerSetterAndGetter($property, $setter, $getter);
     }
@@ -139,6 +141,15 @@ class EntityMetadata
         }
 
         return $this->relations[ $name ];
+    }
+
+    public function getRelationByForeignKey($foreignKey)
+    {
+        if (!isset($this->relationsByForeignKey[ $foreignKey ])) {
+            throw new \OutOfBoundsException("Undefined foreign key: {$foreignKey}");
+        }
+
+        return $this->relationsByForeignKey[ $foreignKey ];
     }
 
     public function hasRelation($relationName)

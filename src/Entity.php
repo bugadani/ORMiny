@@ -47,11 +47,11 @@ class Entity
      * @param $object
      * @return EntityState
      */
-    public function getState($object)
+    private function getState($object)
     {
         $objectId = spl_object_hash($object);
         if (!isset($this->entityStates[ $objectId ])) {
-            throw new \OutOfBoundsException("Entity state is not found");
+            $this->handle($object);
         }
 
         return $this->entityStates[ $objectId ];
@@ -164,19 +164,6 @@ class Entity
         return $this->metadata->toArray($object);
     }
 
-    /**
-     * @return array
-     */
-    private function createEmptyRelationsArray()
-    {
-        return array_map(
-            function (Relation $relation) {
-                return $relation->isSingle() ? null : [];
-            },
-            $this->metadata->getRelations()
-        );
-    }
-
     public function create(array $data = [])
     {
         $object = $this->metadata->create($data);
@@ -199,7 +186,12 @@ class Entity
         }
         $this->entityStates[ $objectId ] = new EntityState($object, $this->metadata, $state);
         //TODO relations may be present in the form of both nested arrays or objects
-        $this->objectRelations[ $objectId ] = $this->createEmptyRelationsArray($objectId);
+        $this->objectRelations[ $objectId ] = array_map(
+            function (Relation $relation) {
+                return $relation->isSingle() ? null : [];
+            },
+            $this->metadata->getRelations()
+        );
 
         return $object;
     }
@@ -305,20 +297,13 @@ class Entity
     public function save($object)
     {
         $this->metadata->assertObjectInstance($object);
-        $objectId = spl_object_hash($object);
 
-        //TODO this could be merged with handle()
-        if (!isset($this->entityStates[ $objectId ]) || $this->entityStates[ $objectId ]->getObject() !== $object) {
-            $state                              = new EntityState($object, $this->metadata);
-            $this->entityStates[ $objectId ]    = $state;
-            $this->objectRelations[ $objectId ] = $this->createEmptyRelationsArray();
-        } else {
-            $state = $this->getState($object);
-        }
+        $state = $this->getState($object);
         if ($state->isReadOnly()) {
             return;
         }
 
+        $objectId = spl_object_hash($object);
         $relationsIterator = new \ArrayIterator($this->metadata->getRelations());
 
         $modifiedManyManyRelations = $this->handleManyManyRelations($object, $relationsIterator, $objectId);
@@ -530,6 +515,7 @@ class Entity
 
             $currentForeignKeys = array_map(
                 function ($object) use ($relatedEntity) {
+                    //TODO should be disallowed? set the foreign key property instead?
                     if (!is_object($object)) {
                         //the foreign key is set directly
                         return $object;
@@ -543,6 +529,8 @@ class Entity
 
             $originalForeignKeys = $this->objectRelations[ $objectId ][ $relationName ];
 
+            //TODO it is possible that a relation is not loaded but the data contains its keys and/or related objects
+            //in this case the records may already be in the database - should not insert them blindly
             $modifiedManyManyRelations[ $relationName ] = [
                 'deleted'  => array_diff($originalForeignKeys, $currentForeignKeys),
                 'inserted' => array_diff($currentForeignKeys, $originalForeignKeys)
@@ -590,6 +578,9 @@ class Entity
                 $currentForeignKeys
             );
             if (!empty($deleted)) {
+                //TODO there may be cases when it is sensible for a record to not belong to something else
+                //in this case only the foreign key should be deleted
+                //This may be deduced from whether the related record has a 'has one' or a 'belongs to' type relation
                 $relatedEntity->find()->deleteByPrimaryKey($deleted);
             }
             $this->objectRelations[ $objectId ][ $relationName ] = $currentForeignKeys;
