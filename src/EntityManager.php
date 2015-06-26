@@ -41,9 +41,13 @@ class EntityManager
     private $defaultNamespace = '';
 
     /**
-     * @var AnnotationMetadataDriver
+     * @var MetadataDriverInterface
      */
     private $metadataDriver;
+
+    /**
+     * @var array Pending queries whit the structure of [query, parameters]
+     */
     private $pendingQueries = [];
 
     public function __construct(Driver $driver, MetadataDriverInterface $metadataDriver)
@@ -93,6 +97,7 @@ class EntityManager
             if (!class_exists($className)) {
                 $className = $this->defaultNamespace . $entityName;
                 if (!class_exists($className)) {
+                    //Cache that the class does not exist
                     $className = false;
                 }
             }

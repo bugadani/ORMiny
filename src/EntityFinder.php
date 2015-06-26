@@ -65,30 +65,49 @@ class EntityFinder
         return $this;
     }
 
+    /**
+     * Specifies which relations should be queried. Nested relations may be given,
+     * by separating relation names with a dot (.).
+     *
+     * Multiple relations may be passed as an array of strings or as multiple string arguments.
+     *
+     * @param $relationName
+     * @param ...
+     * @return $this
+     */
     public function with($relationName)
     {
         $with = is_array($relationName) ? $relationName : func_get_args();
 
-        $this->with  = [];
-        $namePresent = [];
+        $relationNames = [];
+        //Parse the passed relation names
         foreach ($with as $relationName) {
             if ($this->alias === $relationName) {
                 throw new \InvalidArgumentException("Cannot use relation name '{$relationName}' because it is used as the table alias");
             }
             $currentName = '';
-            foreach (explode('.', $relationName) as $namePart) {
-                $currentName .= $namePart;
-                if (!isset($namePresent[ $currentName ])) {
-                    $namePresent[ $currentName ] = true;
-                    $this->with[]                = $currentName;
-                }
+
+            $tok = strtok($relationName, '.');
+            while ($tok !== false) {
+                $currentName .= $tok;
+
+                $relationNames[ $currentName ] = true;
+
                 $currentName .= '.';
+                $tok = strtok('.');
             }
         }
+        $this->with = array_keys($relationNames);
 
         return $this;
     }
 
+    /**
+     * Sets the number of results
+     *
+     * @param $limit
+     * @return $this
+     */
     public function setMaxResults($limit)
     {
         $this->limit = (int)$limit;
@@ -96,6 +115,12 @@ class EntityFinder
         return $this;
     }
 
+    /**
+     * Sets the offset for the first result
+     *
+     * @param $offset
+     * @return $this
+     */
     public function setFirstResult($offset)
     {
         $this->offset = (int)$offset;
@@ -160,21 +185,22 @@ class EntityFinder
         return $this;
     }
 
-    public function get()
+    /**
+     * @param array $parameters There are two main cases here:
+     *  - Nothing, or an array is passed as argument
+     *    In this case the parameters are treated as query parameters
+     *  - The method is called with one or more scalar arguments
+     *    The argument(s) are treated as primary key(s)
+     * @return array|mixed
+     */
+    public function get($parameters = [])
     {
-        $argCount = func_num_args();
-        if ($argCount > 0) {
-            $arg = func_get_arg(0);
-            if (!is_array($arg)) {
-                if ($argCount === 1) {
-                    return $this->getByPrimaryKey($arg);
-                } else {
-                    return $this->getByPrimaryKey(func_get_args());
-                }
+        if (!is_array($parameters)) {
+            if (func_num_args() !== 1) {
+                $parameters = func_get_args();
             }
-            $parameters = $arg;
-        } else {
-            $parameters = [];
+
+            return $this->getByPrimaryKey($parameters);
         }
 
         $table = $this->metadata->getTable();
@@ -214,17 +240,7 @@ class EntityFinder
                 $fieldName = $this->getTableAlias($table) . '.' . $fieldName;
             }
         }
-
-        $query = $this->queryBuilder
-            ->select($this->getFields($table))
-            ->from($table, $this->alias);
-
-        $this->applyFilters($query);
-        if ($query->getWhere() === '') {
-            $query->where($this->createInExpression($fieldName, $keys));
-        } else {
-            $query->andWhere($this->createInExpression($fieldName, $keys));
-        }
+        $query = $this->getSelectQuery($table, $this->getFields($table), $fieldName, $keys);
 
         $this->manager->commit();
 
@@ -254,30 +270,43 @@ class EntityFinder
             $fieldName = $this->getTableAlias($table) . '.' . $fieldName;
         }
 
+        $query = $this->getSelectQuery($table, $fieldName, $fieldName, [$key]);
+
         $this->manager->commit();
 
-        $query = $this->queryBuilder
-            ->select($fieldName)
-            ->from($table, $this->alias);
-
-        $this->applyFilters($query);
-        if ($query->getWhere() === '') {
-            $query->where($this->queryBuilder
-                ->expression()
-                ->eq($fieldName, $this->parameter($key)));
-        } else {
-            $query->andWhere($this->queryBuilder
-                ->expression()
-                ->eq($fieldName, $this->parameter($key)));
-        }
-
-        //$this->applyFilters($query);
         return $query->query($this->parameters)->rowCount() !== 0;
     }
 
     public function existsByPrimaryKey($key)
     {
         return $this->existsByField($this->metadata->getPrimaryKey(), $key);
+    }
+
+    /**
+     * @param string       $table The table name
+     * @param string|array $fields Fields to select
+     * @param string       $fieldName The key field
+     * @param mixed|array  $keys The key value(s)
+     * @return Select
+     */
+    private function getSelectQuery($table, $fields, $fieldName, $keys)
+    {
+        /** @var Select $query */
+        $query = $this->applyFilters(
+            $this->queryBuilder
+                ->select($fields)
+                ->from($table, $this->alias)
+        );
+
+        $expr = $this->createInExpression($fieldName, $keys);
+
+        if ($query->getWhere() === '') {
+            $query->where($expr);
+        } else {
+            $query->andWhere($expr);
+        }
+
+        return $query;
     }
 
     private function applyFilters(AbstractQueryBuilder $query)
@@ -299,15 +328,17 @@ class EntityFinder
         if (isset($this->orderByFields)) {
             $first = true;
             foreach ($this->orderByFields as $field) {
+                list($fieldName, $order) = $field;
                 if ($first) {
                     $first = false;
-                    $query->orderBy($field[0], $field[1]);
+                    $query->orderBy($fieldName, $order);
                 } else {
-                    $query->addOrderBy($field[0], $field[1]);
+                    $query->addOrderBy($fieldName, $order);
                 }
             }
         }
         if (empty($this->with)) {
+            //Limits for joined queries are handled in a different way
             if (isset($this->limit)) {
                 $query->setMaxResults($this->limit);
             }
