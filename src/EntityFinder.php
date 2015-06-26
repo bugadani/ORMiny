@@ -186,7 +186,7 @@ class EntityFinder
     }
 
     /**
-     * @param array $parameters There are two main cases here:
+     * @param array|mixed $parameters There are two main cases here:
      *  - Nothing, or an array is passed as argument
      *    In this case the parameters are treated as query parameters
      *  - The method is called with one or more scalar arguments
@@ -298,13 +298,9 @@ class EntityFinder
                 ->from($table, $this->alias)
         );
 
-        $expr = $this->createInExpression($fieldName, $keys);
-
-        if ($query->getWhere() === '') {
-            $query->where($expr);
-        } else {
-            $query->andWhere($expr);
-        }
+        $query->where(
+            $this->createInExpression($fieldName, $keys)
+        );
 
         return $query;
     }
@@ -319,22 +315,12 @@ class EntityFinder
             $this->joinRelationsToQuery($this->metadata, $query, $this->with);
         }
         if (isset($this->where)) {
-            if ($query->getWhere() === '') {
-                $query->where($this->where);
-            } else {
-                $query->andWhere($this->where);
-            }
+            $query->where($this->where);
         }
         if (isset($this->orderByFields)) {
-            $first = true;
             foreach ($this->orderByFields as $field) {
                 list($fieldName, $order) = $field;
-                if ($first) {
-                    $first = false;
-                    $query->orderBy($fieldName, $order);
-                } else {
-                    $query->addOrderBy($fieldName, $order);
-                }
+                $query->orderBy($fieldName, $order);
             }
         }
         if (empty($this->with)) {

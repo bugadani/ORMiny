@@ -11,7 +11,6 @@ namespace ORMiny;
 
 use Modules\DBAL\AbstractQueryBuilder;
 use Modules\DBAL\Driver;
-use ORMiny\Drivers\AnnotationMetadataDriver;
 
 class EntityManager
 {

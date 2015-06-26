@@ -115,6 +115,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     public function testCreateFromManager()
     {
         $entity = $this->entityManager->get('TestEntity');
+        /** @var TestEntity $object */
         $object = $entity->create(
             [
                 'key'             => 'value',
@@ -619,6 +620,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         );
 
         $entity = $this->entityManager->get('TestEntity');
+        /** @var TestEntity $object */
         $object = $entity->create(
             [
                 'fieldWithSetter' => 'foo'
