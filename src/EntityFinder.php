@@ -371,7 +371,7 @@ class EntityFinder
                     function ($item) use ($alias) {
                         return "{$alias}.{$item} as {$alias}_{$item}";
                     },
-                    array_values($relatedMetadata->getFields())
+                    array_values($relatedMetadata->getFieldNames())
                 )
             );
 
@@ -443,18 +443,18 @@ class EntityFinder
         return $query;
     }
 
-    public function delete()
+    public function delete($parameters = [])
     {
-        if (func_num_args() > 0) {
-            if (!is_array(func_get_arg(0))) {
-                $this->deleteByPrimaryKey(func_get_args());
-
-                return;
+        if (!is_array($parameters)) {
+            if (func_num_args() !== 1) {
+                $parameters = func_get_args();
             }
-            $parameters = func_get_arg(0);
-        } else {
-            $parameters = [];
+
+            $this->deleteByPrimaryKey($parameters);
+
+            return;
         }
+
         $relations = $this->metadata->getRelations();
 
         if (empty($relations)) {
@@ -483,14 +483,13 @@ class EntityFinder
         if (empty($keys)) {
             return;
         }
-        $relations = $this->metadata->getRelations();
-
-        //We don't want to delete records which this one only belongs to
-        foreach ($relations as $relName => $relation) {
-            if ($relation->type === Relation::BELONGS_TO) {
-                unset($relations[ $relName ]);
+        //Filter relations so we don't delete records which this one only belongs to
+        $relations = array_filter(
+            $this->metadata->getRelations(),
+            function (Relation $relation) {
+                return $relation->type !== Relation::BELONGS_TO;
             }
-        }
+        );
         if (empty($relations)) {
             $this->manager->postPendingQuery(
                 $this->queryBuilder
@@ -614,7 +613,7 @@ class EntityFinder
      */
     private function getFields($table)
     {
-        $fields = $this->metadata->getFields();
+        $fields = $this->metadata->getFieldNames();
         if (empty($this->with) && $this->alias === null) {
             return $fields;
         }

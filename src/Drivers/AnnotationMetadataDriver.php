@@ -39,7 +39,6 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
      * @param $className
      *
      * @throws EntityDefinitionException
-     * @internal param $class
      *
      * @return EntityMetadata
      */
@@ -89,17 +88,7 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
     {
         $fieldAnnotation = current($comment->getAnnotationType(self::FIELD_ANNOTATION));
 
-        $setter = $fieldAnnotation->setter;
-        if ($setter === true) {
-            $setter = 'set' . ucfirst($property);
-        }
-
-        $getter = $fieldAnnotation->getter;
-        if ($getter === true) {
-            $getter = 'get' . ucfirst($property);
-        }
-
-        return $metadata->addField($property, $fieldAnnotation->name, $setter, $getter);
+        return $metadata->addField($property, $fieldAnnotation);
     }
 
     /**
@@ -111,17 +100,7 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
     {
         $relation = current($comment->getAnnotationType(self::RELATION_ANNOTATION));
 
-        $setter = $relation->setter;
-        if ($setter === true) {
-            $setter = 'set' . ucfirst($property);
-        }
-
-        $getter = $relation->getter;
-        if ($getter === true) {
-            $getter = 'get' . ucfirst($property);
-        }
-
-        $metadata->addRelation($property, $relation, $setter, $getter);
+        $metadata->addRelation($property, $relation);
     }
 
     /**

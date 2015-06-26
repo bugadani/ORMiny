@@ -9,6 +9,7 @@
 
 namespace ORMiny;
 
+use ORMiny\Annotations\Field;
 use ORMiny\Annotations\Relation;
 
 class EntityMetadata
@@ -16,10 +17,13 @@ class EntityMetadata
     private $className;
     private $tableName;
     private $primaryKey;
-    private $fields     = [];
-    private $properties = [];
-    private $setters    = [];
-    private $getters    = [];
+    private $fieldNames = [];
+    /**
+     * @var Field[]
+     */
+    private $fields  = [];
+    private $setters = [];
+    private $getters = [];
 
     /**
      * @var Relation[]
@@ -50,10 +54,22 @@ class EntityMetadata
         $className = $this->getClassName();
         $object    = new $className;
         foreach ($data as $key => $value) {
-            $this->setFieldValue($object, $key, $value);
+            $this->fields[ $key ]->setValue($object, $value);
         }
 
         return $object;
+    }
+
+    public function toArray($object)
+    {
+        $this->assertObjectInstance($object);
+
+        return array_map(
+            function (Field $field) use ($object) {
+                return $field->getValue($object);
+            },
+            $this->getFields()
+        );
     }
 
     public function getClassName()
@@ -84,27 +100,29 @@ class EntityMetadata
         return $this->primaryKey;
     }
 
-    private function addPropertyField($property, $fieldName = null)
+    public function addField($property, Field $field = null)
     {
-        if (!property_exists($this->className, $property)) {
-            throw new \InvalidArgumentException("Class {$this->className} does not have a property called {$property}");
-        }
-        $this->properties[ $fieldName ] = $property;
-    }
-
-    public function addField($property, $fieldName = null, $setter = null, $getter = null)
-    {
-        if (!is_string($fieldName) || empty($fieldName)) {
-            $fieldName = $property;
-        }
-        $this->fields[ $fieldName ] = $fieldName;
-        if ($setter === null && $getter === null) {
-            $this->addPropertyField($property, $fieldName);
-        } else {
-            $this->registerSetterAndGetter($fieldName, $setter, $getter);
+        if ($field === null) {
+            $field = new Field($property);
+        } else if ($field->name === null) {
+            $field->name = $property;
         }
 
-        return $fieldName;
+        if ($field->setter === null) {
+            $field->setter = $property;
+        } else if ($field->setter === true) {
+            $field->setter = 'set' . ucfirst($property);
+        }
+
+        if ($field->getter === null) {
+            $field->getter = $property;
+        } else if ($field->getter === true) {
+            $field->getter = 'get' . ucfirst($property);
+        }
+        $this->fieldNames[ $field->name ] = $field->name;
+        $this->fields[ $field->name ]     = $field;
+
+        return $field->name;
     }
 
     private function registerSetterAndGetter($fieldName, $setter, $getter)
@@ -123,9 +141,19 @@ class EntityMetadata
         }
     }
 
-    public function addRelation($property, Relation $relation, $setter = null, $getter = null)
+    public function addRelation($property, Relation $relation)
     {
         $relationName = $relation->name;
+
+        $setter = $relation->setter;
+        if ($setter === true) {
+            $setter = 'set' . ucfirst($property);
+        }
+
+        $getter = $relation->getter;
+        if ($getter === true) {
+            $getter = 'get' . ucfirst($property);
+        }
 
         $this->relations[ $relationName ]                     = $relation;
         $this->relationTargets[ $relationName ]               = $property;
@@ -162,6 +190,14 @@ class EntityMetadata
         return $this->relations;
     }
 
+    public function getFieldNames()
+    {
+        return $this->fieldNames;
+    }
+
+    /**
+     * @return Annotations\Field[]
+     */
     public function getFields()
     {
         return $this->fields;
@@ -175,15 +211,8 @@ class EntityMetadata
     public function setFieldValue($object, $field, $value)
     {
         $this->assertObjectInstance($object);
-        if (isset($this->setters[ $field ])) {
-            $object->{$this->setters[ $field ]}($value);
-        } else if (isset($this->properties[ $field ])) {
-            $object->{$this->properties[ $field ]} = $value;
-        } else {
-            throw new \InvalidArgumentException(
-                "Class {$this->className} does not have a property called {$field}"
-            );
-        }
+
+        $this->fields[ $field ]->setValue($object, $value);
     }
 
     /**
@@ -195,13 +224,8 @@ class EntityMetadata
     public function getFieldValue($object, $field)
     {
         $this->assertObjectInstance($object);
-        if (isset($this->getters[ $field ])) {
-            return $object->{$this->getters[ $field ]}();
-        }
-        if (isset($this->properties[ $field ])) {
-            return $object->{$this->properties[ $field ]};
-        }
-        throw new \InvalidArgumentException("Class {$this->className} does not have a property called {$field}");
+
+        return $this->fields[ $field ]->getValue($object);
     }
 
     public function getRelationValue($object, $relationName)
@@ -231,17 +255,5 @@ class EntityMetadata
         }
 
         return $object->{$property} = $value;
-    }
-
-    public function toArray($object)
-    {
-        $this->assertObjectInstance($object);
-
-        return array_map(
-            function ($field) use ($object) {
-                return $this->getFieldValue($object, $field);
-            },
-            $this->getFields()
-        );
     }
 }

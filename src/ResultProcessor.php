@@ -71,7 +71,7 @@ class ResultProcessor
     private function createObject(Entity $entity, array $record, array $with)
     {
         $metadata = $entity->getMetadata();
-        $fields   = $metadata->getFields();
+        $fields   = $metadata->getFieldNames();
 
         $object = $entity->handle(
             $metadata->create(

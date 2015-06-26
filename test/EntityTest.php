@@ -5,6 +5,7 @@ namespace ORMiny;
 use Modules\Annotation\AnnotationReader;
 use Modules\DBAL\Driver;
 use Modules\DBAL\Platform\MySQL;
+use ORMiny\Annotations\Field;
 use ORMiny\Drivers\AnnotationMetadataDriver;
 
 class EntityTest extends \PHPUnit_Framework_TestCase
@@ -102,7 +103,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
     {
         $metadata = new EntityMetadata('ORMiny\\TestEntity');
         $metadata->setTable('test');
-        $metadata->addField('field', 'key');
+        $metadata->addField('field', new Field('key'));
         $metadata->setPrimaryKey('key');
 
         $entity = new Entity($this->entityManager, $metadata);
