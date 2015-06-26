@@ -93,10 +93,11 @@ class Entity
      * @param $object
      * @param $field
      * @param $value
+     * @return mixed
      */
     public function setFieldValue($object, $field, $value)
     {
-        $this->metadata->setFieldValue($object, $field, $value);
+        return $this->metadata->setFieldValue($object, $field, $value);
     }
 
     /**

@@ -211,12 +211,14 @@ class EntityMetadata
      * @param $object
      * @param $field
      * @param $value
+     *
+     * @return mixed
      */
     public function setFieldValue($object, $field, $value)
     {
         $this->assertObjectInstance($object);
 
-        $this->fields[ $field ]->setValue($object, $value);
+        return $this->fields[ $field ]->setValue($object, $value);
     }
 
     /**
@@ -249,6 +251,6 @@ class EntityMetadata
             throw new \OutOfBoundsException("Undefined relation: {$relationName}");
         }
 
-        $this->relations[ $relationName ]->setValue($object, $value);
+        return $this->relations[ $relationName ]->setValue($object, $value);
     }
 }

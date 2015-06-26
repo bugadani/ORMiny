@@ -44,9 +44,9 @@ class Field
         }
 
         if ($this->setterIsMethod) {
-            $object->{$this->setter}($value);
+            return $object->{$this->setter}($value);
         } else {
-            $object->{$this->setter} = $value;
+            return $object->{$this->setter} = $value;
         }
     }
 
