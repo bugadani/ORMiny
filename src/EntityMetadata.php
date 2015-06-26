@@ -17,9 +17,7 @@ class EntityMetadata
     private $className;
     private $tableName;
     private $primaryKey;
-    private $fieldNames            = [];
-    private $relationTargets       = [];
-    private $relationsByForeignKey = [];
+    private $fieldNames = [];
 
     /**
      * @var Field[]
@@ -30,6 +28,11 @@ class EntityMetadata
      * @var Relation[]
      */
     private $relations = [];
+
+    /**
+     * @var Relation[]
+     */
+    private $relationsByForeignKey = [];
 
     public function __construct($className)
     {
@@ -142,10 +145,13 @@ class EntityMetadata
         }
 
         $this->relations[ $relationName ]                     = $relation;
-        $this->relationTargets[ $relationName ]               = $property;
         $this->relationsByForeignKey[ $relation->foreignKey ] = $relation;
     }
 
+    /**
+     * @param $name
+     * @return Relation
+     */
     public function getRelation($name)
     {
         if (!isset($this->relations[ $name ])) {
@@ -155,6 +161,10 @@ class EntityMetadata
         return $this->relations[ $name ];
     }
 
+    /**
+     * @param $foreignKey
+     * @return Relation
+     */
     public function getRelationByForeignKey($foreignKey)
     {
         if (!isset($this->relationsByForeignKey[ $foreignKey ])) {
@@ -164,23 +174,33 @@ class EntityMetadata
         return $this->relationsByForeignKey[ $foreignKey ];
     }
 
+    /**
+     * @param $relationName
+     * @return bool
+     */
     public function hasRelation($relationName)
     {
         return isset($this->relations[ $relationName ]);
     }
 
+    /**
+     * @return Annotations\Relation[]
+     */
     public function getRelations()
     {
         return $this->relations;
     }
 
+    /**
+     * @return array
+     */
     public function getFieldNames()
     {
         return $this->fieldNames;
     }
 
     /**
-     * @return Annotations\Field[]
+     * @return Field[]
      */
     public function getFields()
     {
