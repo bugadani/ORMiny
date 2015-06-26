@@ -41,6 +41,7 @@ class ResultProcessor
             $key = $record[ $pkField ];
             if ($currentKey !== $key) {
                 if ($object !== null) {
+                    //Process and save the previous object
                     $this->processRelated(
                         $entity,
                         $object,
@@ -52,15 +53,13 @@ class ResultProcessor
                     $objects[ $currentKey ] = $object;
                 }
                 $currentKey = $key;
-                $object     = $this->createObject($entity, $record, $with);
-                if ($readOnly) {
-                    $entity->setReadOnly($object);
-                }
+                $object     = $this->createObject($entity, $record, $with, $readOnly);
             }
             //Store the record to be processed for the related entities
             $recordsToProcess[] = $record;
         }
         if ($object !== null) {
+            //Process and save the last object
             $this->processRelated($entity, $object, $readOnly, $recordsToProcess, $with);
             $objects[ $key ] = $object;
         }
@@ -68,7 +67,7 @@ class ResultProcessor
         return $objects;
     }
 
-    private function createObject(Entity $entity, array $record, array $with)
+    private function createObject(Entity $entity, array $record, array $with, $readOnly)
     {
         $metadata = $entity->getMetadata();
         $fields   = $metadata->getFieldNames();
@@ -79,8 +78,12 @@ class ResultProcessor
             )
         );
         foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
-            $metadata->getRelation($relationName)
-                ->setValue($object, $metadata->getRelation($relationName)->isSingle() ? null : []);
+            $relation = $metadata->getRelation($relationName);
+
+            $relation->setValue($object, $relation->isSingle() ? null : []);
+        }
+        if ($readOnly) {
+            $entity->setReadOnly($object);
         }
 
         return $object;
