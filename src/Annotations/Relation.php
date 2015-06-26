@@ -82,7 +82,6 @@ class Relation
             }
             if ($type === Relation::MANY_MANY) {
                 if ($joinTable === null) {
-                    print_r(func_get_args());
                     throw new AnnotationException('Many to many type relations require a join table.');
                 }
                 $this->joinTable           = $joinTable;
