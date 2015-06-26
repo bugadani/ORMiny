@@ -44,6 +44,9 @@ class Relation
     public $setter;
     public $getter;
 
+    private $setterIsMethod;
+    private $getterIsMethod;
+
     public function __construct(
         $name,
         $type = Relation::HAS_ONE,
@@ -97,5 +100,41 @@ class Relation
     public function isSingle()
     {
         return $this->type === Relation::HAS_ONE || $this->type === Relation::BELONGS_TO;
+    }
+
+    public function setValue($object, $value)
+    {
+        if ($this->setterIsMethod === null) {
+            if (is_callable([$object, $this->setter])) {
+                $this->setterIsMethod = true;
+            } else {
+                $this->setterIsMethod = false;
+            }
+        }
+
+        if ($this->setterIsMethod) {
+            $object->{$this->setter}($value);
+        } else {
+            $object->{$this->setter} = $value;
+        }
+    }
+
+    public function getValue($object)
+    {
+        if ($this->getterIsMethod === null) {
+            if (is_callable([$object, $this->getter])) {
+                $this->getterIsMethod = true;
+            } else {
+                $this->getterIsMethod = false;
+            }
+        }
+
+        if ($this->getterIsMethod) {
+            return $object->{$this->getter}();
+        } else if (isset($object->{$this->getter})) {
+            return $object->{$this->getter};
+        } else {
+            return $this->isSingle() ? null : [];
+        }
     }
 }

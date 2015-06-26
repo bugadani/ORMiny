@@ -17,20 +17,19 @@ class EntityMetadata
     private $className;
     private $tableName;
     private $primaryKey;
-    private $fieldNames = [];
+    private $fieldNames            = [];
+    private $relationTargets       = [];
+    private $relationsByForeignKey = [];
+
     /**
      * @var Field[]
      */
-    private $fields  = [];
-    private $setters = [];
-    private $getters = [];
+    private $fields = [];
 
     /**
      * @var Relation[]
      */
-    private $relations             = [];
-    private $relationTargets       = [];
-    private $relationsByForeignKey = [];
+    private $relations = [];
 
     public function __construct($className)
     {
@@ -119,47 +118,32 @@ class EntityMetadata
         } else if ($field->getter === true) {
             $field->getter = 'get' . ucfirst($property);
         }
+
         $this->fieldNames[ $field->name ] = $field->name;
         $this->fields[ $field->name ]     = $field;
 
         return $field->name;
     }
 
-    private function registerSetterAndGetter($fieldName, $setter, $getter)
-    {
-        if ($setter !== null) {
-            if (!is_callable($this->className, $setter)) {
-                throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$setter}");
-            }
-            $this->setters[ $fieldName ] = $setter;
-        }
-        if ($getter !== null) {
-            if (!is_callable($this->className, $getter)) {
-                throw new \InvalidArgumentException("Class {$this->className} does not have a method called {$getter}");
-            }
-            $this->getters[ $fieldName ] = $getter;
-        }
-    }
-
     public function addRelation($property, Relation $relation)
     {
         $relationName = $relation->name;
 
-        $setter = $relation->setter;
-        if ($setter === true) {
-            $setter = 'set' . ucfirst($property);
+        if ($relation->setter === null) {
+            $relation->setter = $property;
+        } else if ($relation->setter === true) {
+            $relation->setter = 'set' . ucfirst($property);
         }
 
-        $getter = $relation->getter;
-        if ($getter === true) {
-            $getter = 'get' . ucfirst($property);
+        if ($relation->getter === null) {
+            $relation->getter = $property;
+        } else if ($relation->getter === true) {
+            $relation->getter = 'get' . ucfirst($property);
         }
 
         $this->relations[ $relationName ]                     = $relation;
         $this->relationTargets[ $relationName ]               = $property;
         $this->relationsByForeignKey[ $relation->foreignKey ] = $relation;
-
-        $this->registerSetterAndGetter($property, $setter, $getter);
     }
 
     public function getRelation($name)
@@ -234,26 +218,17 @@ class EntityMetadata
         if (!$this->hasRelation($relationName)) {
             throw new \OutOfBoundsException("Undefined relation: {$relationName}");
         }
-        $property = $this->relationTargets[ $relationName ];
-        if (isset($this->getters[ $property ])) {
-            return $object->{$this->getters[ $property ]}();
-        }
-        if (isset($object->{$property})) {
-            return $object->{$property};
-        }
 
-        return $this->relations[ $relationName ]->isSingle() ? null : [];
+        return $this->relations[ $relationName ]->getValue($object);
     }
 
     public function setRelationValue($object, $relationName, $value)
     {
         $this->assertObjectInstance($object);
-
-        $property = $this->relationTargets[ $relationName ];
-        if (isset($this->setters[ $property ])) {
-            return $object->{$this->setters[ $property ]}($value);
+        if (!$this->hasRelation($relationName)) {
+            throw new \OutOfBoundsException("Undefined relation: {$relationName}");
         }
 
-        return $object->{$property} = $value;
+        $this->relations[ $relationName ]->setValue($object, $value);
     }
 }
