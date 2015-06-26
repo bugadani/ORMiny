@@ -79,8 +79,8 @@ class ResultProcessor
             )
         );
         foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
-            $metadata->setRelationValue($object, $relationName, $metadata->getRelation($relationName)
-                                                                         ->isSingle() ? null : []);
+            $metadata->getRelation($relationName)
+                ->setValue($object, $metadata->getRelation($relationName)->isSingle() ? null : []);
         }
 
         return $object;

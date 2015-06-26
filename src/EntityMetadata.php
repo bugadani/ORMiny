@@ -154,7 +154,7 @@ class EntityMetadata
      */
     public function getRelation($name)
     {
-        if (!isset($this->relations[ $name ])) {
+        if (!$this->hasRelation($name)) {
             throw new \OutOfBoundsException("Undefined relation: {$name}");
         }
 
@@ -208,49 +208,12 @@ class EntityMetadata
     }
 
     /**
-     * @param $object
-     * @param $field
-     * @param $value
-     *
-     * @return mixed
-     */
-    public function setFieldValue($object, $field, $value)
-    {
-        $this->assertObjectInstance($object);
-
-        return $this->fields[ $field ]->setValue($object, $value);
-    }
-
-    /**
-     * @param $object
      * @param $field
      *
-     * @return mixed
+     * @return Field
      */
-    public function getFieldValue($object, $field)
+    public function getField($field)
     {
-        $this->assertObjectInstance($object);
-
-        return $this->fields[ $field ]->getValue($object);
-    }
-
-    public function getRelationValue($object, $relationName)
-    {
-        $this->assertObjectInstance($object);
-        if (!$this->hasRelation($relationName)) {
-            throw new \OutOfBoundsException("Undefined relation: {$relationName}");
-        }
-
-        return $this->relations[ $relationName ]->getValue($object);
-    }
-
-    public function setRelationValue($object, $relationName, $value)
-    {
-        $this->assertObjectInstance($object);
-        if (!$this->hasRelation($relationName)) {
-            throw new \OutOfBoundsException("Undefined relation: {$relationName}");
-        }
-
-        return $this->relations[ $relationName ]->setValue($object, $value);
+        return $this->fields[ $field ];
     }
 }
