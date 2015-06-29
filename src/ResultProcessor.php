@@ -9,6 +9,8 @@
 
 namespace ORMiny;
 
+use ORMiny\Annotations\Relation;
+
 class ResultProcessor
 {
     /**
@@ -24,7 +26,7 @@ class ResultProcessor
     public function processRecords(
         Entity $entity,
         array $with,
-        \Traversable $records,
+        $records,
         $readOnly
     )
     {
@@ -35,6 +37,11 @@ class ResultProcessor
         $currentKey       = null;
         $object           = null;
         $recordsToProcess = [];
+
+        $relations = array_map(
+            [$metadata, 'getRelation'],
+            array_intersect($with, $metadata->getRelationNames())
+        );
 
         foreach ($records as $record) {
             //Extract columns that are relevant for the current metadata
@@ -47,27 +54,28 @@ class ResultProcessor
                         $object,
                         $readOnly,
                         $recordsToProcess,
+                        $relations,
                         $with
                     );
                     $recordsToProcess       = [];
                     $objects[ $currentKey ] = $object;
                 }
                 $currentKey = $key;
-                $object     = $this->createObject($entity, $record, $with, $readOnly);
+                $object     = $this->createObject($entity, $record, $relations, $readOnly);
             }
             //Store the record to be processed for the related entities
             $recordsToProcess[] = $record;
         }
         if ($object !== null) {
             //Process and save the last object
-            $this->processRelated($entity, $object, $readOnly, $recordsToProcess, $with);
+            $this->processRelated($entity, $object, $readOnly, $recordsToProcess, $relations, $with);
             $objects[ $key ] = $object;
         }
 
         return $objects;
     }
 
-    private function createObject(Entity $entity, array $record, array $with, $readOnly)
+    private function createObject(Entity $entity, array $record, array $relations, $readOnly)
     {
         $metadata = $entity->getMetadata();
         $fields   = $metadata->getFieldNames();
@@ -77,30 +85,27 @@ class ResultProcessor
                 array_intersect_key($record, $fields)
             )
         );
-        foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
-            $relation = $metadata->getRelation($relationName);
+        $entity->setReadOnly($object, $readOnly);
 
-            $relation->setValue($object, $relation->isSingle() ? null : []);
-        }
-        if ($readOnly) {
-            $entity->setReadOnly($object);
+        foreach ($relations as $relation) {
+            /** @var Relation $relation */
+            $relation->setEmptyValue($object);
         }
 
         return $object;
     }
 
-    private function processRelated(Entity $entity, $object, $readOnly, $records, $with)
+    private function processRelated(Entity $entity, $object, $readOnly, array $records, array $relations, array $with)
     {
-        $metadata = $entity->getMetadata();
-        foreach (array_filter($with, [$metadata, 'hasRelation']) as $relationName) {
-            $relation = $metadata->getRelation($relationName);
-
+        if (empty($records)) {
+            return;
+        }
+        foreach ($relations as $relation) {
+            /** @var Relation $relation */
             $value = $this->processRecords(
                 $this->manager->get($relation->target),
-                $this->filterRelations($with, $relationName . '.'),
-                new \ArrayIterator(
-                    $this->stripRelationPrefix($records, $relationName . '_')
-                ),
+                $this->filterRelations($with, $relation->name . '.'),
+                $this->stripRelationPrefix($records, $relation->name . '_'),
                 $readOnly
             );
 
@@ -109,16 +114,16 @@ class ResultProcessor
             }
 
             if (!empty($value)) {
-                $entity->setRelationValue($object, $relationName, $value);
+                $entity->setRelationValue($object, $relation->name, $value);
             }
         }
     }
 
     /**
-     * @param $records
-     * @param $prefix
+     * @param array  $records
+     * @param string $prefix
      *
-     * @return array
+     * @return \ArrayIterator
      */
     private function stripRelationPrefix(array $records, $prefix)
     {
@@ -128,6 +133,7 @@ class ResultProcessor
         return array_map(
             function ($rawRecord) use ($prefix, $prefixLength) {
                 $record = [];
+                //Filter for fields that are needed for the current record and remove field name prefixes
                 foreach ($rawRecord as $key => $value) {
                     if (strpos($key, $prefix) === 0) {
                         $key            = substr($key, $prefixLength);

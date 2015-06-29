@@ -17,7 +17,8 @@ class EntityMetadata
     private $className;
     private $tableName;
     private $primaryKey;
-    private $fieldNames = [];
+    private $fieldNames    = [];
+    private $relationNames = [];
 
     /**
      * @var Field[]
@@ -144,6 +145,7 @@ class EntityMetadata
             $relation->getter = 'get' . ucfirst($property);
         }
 
+        $this->relationNames[]                                = $relationName;
         $this->relations[ $relationName ]                     = $relation;
         $this->relationsByForeignKey[ $relation->foreignKey ] = $relation;
     }
@@ -159,6 +161,11 @@ class EntityMetadata
         }
 
         return $this->relations[ $name ];
+    }
+
+    public function getRelationNames()
+    {
+        return $this->relationNames;
     }
 
     /**

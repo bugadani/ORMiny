@@ -569,20 +569,14 @@ class EntityFinder
     private function fetchResults(Statement $statement, $pkField)
     {
         if (empty($this->with) || (!isset($this->limit) && (!isset($this->offset) || $this->offset === 0))) {
-            if ($statement instanceof \Traversable) {
-                return $statement;
+            if (!$statement instanceof \Traversable) {
+                $statement = new \ArrayIterator($statement->fetchAll());
             }
 
-            return new \ArrayIterator($statement->fetchAll());
+            return $statement;
         }
 
-        $iterator = new StatementIterator($statement, $pkField);
-        if (isset($this->limit)) {
-            $iterator->setLimit($this->limit);
-        }
-        $iterator->setOffset($this->offset);
-
-        return $iterator;
+        return new StatementIterator($statement, $pkField, $this->offset, $this->limit);
     }
 
     private function deleteRecords($records)

@@ -20,20 +20,14 @@ class StatementIterator implements \Iterator
     private $iterationStarted = false;
     private $cursorClosed     = false;
 
-    public function __construct(Statement $statement, $pkField)
+    public function __construct(Statement $statement, $pkField, $offset, $limit)
     {
         $this->statement = $statement;
         $this->pkField   = $pkField;
-    }
-
-    public function setOffset($offset)
-    {
-        $this->offset = (int)$offset;
-    }
-
-    public function setLimit($limit)
-    {
-        $this->limit = (int)$limit;
+        $this->offset    = (int)$offset;
+        if ($limit !== null) {
+            $this->limit = (int)$limit;
+        }
     }
 
     public function current()
@@ -43,29 +37,13 @@ class StatementIterator implements \Iterator
 
     public function next()
     {
-        if ($this->fetchedRecordCount > $this->limit) {
-            return;
-        }
-
-        $record = $this->statement->fetch();
-        if (empty($record)) {
-            $this->currentRecord = null;
-
-            return;
-        }
-
-        if ($record[ $this->pkField ] !== $this->currentKey) {
-
-            if ($this->fetchedRecordCount === $this->limit) {
-                $record = null;
-            } else {
-                $this->currentKey = $record[ $this->pkField ];
+        $this->currentRecord = $this->statement->fetch();
+        if (!empty($this->currentRecord)) {
+            if ($this->currentRecord[ $this->pkField ] !== $this->currentKey) {
+                $this->currentKey = $this->currentRecord[ $this->pkField ];
+                $this->fetchedRecordCount++;
             }
-
-            $this->fetchedRecordCount++;
         }
-
-        $this->currentRecord = $record;
     }
 
     public function key()
@@ -75,7 +53,7 @@ class StatementIterator implements \Iterator
 
     public function valid()
     {
-        if (!empty($this->currentRecord)) {
+        if (!empty($this->currentRecord) && $this->fetchedRecordCount <= $this->limit) {
             return true;
         }
 
@@ -100,6 +78,7 @@ class StatementIterator implements \Iterator
         if ($this->offset > 0) {
             $key   = null;
             $index = 0;
+            //Skip the first N
             while ($record = $this->statement->fetch()) {
                 if ($key === $record[ $this->pkField ]) {
                     continue;
@@ -113,9 +92,6 @@ class StatementIterator implements \Iterator
         } else {
             $this->currentRecord = $this->statement->fetch();
         }
-        if (!empty($this->currentRecord)) {
-            $this->currentKey         = $this->currentRecord[ $this->pkField ];
-            $this->fetchedRecordCount = 1;
-        }
+        $this->fetchedRecordCount = 1;
     }
 }

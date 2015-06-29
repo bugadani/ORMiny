@@ -41,7 +41,7 @@ class EntityState
     public function __construct($object, EntityMetadata $metadata, $state = self::STATE_NEW)
     {
         $this->objectState = $state;
-        foreach (array_keys($metadata->getRelations()) as $relationName) {
+        foreach ($metadata->getRelationNames() as $relationName) {
             $this->relations[ $relationName ] = false;
         }
         $this->metadata = $metadata;

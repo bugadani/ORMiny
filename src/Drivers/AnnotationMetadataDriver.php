@@ -55,24 +55,20 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
 
         $properties = $this->annotationReader->readProperties($className, $filter);
 
-        $primaryKey = null;
-        foreach ($properties as $property => $comment) {
-            if ($comment->hasAnnotationType(self::FIELD_ANNOTATION)) {
-                $fieldName = $this->processField($comment, $property, $metadata);
-                if ($comment->has('Id')) {
-                    if (isset($primaryKey)) {
-                        throw new EntityDefinitionException("Class {$className} must only have one primary key.");
-                    }
-                    $primaryKey = $fieldName;
+        try {
+            foreach ($properties as $property => $comment) {
+                if ($comment->hasAnnotationType(self::FIELD_ANNOTATION)) {
+                    $this->processField($comment, $property, $metadata);
+                } else if ($comment->hasAnnotationType(self::RELATION_ANNOTATION)) {
+                    $this->processRelation($comment, $property, $metadata);
                 }
-            } elseif ($comment->hasAnnotationType(self::RELATION_ANNOTATION)) {
-                $this->processRelation($comment, $property, $metadata);
             }
+            if ($metadata->getPrimaryKey() === null) {
+                throw new EntityDefinitionException("Class {$className} must have a primary key.");
+            }
+        } catch (EntityDefinitionException $e) {
+            throw new EntityDefinitionException("Could not instantiate metadata for {$className}", 0, $e);
         }
-        if (!isset($primaryKey)) {
-            throw new EntityDefinitionException("Class {$className} must have a primary key.");
-        }
-        $metadata->setPrimaryKey($primaryKey);
 
         return $metadata;
     }
@@ -88,7 +84,14 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
     {
         $fieldAnnotation = current($comment->getAnnotationType(self::FIELD_ANNOTATION));
 
-        return $metadata->addField($property, $fieldAnnotation);
+        $fieldName = $metadata->addField($property, $fieldAnnotation);
+
+        if ($comment->has('Id')) {
+            if($metadata->getPrimaryKey() !== null) {
+                throw new EntityDefinitionException("Compound primary key is not supported.");
+            }
+            $metadata->setPrimaryKey($fieldName);
+        }
     }
 
     /**

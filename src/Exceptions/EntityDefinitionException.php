@@ -9,9 +9,7 @@
 
 namespace ORMiny\Exceptions;
 
-use Modules\Annotation\Exceptions\AnnotationException;
-
-class EntityDefinitionException extends AnnotationException
+class EntityDefinitionException extends \RuntimeException
 {
 
 }

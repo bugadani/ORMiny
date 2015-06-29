@@ -132,14 +132,12 @@ class Entity
 
         switch ($relation->type) {
             case Relation::MANY_MANY:
-                $targetKey = $relation->targetKey;
+                $targetKeyField = $relatedEntity->metadata->getField($relation->targetKey);
 
-                $this->objectRelations[ $objectId ][ $relationName ] = [];
-                foreach ($value as $relatedObject) {
-                    $this->objectRelations[ $objectId ][ $relationName ][] = $relatedEntity->metadata
-                        ->getField($targetKey)
-                        ->getValue($relatedObject);
-                }
+                $this->objectRelations[ $objectId ][ $relationName ] = array_map(
+                    [$targetKeyField, 'getValue'],
+                    $value
+                );
                 break;
 
             case Relation::HAS_MANY:
@@ -249,15 +247,16 @@ class Entity
     public function delete($object)
     {
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-
         $table = $this->metadata->getTable();
+
         foreach ($this->metadata->getRelations() as $relation) {
-            $foreignKey    = $this->metadata->getField($relation->foreignKey)->getValue($object);
-            $relatedEntity = $this->manager->get($relation->target);
+            $foreignKey = $this->metadata->getField($relation->foreignKey)->getValue($object);
             switch ($relation->type) {
                 case Relation::HAS_ONE:
                 case Relation::HAS_MANY:
-                    $relatedEntity->find()->deleteByField($relation->targetKey, $foreignKey);
+                    $this->manager
+                        ->find($relation->target)
+                        ->deleteByField($relation->targetKey, $foreignKey);
                     break;
 
                 case Relation::MANY_MANY:
@@ -519,7 +518,7 @@ class Entity
 
         $modifiedManyManyRelations = [];
         foreach ($manyManyRelations as $relationName => $relation) {
-            $relatedEntity  = $this->manager->get($relation->target);
+            $relatedEntity = $this->manager->get($relation->target);
 
             $currentForeignKeys = array_map(
                 function ($object) use ($relatedEntity) {
@@ -615,7 +614,7 @@ class Entity
             //checking the foreign key is not enough here - foreign key is not updated yet.
             $relatedObject = $relation->getValue($object);
 
-            $foreignKeyField = $this->metadata->getField($relation->foreignKey);
+            $foreignKeyField    = $this->metadata->getField($relation->foreignKey);
             $originalForeignKey = $state->getOriginalFieldData($relation->foreignKey);
 
             if ($relatedObject !== null) {

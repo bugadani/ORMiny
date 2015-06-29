@@ -28,19 +28,15 @@ class Field
 
     public function __construct($name = null, $setter = null, $getter = null)
     {
-        $this->name     = $name;
-        $this->setter   = $setter;
-        $this->getter   = $getter;
+        $this->name   = $name;
+        $this->setter = $setter;
+        $this->getter = $getter;
     }
 
     public function setValue($object, $value)
     {
         if ($this->setterIsMethod === null) {
-            if (is_callable([$object, $this->setter])) {
-                $this->setterIsMethod = true;
-            } else {
-                $this->setterIsMethod = false;
-            }
+            $this->setterIsMethod = is_callable([$object, $this->setter]);
         }
 
         if ($this->setterIsMethod) {
@@ -53,11 +49,7 @@ class Field
     public function getValue($object)
     {
         if ($this->getterIsMethod === null) {
-            if (is_callable([$object, $this->getter])) {
-                $this->getterIsMethod = true;
-            } else {
-                $this->getterIsMethod = false;
-            }
+            $this->getterIsMethod = is_callable([$object, $this->getter]);
         }
 
         if ($this->getterIsMethod) {
