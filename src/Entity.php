@@ -9,6 +9,7 @@
 
 namespace ORMiny;
 
+use Modules\DBAL\Driver;
 use Modules\DBAL\QueryBuilder;
 use Modules\DBAL\QueryBuilder\Expression;
 use ORMiny\Annotations\Relation;
@@ -247,7 +248,7 @@ class Entity
     public function delete($object)
     {
         $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-        $table = $this->metadata->getTable();
+        $table        = $this->metadata->getTable();
 
         foreach ($this->metadata->getRelations() as $relation) {
             $foreignKey = $this->metadata->getField($relation->foreignKey)->getValue($object);
@@ -296,10 +297,33 @@ class Entity
     }
 
     /**
+     * Save multiple objects into database
+     *
+     * @param array $objects
+     *
+     * @return array The ids of the given objects
+     *
+     * @throws \PDOException if the transaction fails
+     */
+    public function saveMultiple(array $objects)
+    {
+        array_walk($objects, [$this->metadata, 'assertObjectInstance']);
+        return $this->manager
+            ->getDriver()
+            ->inTransaction(
+                function (Driver $driver, array $objects) {
+                    return array_map([$this, 'save'], $objects);
+                },
+                $objects
+            );
+    }
+
+    /**
      * Save an object to the database
      *
      * @todo needs to be refactored
      * @param $object
+     * @return int|null
      */
     public function save($object)
     {
@@ -307,7 +331,7 @@ class Entity
 
         $state = $this->getState($object);
         if ($state->isReadOnly()) {
-            return;
+            return null;
         }
 
         $objectId          = spl_object_hash($object);
@@ -353,6 +377,8 @@ class Entity
         $state->refreshOriginalData();
 
         $this->updateManyToManyRelations($modifiedManyManyRelations, $primaryKey);
+
+        return $primaryKey;
     }
 
     private function createInExpression($field, array $values, QueryBuilder $queryBuilder)
