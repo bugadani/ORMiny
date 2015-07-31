@@ -86,14 +86,13 @@ class EntityFinder
             if ($this->alias === $relationName) {
                 throw new \InvalidArgumentException("Cannot use relation name '{$relationName}' because it is used as the table alias");
             }
+
+            $tok         = strtok($relationName, '.');
             $currentName = '';
 
-            $tok = strtok($relationName, '.');
             while ($tok !== false) {
                 $currentName .= $tok;
-
                 $relationNames[ $currentName ] = true;
-
                 $currentName .= '.';
                 $tok = strtok('.');
             }
@@ -302,11 +301,9 @@ class EntityFinder
         if (isset($this->where)) {
             $query->where($this->where);
         }
-        if (isset($this->orderByFields)) {
-            foreach ($this->orderByFields as $field) {
-                list($fieldName, $order) = $field;
-                $query->orderBy($fieldName, $order);
-            }
+        foreach ($this->orderByFields as $field) {
+            list($fieldName, $order) = $field;
+            $query->orderBy($fieldName, $order);
         }
         if (empty($this->with)) {
             //Limits for joined queries are handled in a different way
@@ -410,16 +407,13 @@ class EntityFinder
             }
             $withPrefix   = $relation->name . '.';
             $prefixLength = strlen($withPrefix);
-
             $strippedWith = array_map(
                 function ($relationName) use ($prefixLength) {
                     return substr($relationName, $prefixLength);
                 },
                 array_filter(
                     $with,
-                    function ($relationName) use ($withPrefix) {
-                        return strpos($relationName, $withPrefix) === 0;
-                    }
+                    Utils::createStartWith($withPrefix)
                 )
             );
             $this->joinRelationsToQuery($relatedMetadata, $query, $strippedWith, $alias);

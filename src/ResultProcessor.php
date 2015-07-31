@@ -164,9 +164,7 @@ class ResultProcessor
             },
             array_filter(
                 $with,
-                function ($relationName) use ($prefix) {
-                    return strpos($relationName, $prefix) === 0;
-                }
+                Utils::createStartWith($prefix)
             )
         );
     }
