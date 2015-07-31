@@ -27,11 +27,6 @@ class Entity
     private $manager;
 
     /**
-     * @var array
-     */
-    private $objectRelations = [];
-
-    /**
      * @var EntityState[]
      */
     private $entityStates = [];
@@ -129,32 +124,31 @@ class Entity
         $relation      = $this->metadata->getRelation($relationName);
         $relatedEntity = $this->manager->get($relation->target);
 
-        $objectId = spl_object_hash($object);
+        $state = $this->getState($object);
 
         switch ($relation->type) {
             case Relation::MANY_MANY:
                 $targetKeyField = $relatedEntity->metadata->getField($relation->targetKey);
-
-                $this->objectRelations[ $objectId ][ $relationName ] = array_map(
+                $state->setRelationData($relationName, array_map(
                     [$targetKeyField, 'getValue'],
                     $value
-                );
+                ));
                 break;
 
             case Relation::HAS_MANY:
-                $this->objectRelations[ $objectId ][ $relationName ] = array_map(
+                $state->setRelationData($relationName, array_map(
                     [$relatedEntity, 'getPrimaryKeyValue'],
                     (array)$value
-                );
+                ));
                 break;
 
             default:
                 if (is_array($value)) {
                     $value = current($value);
                 }
-                $this->objectRelations[ $objectId ][ $relationName ] = $relatedEntity->getPrimaryKeyValue(
+                $state->setRelationData($relationName, $relatedEntity->getPrimaryKeyValue(
                     $value
-                );
+                ));
                 break;
         }
 
@@ -191,13 +185,6 @@ class Entity
                 $state = EntityState::STATE_NEW;
             }
             $this->entityStates[ $objectId ] = new EntityState($object, $this->metadata, $state);
-
-            $this->objectRelations[ $objectId ] = array_map(
-                function (Relation $relation) use ($object) {
-                    return $relation->getValue($object);
-                },
-                $this->metadata->getRelations()
-            );
         }
 
         return $object;
@@ -335,12 +322,11 @@ class Entity
             return null;
         }
 
-        $objectId          = spl_object_hash($object);
         $relationsIterator = new \ArrayIterator($this->metadata->getRelations());
 
-        $modifiedManyManyRelations = $this->handleManyManyRelations($object, $relationsIterator, $objectId);
-        $this->handleHasManyRelations($object, $relationsIterator, $objectId);
-        $this->handleHasOneRelations($object, $relationsIterator, $objectId);
+        $modifiedManyManyRelations = $this->handleManyManyRelations($state, $relationsIterator);
+        $this->handleHasManyRelations($state, $relationsIterator);
+        $this->handleHasOneRelations($state, $relationsIterator);
 
         switch ($state->getObjectState()) {
             case EntityState::STATE_NEW:
@@ -390,15 +376,12 @@ class Entity
             ->insert($this->metadata->getTable());
 
         $query->values(
-            array_map(
-                [$query, 'createPositionalParameter'],
-                array_filter(
-                    $this->toArray($object),
-                    function ($value) {
-                        return $value !== null;
-                    }
-                )
-            )
+            $query->createPositionalParameter(array_filter(
+                $this->toArray($object),
+                function ($value) {
+                    return $value !== null;
+                }
+            ))
         );
 
         $primaryKey = $query->query();
@@ -418,7 +401,7 @@ class Entity
             $this->manager->postPendingQuery(
                 $queryBuilder
                     ->update($this->metadata->getTable())
-                    ->values(array_map([$queryBuilder, 'createPositionalParameter'], $data))
+                    ->values($queryBuilder->createPositionalParameter($data))
                     ->where(
                         $queryBuilder->expression()->eq(
                             $primaryKey,
@@ -511,13 +494,15 @@ class Entity
     }
 
     /**
-     * @param $object
+     * @param EntityState $state
      * @param $relationsIterator
-     * @param $objectId
+     *
      * @return array
      */
-    private function handleManyManyRelations($object, $relationsIterator, $objectId)
+    private function handleManyManyRelations(EntityState $state, $relationsIterator)
     {
+        $object = $state->getObject();
+
         $manyManyRelations = new \CallbackFilterIterator(
             $relationsIterator,
             function (Relation $relation) {
@@ -525,6 +510,7 @@ class Entity
             });
 
         $modifiedManyManyRelations = [];
+
         foreach ($manyManyRelations as $relationName => $relation) {
             $relatedEntity = $this->manager->get($relation->target);
 
@@ -542,7 +528,7 @@ class Entity
                 $relation->getValue($object)
             );
 
-            $originalForeignKeys = $this->objectRelations[ $objectId ][ $relationName ];
+            $originalForeignKeys = $state->getRelationData($relationName);
 
             //TODO it is possible that a relation is not loaded but the data contains its keys and/or related objects
             //in this case the records may already be in the database - should not insert them blindly
@@ -551,20 +537,22 @@ class Entity
                 'inserted' => array_diff($currentForeignKeys, $originalForeignKeys)
             ];
 
-            $this->objectRelations[ $objectId ][ $relationName ] = $currentForeignKeys;
+            $state->setRelationData($relationName, $currentForeignKeys);
         }
 
         return $modifiedManyManyRelations;
     }
 
     /**
-     * @param $object
+     * @param EntityState $state
      * @param $relationsIterator
-     * @param $objectId
+     *
      * @return array
      */
-    private function handleHasManyRelations($object, $relationsIterator, $objectId)
+    private function handleHasManyRelations(EntityState $state, $relationsIterator)
     {
+        $object = $state->getObject();
+
         $hasManyRelations = new \CallbackFilterIterator(
             $relationsIterator,
             function (Relation $relation) {
@@ -589,7 +577,7 @@ class Entity
             }
 
             $deleted = array_diff(
-                $this->objectRelations[ $objectId ][ $relationName ],
+                $state->getRelationData($relationName),
                 $currentForeignKeys
             );
             if (!empty($deleted)) {
@@ -598,18 +586,17 @@ class Entity
                 //This may be deduced from whether the related record has a 'has one' or a 'belongs to' type relation
                 $relatedEntity->find()->deleteByPrimaryKey($deleted);
             }
-            $this->objectRelations[ $objectId ][ $relationName ] = $currentForeignKeys;
+            $state->setRelationData($relationName, $currentForeignKeys);
         }
     }
 
     /**
-     * @param $object
+     * @param EntityState $state
      * @param $relationsIterator
-     * @param $objectId
      */
-    private function handleHasOneRelations($object, $relationsIterator, $objectId)
+    private function handleHasOneRelations(EntityState $state, $relationsIterator)
     {
-        $state = $this->getState($object);
+        $object = $state->getObject();
 
         $hasOneRelations = new \CallbackFilterIterator(
             $relationsIterator,
@@ -651,7 +638,7 @@ class Entity
                 $foreignKeyField->setValue(
                     $object, $currentForeignKey
                 );
-                $this->objectRelations[ $objectId ][ $relationName ] = $currentForeignKey;
+                $state->setRelationData($relationName, $currentForeignKey);
 
                 if ($currentForeignKey !== null) {
                     $relatedEntity->save(

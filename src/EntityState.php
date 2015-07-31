@@ -4,8 +4,8 @@ namespace ORMiny;
 
 class EntityState
 {
-    const STATE_NEW                  = 1;
-    const STATE_HANDLED              = 2;
+    const STATE_NEW = 1;
+    const STATE_HANDLED = 2;
     const STATE_NEW_WITH_PRIMARY_KEY = 3;
 
     /**
@@ -28,6 +28,8 @@ class EntityState
      */
     private $relations = [];
 
+    private $relationData = [];
+
     /**
      * @var EntityMetadata metadata for the handled object
      */
@@ -41,8 +43,9 @@ class EntityState
     public function __construct($object, EntityMetadata $metadata, $state = self::STATE_NEW)
     {
         $this->objectState = $state;
-        foreach ($metadata->getRelationNames() as $relationName) {
-            $this->relations[ $relationName ] = false;
+        foreach ($metadata->getRelations() as $relationName => $relation) {
+            $this->relations[ $relationName ]    = false;
+            $this->relationData[ $relationName ] = $relation->getValue($object);
         }
         $this->metadata = $metadata;
         $this->object   = $object;
@@ -88,6 +91,19 @@ class EntityState
             throw new \OutOfBoundsException("Unknown relation: {$relationName}");
         }
         $this->relations[ $relationName ] = $isLoaded;
+    }
+
+    public function getRelationData($relationName)
+    {
+        if (!isset($this->relationData[ $relationName ])) {
+            throw new \OutOfBoundsException("Unknown relation: {$relationName}");
+        }
+        return $this->relationData[ $relationName ];
+    }
+
+    public function setRelationData($relationName, $data)
+    {
+        $this->relationData[ $relationName ] = $data;
     }
 
     public function refreshOriginalData()
