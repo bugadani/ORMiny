@@ -211,6 +211,13 @@ class EntityFinder
      */
     public function parameter($value)
     {
+        if (is_array($value)) {
+            if (count($value) === 1) {
+                return $this->parameter(current($value));
+            }
+
+            return $this->parameters($value);
+        }
         $this->parameters[] = $value;
 
         return '?';
@@ -256,7 +263,7 @@ class EntityFinder
         );
 
         $query->where(
-            $this->createInExpression($fieldName, $keys)
+            $this->equalsExpression($fieldName, $keys)
         );
 
         return $query;
@@ -421,16 +428,9 @@ class EntityFinder
         return $query;
     }
 
-    private function createInExpression($field, array $values)
+    private function equalsExpression($field, array $values)
     {
-        $expression = $this->queryBuilder->expression();
-        if (count($values) === 1) {
-            $expression->eq($field, $this->parameter(current($values)));
-        } else {
-            $expression->in($field, $this->parameters($values));
-        }
-
-        return $expression;
+        return $this->queryBuilder->expression()->eq($field, $this->parameter($values));
     }
 
     private function process(Statement $results)
@@ -720,7 +720,7 @@ class EntityFinder
             $this->manager->postPendingQuery(
                 $this->queryBuilder
                     ->delete($this->metadata->getTable())
-                    ->where($this->createInExpression($fieldName, $keys)),
+                    ->where($this->equalsExpression($fieldName, $keys)),
                 $this->parameters
             );
         } else {
@@ -768,7 +768,7 @@ class EntityFinder
     public function updateByField($fieldName, $fieldValue, array $data)
     {
         $query = $this->getUpdateQuery($data);
-        $query->where($this->createInExpression($fieldName, $fieldValue));
+        $query->where($this->equalsExpression($fieldName, $fieldValue));
 
         $this->manager->postPendingQuery($query, $this->parameters);
     }

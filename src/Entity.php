@@ -308,6 +308,7 @@ class Entity
     public function saveMultiple(array $objects)
     {
         array_walk($objects, [$this->metadata, 'assertObjectInstance']);
+
         return $this->manager
             ->getDriver()
             ->inTransaction(
@@ -379,24 +380,6 @@ class Entity
         $this->updateManyToManyRelations($modifiedManyManyRelations, $primaryKey);
 
         return $primaryKey;
-    }
-
-    private function createInExpression($field, array $values, QueryBuilder $queryBuilder)
-    {
-        $expression = $queryBuilder->expression();
-        if (count($values) === 1) {
-            $expression->eq(
-                $field,
-                $queryBuilder->createPositionalParameter(current($values))
-            );
-        } else {
-            $expression->in(
-                $field,
-                array_map([$queryBuilder, 'createPositionalParameter'], $values)
-            );
-        }
-
-        return $expression;
     }
 
     private function insert($object)
@@ -477,10 +460,9 @@ class Entity
                                 $queryBuilder->createPositionalParameter($primaryKey)
                             )
                             ->andX(
-                                $this->createInExpression(
+                                $expression->eq(
                                     $rightKey,
-                                    $keys['deleted'],
-                                    $queryBuilder
+                                    $queryBuilder->createPositionalParameter($keys['deleted'])
                                 )
                             )
                     )->query();
