@@ -11,10 +11,15 @@ namespace ORMiny;
 
 class Utils
 {
-    public static function createStartWith($withPrefix)
+    public static function createStartWithFunction($withPrefix)
     {
         return function ($relationName) use ($withPrefix) {
             return strpos($relationName, $withPrefix) === 0;
         };
+    }
+
+    public static function notNull($value)
+    {
+        return $value !== null;
     }
 }

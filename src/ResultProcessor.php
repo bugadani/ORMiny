@@ -164,7 +164,7 @@ class ResultProcessor
             },
             array_filter(
                 $with,
-                Utils::createStartWith($prefix)
+                Utils::createStartWithFunction($prefix)
             )
         );
     }

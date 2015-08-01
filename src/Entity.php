@@ -174,17 +174,7 @@ class Entity
     {
         $objectId = spl_object_hash($object);
         if (!isset($this->entityStates[ $objectId ])) {
-
-            if ($this->isPrimaryKeySet($object)) {
-                if ($fromDatabase) {
-                    $state = EntityState::STATE_HANDLED;
-                } else {
-                    $state = EntityState::STATE_NEW_WITH_PRIMARY_KEY;
-                }
-            } else {
-                $state = EntityState::STATE_NEW;
-            }
-            $this->entityStates[ $objectId ] = new EntityState($object, $this->metadata, $state);
+            $this->entityStates[ $objectId ] = new EntityState($object, $this->metadata, $fromDatabase);
         }
 
         return $object;
@@ -378,9 +368,7 @@ class Entity
         $query->values(
             $query->createPositionalParameter(array_filter(
                 $this->toArray($object),
-                function ($value) {
-                    return $value !== null;
-                }
+                '\\ORMiny\\Utils::notNull'
             ))
         );
 

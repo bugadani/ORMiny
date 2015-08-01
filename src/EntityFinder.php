@@ -37,7 +37,7 @@ class EntityFinder
     private $alias;
     private $parameters = [];
     private $where;
-    private $with       = [];
+    private $with = [];
 
     private $limit;
     private $offset;
@@ -74,6 +74,7 @@ class EntityFinder
      *
      * @param $relationName
      * @param ...
+     *
      * @return $this
      */
     public function with($relationName)
@@ -84,7 +85,9 @@ class EntityFinder
         //Parse the passed relation names
         foreach ($with as $relationName) {
             if ($this->alias === $relationName) {
-                throw new \InvalidArgumentException("Cannot use relation name '{$relationName}' because it is used as the table alias");
+                throw new \InvalidArgumentException(
+                    "Cannot use relation name '{$relationName}' because it is used as the table alias"
+                );
             }
 
             $tok         = strtok($relationName, '.');
@@ -106,6 +109,7 @@ class EntityFinder
      * Sets the number of results
      *
      * @param $limit
+     *
      * @return $this
      */
     public function setMaxResults($limit)
@@ -119,6 +123,7 @@ class EntityFinder
      * Sets the offset for the first result
      *
      * @param $offset
+     *
      * @return $this
      */
     public function setFirstResult($offset)
@@ -134,6 +139,7 @@ class EntityFinder
      * Note: this overrider any previous conditions but does not delete query parameters.
      *
      * @param $condition
+     *
      * @return $this
      */
     public function where($condition)
@@ -147,6 +153,7 @@ class EntityFinder
      * Set GROUP BY clause to the query
      *
      * @param $field
+     *
      * @return $this
      */
     public function groupBy($field)
@@ -160,6 +167,7 @@ class EntityFinder
      * Add a GROUP BY clause to the query
      *
      * @param $field
+     *
      * @return $this
      */
     public function addGroupBy($field)
@@ -177,6 +185,7 @@ class EntityFinder
      *
      * @param        $field
      * @param string $order
+     *
      * @return $this
      */
     public function orderBy($field, $order = 'ASC')
@@ -191,6 +200,7 @@ class EntityFinder
      *
      * @param        $field
      * @param string $order
+     *
      * @return $this
      */
     public function addOrderBy($field, $order = 'ASC')
@@ -206,6 +216,7 @@ class EntityFinder
      * This should be used at places where one would otherwise insert the values into the query string.
      *
      * @param $value
+     *
      * @return string
      */
     public function parameter($value)
@@ -226,6 +237,7 @@ class EntityFinder
      * Add multiple parameters to the query
      *
      * @param array $values
+     *
      * @return array
      */
     public function parameters(array $values)
@@ -246,10 +258,11 @@ class EntityFinder
     }
 
     /**
-     * @param string       $table The table name
-     * @param string|array $fields Fields to select
+     * @param string       $table     The table name
+     * @param string|array $fields    Fields to select
      * @param string       $fieldName The key field
-     * @param mixed|array  $keys The key value(s)
+     * @param mixed|array  $keys      The key value(s)
+     *
      * @return Select
      */
     private function getSelectQuery($table, $fields, $fieldName, $keys)
@@ -270,6 +283,7 @@ class EntityFinder
 
     /**
      * @param array $data
+     *
      * @return Update
      */
     private function getUpdateQuery(array $data)
@@ -413,7 +427,7 @@ class EntityFinder
                 },
                 array_filter(
                     $with,
-                    Utils::createStartWith($withPrefix)
+                    Utils::createStartWithFunction($withPrefix)
                 )
             );
             $this->joinRelationsToQuery($relatedMetadata, $query, $strippedWith, $alias);
@@ -450,32 +464,34 @@ class EntityFinder
      */
     private function fetchResults(Statement $statement, $pkField)
     {
-        if (empty($this->with) || (!isset($this->limit) && (!isset($this->offset) || $this->offset === 0))) {
-            if (!$statement instanceof \Traversable) {
-                $statement = new \ArrayIterator($statement->fetchAll());
-            }
-
-            return $statement;
+        //Special statement iterator is needed when relations are loaded _and_ there is a limit and/or an offset
+        //TODO: actually, this is only needed when there is at least one 1:N or N:N relation
+        if (!empty($this->with) && (isset($this->limit) || (isset($this->offset) && $this->offset > 0))) {
+            return new StatementIterator($statement, $pkField, $this->offset, $this->limit);
         }
 
-        return new StatementIterator($statement, $pkField, $this->offset, $this->limit);
+        if (!$statement instanceof \Traversable) {
+            $statement = new \ArrayIterator($statement->fetchAll());
+        }
+
+        return $statement;
     }
 
     private function deleteRecords($records)
     {
-        if ($records === false) {
-            return;
-        }
-        $entity = $this->manager->get($this->metadata->getClassName());
-        if (is_array($records)) {
-            array_map([$entity, 'delete'], $records);
-        } else {
-            $entity->delete($records);
+        if ($records !== false) {
+            $entity = $this->manager->get($this->metadata->getClassName());
+            if (is_array($records)) {
+                array_map([$entity, 'delete'], $records);
+            } else {
+                $entity->delete($records);
+            }
         }
     }
 
     /**
      * @param $table
+     *
      * @return mixed
      */
     private function getTableAlias($table)
@@ -485,6 +501,7 @@ class EntityFinder
 
     /**
      * @param $table
+     *
      * @return array
      */
     private function getFields($table)
@@ -509,11 +526,14 @@ class EntityFinder
     }
 
     /**
-     * @param array|mixed $parameters There are two main cases here:
-     *  - Nothing, or an array is passed as argument
-     *    In this case the parameters are treated as query parameters
-     *  - The method is called with one or more scalar arguments
-     *    The argument(s) are treated as primary key(s)
+     * @param array|mixed $parameters
+     *
+     * There are two main cases here:
+     * - Nothing, or an array is passed as argument
+     * In this case the parameters are treated as query parameters
+     * - The method is called with one or more scalar arguments
+     * The argument(s) are treated as primary key(s)
+     *
      * @return array|mixed
      */
     public function get($parameters = [])
@@ -543,6 +563,7 @@ class EntityFinder
      * Note: previous WHERE clauses are preserved
      *
      * @param array|mixed $primaryKeys
+     *
      * @return array|mixed
      */
     public function getByPrimaryKey($primaryKeys)
@@ -626,6 +647,7 @@ class EntityFinder
      *
      * @param string $fieldName
      * @param mixed  $key
+     *
      * @return bool
      */
     public function existsByField($fieldName, $key)
@@ -648,6 +670,7 @@ class EntityFinder
      * Note: previous WHERE clauses are preserved
      *
      * @param mixed $key
+     *
      * @return bool
      */
     public function existsByPrimaryKey($key)
@@ -784,6 +807,7 @@ class EntityFinder
      * Count selected records
      *
      * @param array $parameters
+     *
      * @return mixed
      */
     public function count(array $parameters = [])

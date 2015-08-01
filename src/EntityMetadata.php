@@ -223,4 +223,12 @@ class EntityMetadata
     {
         return $this->fields[ $field ];
     }
+
+    /**
+     * @return Field
+     */
+    public function getPrimaryKeyField()
+    {
+        return $this->fields[ $this->primaryKey ];
+    }
 }

@@ -28,6 +28,9 @@ class EntityState
      */
     private $relations = [];
 
+    /**
+     * @var array Relation data
+     */
     private $relationData = [];
 
     /**
@@ -40,9 +43,19 @@ class EntityState
      */
     private $object;
 
-    public function __construct($object, EntityMetadata $metadata, $state = self::STATE_NEW)
+    public function __construct($object, EntityMetadata $metadata, $fromDatabase = false)
     {
-        $this->objectState = $state;
+        $isPrimaryKeySet = $metadata->getPrimaryKeyField()->getValue($object) !== null;
+        if ($isPrimaryKeySet) {
+            if ($fromDatabase) {
+                $this->objectState = EntityState::STATE_HANDLED;
+            } else {
+                $this->objectState = EntityState::STATE_NEW_WITH_PRIMARY_KEY;
+            }
+        } else {
+            $this->objectState = EntityState::STATE_NEW;
+        }
+
         foreach ($metadata->getRelations() as $relationName => $relation) {
             $this->relations[ $relationName ]    = false;
             $this->relationData[ $relationName ] = $relation->getValue($object);
