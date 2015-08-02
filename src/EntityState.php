@@ -45,7 +45,7 @@ class EntityState
 
     public function __construct($object, EntityMetadata $metadata, $fromDatabase = false)
     {
-        $isPrimaryKeySet = $metadata->getPrimaryKeyField()->getValue($object) !== null;
+        $isPrimaryKeySet = $metadata->getPrimaryKeyField()->get($object) !== null;
         if ($isPrimaryKeySet) {
             if ($fromDatabase) {
                 $this->objectState = EntityState::STATE_HANDLED;

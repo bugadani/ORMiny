@@ -9,15 +9,20 @@
 
 namespace ORMiny;
 
-use ORMiny\Annotations\Field;
+use ORMiny\Annotations\Field as FieldAnnotation;
 use ORMiny\Annotations\Relation;
+use ORMiny\Metadata\Field;
+use ORMiny\Metadata\Getter\MethodGetter;
+use ORMiny\Metadata\Setter\MethodSetter;
+use ORMiny\Metadata\Getter\PropertyGetter;
+use ORMiny\Metadata\Setter\PropertySetter;
 
 class EntityMetadata
 {
     private $className;
     private $tableName;
     private $primaryKey;
-    private $fieldNames    = [];
+    private $fieldNames = [];
     private $relationNames = [];
 
     /**
@@ -57,7 +62,7 @@ class EntityMetadata
         $className = $this->getClassName();
         $object    = new $className;
         foreach ($data as $key => $value) {
-            $this->fields[ $key ]->setValue($object, $value);
+            $this->fields[ $key ]->set($object, $value);
         }
 
         return $object;
@@ -69,7 +74,7 @@ class EntityMetadata
 
         return array_map(
             function (Field $field) use ($object) {
-                return $field->getValue($object);
+                return $field->get($object);
             },
             $this->getFields()
         );
@@ -103,30 +108,42 @@ class EntityMetadata
         return $this->primaryKey;
     }
 
-    public function addField($property, Field $field = null)
+    public function addField($property, FieldAnnotation $fieldAnnotation = null)
     {
-        if ($field === null) {
-            $field = new Field($property);
-        } else if ($field->name === null) {
-            $field->name = $property;
+        if ($fieldAnnotation === null) {
+            $fieldAnnotation = new FieldAnnotation($property);
+        } else if ($fieldAnnotation->name === null) {
+            $fieldAnnotation->name = $property;
         }
 
-        if ($field->setter === null) {
-            $field->setter = $property;
-        } else if ($field->setter === true) {
-            $field->setter = 'set' . ucfirst($property);
+        if ($fieldAnnotation->setter === null) {
+            $setter = new PropertySetter($this, $property);
+        } else {
+            if ($fieldAnnotation->setter === true) {
+                $methodName = 'set' . ucfirst($property);
+            } else {
+                $methodName = $fieldAnnotation->setter;
+            }
+            $setter = new MethodSetter($this, $methodName);
         }
 
-        if ($field->getter === null) {
-            $field->getter = $property;
-        } else if ($field->getter === true) {
-            $field->getter = 'get' . ucfirst($property);
+        if ($fieldAnnotation->getter === null) {
+            $getter = new PropertyGetter($this, $property);
+        } else {
+            if ($fieldAnnotation->getter === true) {
+                $methodName = 'get' . ucfirst($property);
+            } else {
+                $methodName = $fieldAnnotation->getter;
+            }
+            $getter = new MethodGetter($this, $methodName);
         }
 
-        $this->fieldNames[ $field->name ] = $field->name;
-        $this->fields[ $field->name ]     = $field;
+        $field = new Field($setter, $getter);
 
-        return $field->name;
+        $this->fieldNames[ $fieldAnnotation->name ] = $fieldAnnotation->name;
+        $this->fields[ $fieldAnnotation->name ]     = $field;
+
+        return $fieldAnnotation->name;
     }
 
     public function addRelation($property, Relation $relation)
@@ -152,6 +169,7 @@ class EntityMetadata
 
     /**
      * @param $name
+     *
      * @return Relation
      */
     public function getRelation($name)
@@ -170,6 +188,7 @@ class EntityMetadata
 
     /**
      * @param $foreignKey
+     *
      * @return Relation
      */
     public function getRelationByForeignKey($foreignKey)
@@ -183,6 +202,7 @@ class EntityMetadata
 
     /**
      * @param $relationName
+     *
      * @return bool
      */
     public function hasRelation($relationName)

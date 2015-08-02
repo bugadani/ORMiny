@@ -41,6 +41,7 @@ class Entity
 
     /**
      * @param $object
+     *
      * @return EntityState
      */
     private function getState($object)
@@ -67,6 +68,7 @@ class Entity
      * Checks if the primary key is set for the object
      *
      * @param $object
+     *
      * @return bool
      */
     public function isPrimaryKeySet($object)
@@ -78,6 +80,7 @@ class Entity
      * Returns the primary key value
      *
      * @param $object
+     *
      * @return mixed
      */
     public function getPrimaryKeyValue($object)
@@ -89,25 +92,27 @@ class Entity
      * @param $object
      * @param $field
      * @param $value
+     *
      * @return mixed
      */
     public function setFieldValue($object, $field, $value)
     {
         $this->metadata->assertObjectInstance($object);
 
-        return $this->metadata->getField($field)->setValue($object, $value);
+        return $this->metadata->getField($field)->set($object, $value);
     }
 
     /**
      * @param $object
      * @param $field
+     *
      * @return mixed
      */
     public function getFieldValue($object, $field)
     {
         $this->metadata->assertObjectInstance($object);
 
-        return $this->metadata->getField($field)->getValue($object);
+        return $this->metadata->getField($field)->get($object);
     }
 
     public function getRelationValue($object, $relationName)
@@ -129,26 +134,35 @@ class Entity
         switch ($relation->type) {
             case Relation::MANY_MANY:
                 $targetKeyField = $relatedEntity->metadata->getField($relation->targetKey);
-                $state->setRelationData($relationName, array_map(
-                    [$targetKeyField, 'getValue'],
-                    $value
-                ));
+                $state->setRelationData(
+                    $relationName,
+                    array_map(
+                        [$targetKeyField, 'get'],
+                        $value
+                    )
+                );
                 break;
 
             case Relation::HAS_MANY:
-                $state->setRelationData($relationName, array_map(
-                    [$relatedEntity, 'getPrimaryKeyValue'],
-                    (array)$value
-                ));
+                $state->setRelationData(
+                    $relationName,
+                    array_map(
+                        [$relatedEntity, 'getPrimaryKeyValue'],
+                        (array)$value
+                    )
+                );
                 break;
 
             default:
                 if (is_array($value)) {
                     $value = current($value);
                 }
-                $state->setRelationData($relationName, $relatedEntity->getPrimaryKeyValue(
-                    $value
-                ));
+                $state->setRelationData(
+                    $relationName,
+                    $relatedEntity->getPrimaryKeyValue(
+                        $value
+                    )
+                );
                 break;
         }
 
@@ -206,6 +220,7 @@ class Entity
     /**
      * @param $primaryKey
      * @param ... other primary keys
+     *
      * @return array|mixed
      */
     public function get($primaryKey)
@@ -228,7 +243,7 @@ class Entity
         $table        = $this->metadata->getTable();
 
         foreach ($this->metadata->getRelations() as $relation) {
-            $foreignKey = $this->metadata->getField($relation->foreignKey)->getValue($object);
+            $foreignKey = $this->metadata->getField($relation->foreignKey)->get($object);
             switch ($relation->type) {
                 case Relation::HAS_ONE:
                 case Relation::HAS_MANY:
@@ -300,7 +315,9 @@ class Entity
      * Save an object to the database
      *
      * @todo needs to be refactored
+     *
      * @param $object
+     *
      * @return int|null
      */
     public function save($object)
@@ -366,10 +383,12 @@ class Entity
             ->insert($this->metadata->getTable());
 
         $query->values(
-            $query->createPositionalParameter(array_filter(
-                $this->toArray($object),
-                '\\ORMiny\\Utils::notNull'
-            ))
+            $query->createPositionalParameter(
+                array_filter(
+                    $this->toArray($object),
+                    '\\ORMiny\\Utils::notNull'
+                )
+            )
         );
 
         $primaryKey = $query->query();
@@ -476,14 +495,14 @@ class Entity
             $entityFinder
                 ->getByField(
                     $relation->targetKey,
-                    $this->metadata->getField($relation->foreignKey)->getValue($object)
+                    $this->metadata->getField($relation->foreignKey)->get($object)
                 )
         );
     }
 
     /**
      * @param EntityState $state
-     * @param $relationsIterator
+     * @param             $relationsIterator
      *
      * @return array
      */
@@ -495,7 +514,8 @@ class Entity
             $relationsIterator,
             function (Relation $relation) {
                 return $relation->type === Relation::MANY_MANY;
-            });
+            }
+        );
 
         $modifiedManyManyRelations = [];
 
@@ -533,7 +553,7 @@ class Entity
 
     /**
      * @param EntityState $state
-     * @param $relationsIterator
+     * @param             $relationsIterator
      *
      * @return array
      */
@@ -545,7 +565,8 @@ class Entity
             $relationsIterator,
             function (Relation $relation) {
                 return $relation->type === Relation::HAS_MANY;
-            });
+            }
+        );
 
         //TODO: has many type relations can only be saved when the object's primary key is known
         foreach ($hasManyRelations as $relationName => $relation) {
@@ -558,8 +579,9 @@ class Entity
                 );
 
                 //update the foreign key to match the current object's
-                $relatedEntity->metadata->getField($relation->targetKey)->setValue(
-                    $relatedObject, $this->metadata->getField($relation->foreignKey)->getValue($object)
+                $relatedEntity->metadata->getField($relation->targetKey)->set(
+                    $relatedObject,
+                    $this->metadata->getField($relation->foreignKey)->get($object)
                 );
                 $relatedEntity->save($relatedObject);
             }
@@ -580,7 +602,7 @@ class Entity
 
     /**
      * @param EntityState $state
-     * @param $relationsIterator
+     * @param             $relationsIterator
      */
     private function handleHasOneRelations(EntityState $state, $relationsIterator)
     {
@@ -590,7 +612,8 @@ class Entity
             $relationsIterator,
             function (Relation $relation) {
                 return $relation->isSingle();
-            });
+            }
+        );
 
         foreach ($hasOneRelations as $relationName => $relation) {
             $relatedEntity = $this->manager->get($relation->target);
@@ -602,13 +625,11 @@ class Entity
 
             if ($relatedObject !== null) {
                 //Related object has been set
-                $currentForeignKey = $relatedEntity->metadata->getField($relation->targetKey)->getValue($relatedObject);
+                $currentForeignKey = $relatedEntity->metadata->getField($relation->targetKey)->get($relatedObject);
             } else if ($state->isRelationLoaded($relationName)) {
                 if ($originalForeignKey === null) {
                     //Use the directly set foreign key
-                    $currentForeignKey = $foreignKeyField->getValue(
-                        $object
-                    );
+                    $currentForeignKey = $foreignKeyField->get($object);
                 } else {
                     //Related object has been unset
                     $relatedEntity
@@ -623,9 +644,7 @@ class Entity
             //TODO: there are cases when this condition is not sufficient
             //e.g. a row should be saved because of a to-be-executed pending query changes a foreign key
             if ($currentForeignKey !== $originalForeignKey) {
-                $foreignKeyField->setValue(
-                    $object, $currentForeignKey
-                );
+                $foreignKeyField->set($object, $currentForeignKey);
                 $state->setRelationData($relationName, $currentForeignKey);
 
                 if ($currentForeignKey !== null) {

@@ -20,42 +20,13 @@ namespace ORMiny\Annotations;
 class Field
 {
     public  $name;
-    public  $property;
     public  $setter;
     public  $getter;
-    private $setterIsMethod;
-    private $getterIsMethod;
 
     public function __construct($name = null, $setter = null, $getter = null)
     {
         $this->name   = $name;
         $this->setter = $setter;
         $this->getter = $getter;
-    }
-
-    public function setValue($object, $value)
-    {
-        if ($this->setterIsMethod === null) {
-            $this->setterIsMethod = is_callable([$object, $this->setter]);
-        }
-
-        if ($this->setterIsMethod) {
-            return $object->{$this->setter}($value);
-        } else {
-            return $object->{$this->setter} = $value;
-        }
-    }
-
-    public function getValue($object)
-    {
-        if ($this->getterIsMethod === null) {
-            $this->getterIsMethod = is_callable([$object, $this->getter]);
-        }
-
-        if ($this->getterIsMethod) {
-            return $object->{$this->getter}();
-        } else {
-            return $object->{$this->getter};
-        }
     }
 }
