@@ -37,7 +37,7 @@ class EntityFinder
     private $alias;
     private $parameters = [];
     private $where;
-    private $with = [];
+    private $with       = [];
 
     private $limit;
     private $offset;
@@ -223,10 +223,10 @@ class EntityFinder
     {
         if (is_array($value)) {
             if (count($value) === 1) {
-                return $this->parameter(current($value));
+                $value = current($value);
+            } else {
+                return $this->parameters($value);
             }
-
-            return $this->parameters($value);
         }
         $this->parameters[] = $value;
 
@@ -258,10 +258,10 @@ class EntityFinder
     }
 
     /**
-     * @param string       $table     The table name
-     * @param string|array $fields    Fields to select
+     * @param string       $table The table name
+     * @param string|array $fields Fields to select
      * @param string       $fieldName The key field
-     * @param mixed|array  $keys      The key value(s)
+     * @param mixed|array  $keys The key value(s)
      *
      * @return Select
      */
