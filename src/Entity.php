@@ -377,6 +377,9 @@ class Entity
 
     private function insert($object)
     {
+        //TODO: this should only be done if there is a Delete query pending for the same entity table
+        $this->manager->commit();
+
         $query = $this->manager
             ->getDriver()
             ->getQueryBuilder()
