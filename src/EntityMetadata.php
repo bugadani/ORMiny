@@ -12,9 +12,11 @@ namespace ORMiny;
 use ORMiny\Annotations\Field as FieldAnnotation;
 use ORMiny\Annotations\Relation;
 use ORMiny\Metadata\Field;
+use ORMiny\Metadata\Getter;
 use ORMiny\Metadata\Getter\MethodGetter;
-use ORMiny\Metadata\Setter\MethodSetter;
 use ORMiny\Metadata\Getter\PropertyGetter;
+use ORMiny\Metadata\Setter;
+use ORMiny\Metadata\Setter\MethodSetter;
 use ORMiny\Metadata\Setter\PropertySetter;
 
 class EntityMetadata
@@ -22,7 +24,7 @@ class EntityMetadata
     private $className;
     private $tableName;
     private $primaryKey;
-    private $fieldNames = [];
+    private $fieldNames    = [];
     private $relationNames = [];
 
     /**
@@ -116,32 +118,11 @@ class EntityMetadata
             $fieldAnnotation->name = $property;
         }
 
-        if ($fieldAnnotation->setter === null) {
-            $setter = new PropertySetter($this, $property);
-        } else {
-            if ($fieldAnnotation->setter === true) {
-                $methodName = 'set' . ucfirst($property);
-            } else {
-                $methodName = $fieldAnnotation->setter;
-            }
-            $setter = new MethodSetter($this, $methodName);
-        }
-
-        if ($fieldAnnotation->getter === null) {
-            $getter = new PropertyGetter($this, $property);
-        } else {
-            if ($fieldAnnotation->getter === true) {
-                $methodName = 'get' . ucfirst($property);
-            } else {
-                $methodName = $fieldAnnotation->getter;
-            }
-            $getter = new MethodGetter($this, $methodName);
-        }
-
-        $field = new Field($setter, $getter);
-
         $this->fieldNames[ $fieldAnnotation->name ] = $fieldAnnotation->name;
-        $this->fields[ $fieldAnnotation->name ]     = $field;
+        $this->fields[ $fieldAnnotation->name ]     = new Field(
+            $this->createSetter($property, $fieldAnnotation),
+            $this->createGetter($property, $fieldAnnotation)
+        );
 
         return $fieldAnnotation->name;
     }
@@ -250,5 +231,47 @@ class EntityMetadata
     public function getPrimaryKeyField()
     {
         return $this->fields[ $this->primaryKey ];
+    }
+
+    /**
+     * @param                 $property
+     * @param FieldAnnotation $fieldAnnotation
+     * @return Setter
+     */
+    private function createSetter($property, FieldAnnotation $fieldAnnotation)
+    {
+        if ($fieldAnnotation->setter === null) {
+            $setter = new PropertySetter($this, $property);
+        } else {
+            if ($fieldAnnotation->setter === true) {
+                $methodName = 'set' . ucfirst($property);
+            } else {
+                $methodName = $fieldAnnotation->setter;
+            }
+            $setter = new MethodSetter($this, $methodName);
+        }
+
+        return $setter;
+    }
+
+    /**
+     * @param                 $property
+     * @param FieldAnnotation $fieldAnnotation
+     * @return Getter
+     */
+    private function createGetter($property, FieldAnnotation $fieldAnnotation)
+    {
+        if ($fieldAnnotation->getter === null) {
+            $getter = new PropertyGetter($this, $property);
+        } else {
+            if ($fieldAnnotation->getter === true) {
+                $methodName = 'get' . ucfirst($property);
+            } else {
+                $methodName = $fieldAnnotation->getter;
+            }
+            $getter = new MethodGetter($this, $methodName);
+        }
+
+        return $getter;
     }
 }

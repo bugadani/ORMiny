@@ -420,16 +420,7 @@ class EntityFinder
                     break;
             }
             $withPrefix   = $relation->name . '.';
-            $prefixLength = strlen($withPrefix);
-            $strippedWith = array_map(
-                function ($relationName) use ($prefixLength) {
-                    return substr($relationName, $prefixLength);
-                },
-                array_filter(
-                    $with,
-                    Utils::createStartWithFunction($withPrefix)
-                )
-            );
+            $strippedWith = Utils::filterPrefixedElements($with, $withPrefix, Utils::FILTER_REMOVE_PREFIX);
             $this->joinRelationsToQuery($relatedMetadata, $query, $strippedWith, $alias);
         }
 
@@ -513,16 +504,15 @@ class EntityFinder
 
         $table = $this->getTableAlias($table);
 
-        return array_map(
-            function ($field) use ($table) {
-                if (strpos($field, '.') !== false) {
-                    return $field;
-                }
+        $prefixIfMissing = function ($field) use ($table) {
+            if (strpos($field, '.') !== false) {
+                return $field;
+            }
 
-                return $table . '.' . $field;
-            },
-            $fields
-        );
+            return $table . '.' . $field;
+        };
+
+        return array_map($prefixIfMissing, $fields);
     }
 
     /**
@@ -602,12 +592,11 @@ class EntityFinder
                 $fieldName = $this->getTableAlias($table) . '.' . $fieldName;
             }
         }
-        $query = $this->getSelectQuery($table, $this->getFields($table), $fieldName, $keys);
-
         $this->manager->commit();
 
         return $this->process(
-            $query->query($this->parameters)
+            $this->getSelectQuery($table, $this->getFields($table), $fieldName, $keys)
+                 ->query($this->parameters)
         );
     }
 
@@ -657,11 +646,13 @@ class EntityFinder
             $fieldName = $this->getTableAlias($table) . '.' . $fieldName;
         }
 
-        $query = $this->getSelectQuery($table, $fieldName, $fieldName, [$key]);
-
         $this->manager->commit();
 
-        return $query->query($this->parameters)->rowCount() !== 0;
+        $rowCount = $this->getSelectQuery($table, $fieldName, $fieldName, [$key])
+                         ->query($this->parameters)
+                         ->rowCount();
+
+        return $rowCount !== 0;
     }
 
     /**
@@ -784,10 +775,13 @@ class EntityFinder
      */
     public function updateByField($fieldName, $fieldValue, array $data)
     {
-        $query = $this->getUpdateQuery($data);
-        $query->where($this->equalsExpression($fieldName, $fieldValue));
-
-        $this->manager->postPendingQuery($query, $this->parameters);
+        $this->manager->postPendingQuery(
+            $this->getUpdateQuery($data)
+                 ->where(
+                     $this->equalsExpression($fieldName, $fieldValue)
+                 ),
+            $this->parameters
+        );
     }
 
     /**

@@ -4,8 +4,8 @@ namespace ORMiny;
 
 class EntityState
 {
-    const STATE_NEW = 1;
-    const STATE_HANDLED = 2;
+    const STATE_NEW                  = 1;
+    const STATE_HANDLED              = 2;
     const STATE_NEW_WITH_PRIMARY_KEY = 3;
 
     /**
@@ -26,7 +26,7 @@ class EntityState
     /**
      * @var array The loaded relations
      */
-    private $relations = [];
+    private $loadedRelations = [];
 
     /**
      * @var array Relation data
@@ -57,8 +57,8 @@ class EntityState
         }
 
         foreach ($metadata->getRelations() as $relationName => $relation) {
-            $this->relations[ $relationName ]    = false;
-            $this->relationData[ $relationName ] = $relation->getValue($object);
+            $this->loadedRelations[ $relationName ] = false;
+            $this->relationData[ $relationName ]    = $relation->getValue($object);
         }
         $this->metadata = $metadata;
         $this->object   = $object;
@@ -91,19 +91,19 @@ class EntityState
 
     public function isRelationLoaded($relationName)
     {
-        if (!isset($this->relations[ $relationName ])) {
+        if (!isset($this->loadedRelations[ $relationName ])) {
             throw new \OutOfBoundsException("Unknown relation: {$relationName}");
         }
 
-        return $this->relations[ $relationName ];
+        return $this->loadedRelations[ $relationName ];
     }
 
     public function setRelationLoaded($relationName, $isLoaded = true)
     {
-        if (!isset($this->relations[ $relationName ])) {
+        if (!isset($this->loadedRelations[ $relationName ])) {
             throw new \OutOfBoundsException("Unknown relation: {$relationName}");
         }
-        $this->relations[ $relationName ] = $isLoaded;
+        $this->loadedRelations[ $relationName ] = $isLoaded;
     }
 
     public function getRelationData($relationName)
@@ -111,6 +111,7 @@ class EntityState
         if (!isset($this->relationData[ $relationName ])) {
             throw new \OutOfBoundsException("Unknown relation: {$relationName}");
         }
+
         return $this->relationData[ $relationName ];
     }
 

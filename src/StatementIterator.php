@@ -39,8 +39,9 @@ class StatementIterator implements \Iterator
     {
         $this->currentRecord = $this->statement->fetch();
         if (!empty($this->currentRecord)) {
-            if ($this->currentRecord[ $this->pkField ] !== $this->currentKey) {
-                $this->currentKey = $this->currentRecord[ $this->pkField ];
+            $recordKey = $this->currentRecord[ $this->pkField ];
+            if ($recordKey !== $this->currentKey) {
+                $this->currentKey = $recordKey;
                 $this->fetchedRecordCount++;
             }
         }

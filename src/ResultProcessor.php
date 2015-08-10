@@ -128,20 +128,14 @@ class ResultProcessor
     private function stripRelationPrefix(array $records, $prefix)
     {
         //Strip the relation prefix from the columns
-        $prefixLength = strlen($prefix);
 
         return array_map(
-            function ($rawRecord) use ($prefix, $prefixLength) {
-                $record = [];
-                //Filter for fields that are needed for the current record and remove field name prefixes
-                foreach ($rawRecord as $key => $value) {
-                    if (strpos($key, $prefix) === 0) {
-                        $key            = substr($key, $prefixLength);
-                        $record[ $key ] = $value;
-                    }
-                }
-
-                return $record;
+            function ($rawRecord) use ($prefix) {
+                return Utils::filterPrefixedElements(
+                    $rawRecord,
+                    $prefix,
+                    Utils::FILTER_REMOVE_PREFIX | Utils::FILTER_USE_KEYS
+                );
             },
             $records
         );
@@ -156,16 +150,6 @@ class ResultProcessor
     private function filterRelations(array $with, $prefix)
     {
         //Filter $with to remove elements that are not prefixed for the current relation
-        $prefixLength = strlen($prefix);
-
-        return array_map(
-            function ($relationName) use ($prefixLength) {
-                return substr($relationName, $prefixLength);
-            },
-            array_filter(
-                $with,
-                Utils::createStartWithFunction($prefix)
-            )
-        );
+        return Utils::filterPrefixedElements($with, $prefix, Utils::FILTER_REMOVE_PREFIX);
     }
 }
