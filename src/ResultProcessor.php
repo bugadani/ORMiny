@@ -23,12 +23,7 @@ class ResultProcessor
         $this->manager = $manager;
     }
 
-    public function processRecords(
-        Entity $entity,
-        array $with,
-        $records,
-        $readOnly
-    )
+    public function processRecords(Entity $entity, array $with, $records, $readOnly)
     {
         $metadata = $entity->getMetadata();
         $pkField  = $metadata->getPrimaryKey();
@@ -61,14 +56,26 @@ class ResultProcessor
                     $objects[ $currentKey ] = $object;
                 }
                 $currentKey = $key;
-                $object     = $this->createObject($entity, $record, $relations, $readOnly);
+                $object     = $this->createObject(
+                    $entity,
+                    $record,
+                    $relations,
+                    $readOnly
+                );
             }
             //Store the record to be processed for the related entities
             $recordsToProcess[] = $record;
         }
         if ($object !== null) {
             //Process and save the last object
-            $this->processRelated($entity, $object, $readOnly, $recordsToProcess, $relations, $with);
+            $this->processRelated(
+                $entity,
+                $object,
+                $readOnly,
+                $recordsToProcess,
+                $relations,
+                $with
+            );
             $objects[ $key ] = $object;
         }
 
@@ -104,7 +111,11 @@ class ResultProcessor
             /** @var Relation $relation */
             $value = $this->processRecords(
                 $this->manager->get($relation->target),
-                $this->filterRelations($with, $relation->name . '.'),
+                Utils::filterPrefixedElements(
+                    $with,
+                    $relation->name . '.',
+                    Utils::FILTER_REMOVE_PREFIX
+                ),
                 $this->stripRelationPrefix($records, $relation->name . '_'),
                 $readOnly
             );
@@ -139,17 +150,5 @@ class ResultProcessor
             },
             $records
         );
-    }
-
-    /**
-     * @param $with
-     * @param $prefix
-     *
-     * @return array
-     */
-    private function filterRelations(array $with, $prefix)
-    {
-        //Filter $with to remove elements that are not prefixed for the current relation
-        return Utils::filterPrefixedElements($with, $prefix, Utils::FILTER_REMOVE_PREFIX);
     }
 }
