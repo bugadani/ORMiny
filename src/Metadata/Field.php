@@ -44,6 +44,8 @@ class Field implements Setter, Getter
      */
     public function set($object, $value)
     {
-        return $this->setter->set($object, $value);
+        $this->setter->set($object, $value);
+
+        return $value;
     }
 }
