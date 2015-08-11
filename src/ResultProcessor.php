@@ -9,6 +9,8 @@
 
 namespace ORMiny;
 
+use ORMiny\Annotations\Relation;
+
 class ResultProcessor
 {
     /**
@@ -53,14 +55,26 @@ class ResultProcessor
                     $objects[ $currentKey ] = $object;
                 }
                 $currentKey = $key;
-                $object     = $this->createObject($entity, $record, $relations, $readOnly);
+                $object     = $this->createObject(
+                    $entity,
+                    $record,
+                    $relations,
+                    $readOnly
+                );
             }
             //Store the record to be processed for the related entities
             $recordsToProcess[] = $record;
         }
         if ($object !== null) {
             //Process and save the last object
-            $this->processRelated($entity, $object, $readOnly, $recordsToProcess, $relations, $with);
+            $this->processRelated(
+                $entity,
+                $object,
+                $readOnly,
+                $recordsToProcess,
+                $relations,
+                $with
+            );
             $objects[ $key ] = $object;
         }
 
@@ -143,17 +157,5 @@ class ResultProcessor
             },
             $records
         );
-    }
-
-    /**
-     * @param $with
-     * @param $prefix
-     *
-     * @return array
-     */
-    private function filterRelations(array $with, $prefix)
-    {
-        //Filter $with to remove elements that are not prefixed for the current relation
-        return Utils::filterPrefixedElements($with, $prefix, Utils::FILTER_REMOVE_PREFIX);
     }
 }
