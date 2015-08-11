@@ -122,7 +122,7 @@ class ResultProcessor
 
             $value = $this->processRecords(
                 $relatedEntity,
-                $this->filterRelations($with, $relationName . '.'),
+                Utils::filterPrefixedElements($with, $relationName . '.', Utils::FILTER_REMOVE_PREFIX),
                 $this->stripRelationPrefix($records, $relationName . '_'),
                 $readOnly
             );
