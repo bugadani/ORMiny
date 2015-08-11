@@ -31,10 +31,10 @@ class EntityState
     /**
      * @var array Relation data
      */
-    private $relationData = [];
+    private $relationForeignKeys = [];
 
     /**
-     * @var EntityMetadata metadata for the handled object
+     * @var Entity metadata for the handled object
      */
     private $metadata;
 
@@ -43,7 +43,7 @@ class EntityState
      */
     private $object;
 
-    public function __construct($object, EntityMetadata $metadata, $fromDatabase = false)
+    public function __construct($object, Entity $metadata, $fromDatabase = false)
     {
         $isPrimaryKeySet = $metadata->getPrimaryKeyField()->get($object) !== null;
         if ($isPrimaryKeySet) {
@@ -57,8 +57,8 @@ class EntityState
         }
 
         foreach ($metadata->getRelations() as $relationName => $relation) {
-            $this->loadedRelations[ $relationName ] = false;
-            $this->relationData[ $relationName ]    = $relation->getValue($object);
+            $this->loadedRelations[ $relationName ]     = false;
+            $this->relationForeignKeys[ $relationName ] = $relation->get($object);
         }
         $this->metadata = $metadata;
         $this->object   = $object;
@@ -106,18 +106,18 @@ class EntityState
         $this->loadedRelations[ $relationName ] = $isLoaded;
     }
 
-    public function getRelationData($relationName)
+    public function getRelationForeignKeys($relationName)
     {
-        if (!isset($this->relationData[ $relationName ])) {
+        if (!isset($this->relationForeignKeys[ $relationName ])) {
             throw new \OutOfBoundsException("Unknown relation: {$relationName}");
         }
 
-        return $this->relationData[ $relationName ];
+        return $this->relationForeignKeys[ $relationName ];
     }
 
-    public function setRelationData($relationName, $data)
+    public function setRelationForeignKeys($relationName, $data)
     {
-        $this->relationData[ $relationName ] = $data;
+        $this->relationForeignKeys[ $relationName ] = $data;
     }
 
     public function refreshOriginalData()

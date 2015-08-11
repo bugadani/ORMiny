@@ -9,16 +9,16 @@
 
 namespace ORMiny\Metadata\Getter;
 
-use ORMiny\EntityMetadata;
+use ORMiny\Entity;
 use ORMiny\Metadata\Getter;
 
 class MethodGetter implements Getter
 {
     private $method;
 
-    public function __construct(EntityMetadata $metadata, $method)
+    public function __construct(Entity $entity, $method)
     {
-        $class = $metadata->getClassName();
+        $class = $entity->getClassName();
         if (!is_callable([$class, $method])) {
             throw new \InvalidArgumentException("{$class}::{$method} is not callable");
         }

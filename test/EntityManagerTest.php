@@ -48,6 +48,6 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase
     {
         $entity = $this->entityManager->getEntityForObject(new RelatedEntity());
         $this->assertInstanceOf('ORMiny\\Entity', $entity);
-        $this->assertEquals('ORMiny\\RelatedEntity', $entity->getMetadata()->getClassName());
+        $this->assertEquals('ORMiny\\RelatedEntity', $entity->getClassName());
     }
 }

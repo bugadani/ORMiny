@@ -9,8 +9,6 @@
 
 namespace ORMiny;
 
-use ORMiny\Annotations\Relation;
-
 class ResultProcessor
 {
     /**
@@ -23,15 +21,9 @@ class ResultProcessor
         $this->manager = $manager;
     }
 
-    public function processRecords(
-        Entity $entity,
-        array $with,
-        $records,
-        $readOnly
-    )
+    public function processRecords(Entity $entity, array $with, $records, $readOnly)
     {
-        $metadata = $entity->getMetadata();
-        $pkField  = $metadata->getPrimaryKey();
+        $pkField = $entity->getPrimaryKey();
 
         $objects          = [];
         $currentKey       = null;
@@ -39,8 +31,8 @@ class ResultProcessor
         $recordsToProcess = [];
 
         $relations = array_map(
-            [$metadata, 'getRelation'],
-            array_intersect($with, $metadata->getRelationNames())
+            [$entity, 'getRelation'],
+            array_intersect($with, $entity->getRelationNames())
         );
 
         foreach ($records as $record) {
@@ -75,37 +67,49 @@ class ResultProcessor
         return $objects;
     }
 
+    /**
+     * @param Entity              $entity
+     * @param array               $record
+     * @param Metadata\Relation[] $relations
+     * @param                     $readOnly
+     *
+     * @return mixed
+     */
     private function createObject(Entity $entity, array $record, array $relations, $readOnly)
     {
-        $metadata = $entity->getMetadata();
-        $fields   = $metadata->getFieldNames();
+        $fields = $entity->getFieldNames();
 
-        $object = $entity->handle(
-            $metadata->create(
-                array_intersect_key($record, $fields)
-            )
-        );
+        $object = $entity->create(array_intersect_key($record, $fields), true);
         $entity->setReadOnly($object, $readOnly);
 
         foreach ($relations as $relation) {
-            /** @var Relation $relation */
-            $relation->setEmptyValue($object);
+            $relation->set($object, $relation->getEmptyValue());
         }
 
         return $object;
     }
 
+    /**
+     * @param Entity              $entity
+     * @param                     $object
+     * @param                     $readOnly
+     * @param array               $records
+     * @param Metadata\Relation[] $relations
+     * @param array               $with
+     */
     private function processRelated(Entity $entity, $object, $readOnly, array $records, array $relations, array $with)
     {
         if (empty($records)) {
             return;
         }
         foreach ($relations as $relation) {
-            /** @var Relation $relation */
+            $relationName  = $relation->getRelationName();
+            $relatedEntity = $this->manager->get($relation->getEntityName());
+
             $value = $this->processRecords(
-                $this->manager->get($relation->target),
-                $this->filterRelations($with, $relation->name . '.'),
-                $this->stripRelationPrefix($records, $relation->name . '_'),
+                $relatedEntity,
+                $this->filterRelations($with, $relationName . '.'),
+                $this->stripRelationPrefix($records, $relationName . '_'),
                 $readOnly
             );
 
@@ -114,7 +118,7 @@ class ResultProcessor
             }
 
             if (!empty($value)) {
-                $entity->setRelationValue($object, $relation->name, $value);
+                $entity->setRelationValue($object, $relationName, $value);
             }
         }
     }

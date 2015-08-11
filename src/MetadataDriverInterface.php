@@ -12,9 +12,12 @@ namespace ORMiny;
 interface MetadataDriverInterface
 {
     /**
-     * @param $class
-     *
-     * @return EntityMetadata
+     * @param EntityManager $manager
      */
-    public function readEntityMetadata($class);
+    public function setEntityManager(EntityManager $manager);
+
+    /**
+     * @param Entity $entity
+     */
+    public function readEntityMetadata(Entity $entity);
 }

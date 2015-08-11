@@ -51,6 +51,7 @@ class EntityManager
 
     public function __construct(Driver $driver, MetadataDriverInterface $metadataDriver)
     {
+        $metadataDriver->setEntityManager($this);
         $this->driver          = $driver;
         $this->metadataDriver  = $metadataDriver;
         $this->resultProcessor = new ResultProcessor($this);
@@ -113,9 +114,10 @@ class EntityManager
     private function getEntityByClass($className)
     {
         if (!isset($this->entities[ $className ])) {
-            $metadata = $this->metadataDriver->readEntityMetadata($className);
+            $entity = new Entity($this, $className);
+            $this->metadataDriver->readEntityMetadata($entity);
 
-            $this->entities[ $className ] = new Entity($this, $metadata);
+            $this->entities[ $className ] = $entity;
         }
 
         return $this->entities[ $className ];

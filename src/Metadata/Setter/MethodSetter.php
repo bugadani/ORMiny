@@ -9,16 +9,16 @@
 
 namespace ORMiny\Metadata\Setter;
 
-use ORMiny\EntityMetadata;
+use ORMiny\Entity;
 use ORMiny\Metadata\Setter;
 
 class MethodSetter implements Setter
 {
     private $method;
 
-    public function __construct(EntityMetadata $metadata, $method)
+    public function __construct(Entity $entity, $method)
     {
-        $class = $metadata->getClassName();
+        $class = $entity->getClassName();
         if (!is_callable([$class, $method])) {
             throw new \InvalidArgumentException("{$class}::{$method} is not callable");
         }

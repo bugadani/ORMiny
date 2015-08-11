@@ -5,8 +5,10 @@ namespace ORMiny;
 use Modules\Annotation\AnnotationReader;
 use Modules\DBAL\Driver;
 use Modules\DBAL\Platform\MySQL;
-use ORMiny\Annotations\Field;
+use ORMiny\Metadata\Field;
 use ORMiny\Drivers\AnnotationMetadataDriver;
+use ORMiny\Metadata\Getter\PropertyGetter;
+use ORMiny\Metadata\Setter\PropertySetter;
 
 class EntityTest extends \PHPUnit_Framework_TestCase
 {
@@ -101,12 +103,11 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testCreate()
     {
-        $metadata = new EntityMetadata('ORMiny\\TestEntity');
-        $metadata->setTable('test');
-        $metadata->addField('field', new Field('key'));
-        $metadata->setPrimaryKey('key');
+        $entity   = new Entity($this->entityManager, 'ORMiny\\TestEntity');
+        $entity->setTable('test');
+        $entity->addField('key', new Field(new PropertySetter($entity, 'field'), new PropertyGetter($entity, 'field')));
+        $entity->setPrimaryKey('key');
 
-        $entity = new Entity($this->entityManager, $metadata);
         $object = $entity->create(['key' => 'value']);
 
         $this->assertInstanceOf('ORMiny\\TestEntity', $object);

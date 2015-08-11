@@ -9,16 +9,16 @@
 
 namespace ORMiny\Metadata\Getter;
 
-use ORMiny\EntityMetadata;
+use ORMiny\Entity;
 use ORMiny\Metadata\Getter;
 
 class PropertyGetter implements Getter
 {
     private $property;
 
-    public function __construct(EntityMetadata $metadata, $property)
+    public function __construct(Entity $entity, $property)
     {
-        $class = $metadata->getClassName();
+        $class = $entity->getClassName();
         if (!property_exists($class, $property)) {
             throw new \InvalidArgumentException("{$class}::{$property} is not a property");
         }
@@ -27,6 +27,6 @@ class PropertyGetter implements Getter
 
     public function get($object)
     {
-        return $object->{$this->property};
+        return isset($object->{$this->property}) ? $object->{$this->property} : null;
     }
 }
