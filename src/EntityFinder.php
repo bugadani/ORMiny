@@ -353,7 +353,6 @@ class EntityFinder
         foreach (array_filter($with, [$entity, 'hasRelation']) as $relationName) {
             $relation      = $entity->getRelation($relationName);
             $relatedEntity = $relation->getEntity();
-            $relatedTable  = $relatedEntity->getTable();
 
             $alias = $prefix . $relationName;
 
@@ -366,39 +365,9 @@ class EntityFinder
                 )
             );
 
-            if ($relation instanceof Relation\ManyToMany) {
-                $joinTable = $relation->getJoinTable();
-                $query->leftJoin(
-                    $leftAlias,
-                    $joinTable,
-                    $joinTable,
-                    (new Expression())->eq(
-                        "{$leftAlias}.{$relation->getForeignKey()}",
-                        "{$joinTable}.{$relation->getJoinTableForeignKey()}"
-                    )
-                );
-                $query->leftJoin(
-                    $joinTable,
-                    $relatedTable,
-                    $alias,
-                    (new Expression())->eq(
-                        "{$joinTable}.{$relation->getJoinTableTargetKey()}",
-                        "{$alias}.{$relation->getTargetKey()}"
-                    )
-                );
-            } else {
-                $query->leftJoin(
-                    $leftAlias,
-                    $relatedTable,
-                    $alias,
-                    (new Expression())->eq(
-                        "{$leftAlias}.{$relation->getForeignKey()}",
-                        "{$alias}.{$relation->getTargetKey()}"
-                    )
-                );
-            }
-            $withPrefix   = $relationName . '.';
-            $strippedWith = Utils::filterPrefixedElements($with, $withPrefix, Utils::FILTER_REMOVE_PREFIX);
+            $relation->joinToQuery($query, $leftAlias, $alias);
+
+            $strippedWith = Utils::filterPrefixedElements($with, $relationName . '.', Utils::FILTER_REMOVE_PREFIX);
             $this->joinRelationsToQuery($relatedEntity, $query, $strippedWith, $alias);
         }
 

@@ -9,6 +9,8 @@
 
 namespace ORMiny\Metadata;
 
+use Modules\DBAL\QueryBuilder\Expression;
+use Modules\DBAL\QueryBuilder\Select;
 use ORMiny\Annotations\Relation as RelationAnnotation;
 use ORMiny\Entity;
 use ORMiny\EntityManager;
@@ -127,6 +129,19 @@ abstract class Relation implements Setter, Getter
     public function getRelationName()
     {
         return $this->relationAnnotation->name;
+    }
+
+    public function joinToQuery(Select $query, $leftAlias, $alias)
+    {
+        $query->leftJoin(
+            $leftAlias,
+            $this->related->getTable(),
+            $alias,
+            (new Expression())->eq(
+                "{$leftAlias}.{$this->getForeignKey()}",
+                "{$alias}.{$this->getTargetKey()}"
+            )
+        );
     }
 
     /**

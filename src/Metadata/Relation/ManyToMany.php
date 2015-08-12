@@ -2,6 +2,8 @@
 
 namespace ORMiny\Metadata\Relation;
 
+use Modules\DBAL\QueryBuilder\Expression;
+use Modules\DBAL\QueryBuilder\Select;
 use ORMiny\EntityManager;
 use ORMiny\Metadata\Relation;
 
@@ -32,6 +34,30 @@ class ManyToMany extends Relation
         );
     }
 
+    public function joinToQuery(Select $query, $leftAlias, $alias)
+    {
+        $joinTable = $this->getJoinTable();
+        $query->leftJoin(
+            $leftAlias,
+            $joinTable,
+            $joinTable,
+            (new Expression())->eq(
+                "{$leftAlias}.{$this->getForeignKey()}",
+                "{$joinTable}.{$this->getJoinTableForeignKey()}"
+            )
+        );
+        $query->leftJoin(
+            $joinTable,
+            $this->related->getTable(),
+            $alias,
+            (new Expression())->eq(
+                "{$joinTable}.{$this->getJoinTableTargetKey()}",
+                "{$alias}.{$this->getTargetKey()}"
+            )
+        );
+    }
+
+
     public function getJoinTable()
     {
         return $this->relationAnnotation->joinTable;
@@ -58,6 +84,7 @@ class ManyToMany extends Relation
     public function getForeignKeyValue($object)
     {
         $targetKeyField = $this->related->getField($this->getTargetKey());
+
         return array_map([$targetKeyField, 'get'], $object);
     }
 }

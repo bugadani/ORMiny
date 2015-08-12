@@ -9,8 +9,6 @@
 
 namespace ORMiny;
 
-use ORMiny\Annotations\Relation;
-
 class ResultProcessor
 {
     /**
@@ -118,10 +116,9 @@ class ResultProcessor
         }
         foreach ($relations as $relation) {
             $relationName  = $relation->getRelationName();
-            $relatedEntity = $this->manager->get($relation->getEntityName());
 
             $value = $this->processRecords(
-                $relatedEntity,
+                $relation->getEntity(),
                 Utils::filterPrefixedElements($with, $relationName . '.', Utils::FILTER_REMOVE_PREFIX),
                 $this->stripRelationPrefix($records, $relationName . '_'),
                 $readOnly
