@@ -115,9 +115,9 @@ class EntityManager
     {
         if (!isset($this->entities[ $className ])) {
             $entity = new Entity($this, $className);
-            $this->metadataDriver->readEntityMetadata($entity);
-
             $this->entities[ $className ] = $entity;
+
+            $this->metadataDriver->readEntityMetadata($entity);
         }
 
         return $this->entities[ $className ];

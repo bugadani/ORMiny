@@ -757,7 +757,7 @@ class Entity
             $originalForeignKey = $state->getOriginalFieldData($foreignKey);
 
             if ($relatedObject !== null) {
-                //Related object has been set
+                //Related object is set
                 $targetKeyField    = $relatedEntity->getField($relation->getTargetKey());
                 $currentForeignKey = $targetKeyField->get($relatedObject);
             } else if ($state->isRelationLoaded($relationName)) {
@@ -778,14 +778,12 @@ class Entity
             //TODO: there are cases when this condition is not sufficient
             //e.g. a row should be saved because of a to-be-executed pending query changes a foreign key
             if ($currentForeignKey !== $originalForeignKey) {
+                //The related object has changed, update the foreign key
                 $foreignKeyField->set($object, $currentForeignKey);
                 $state->setRelationForeignKeys($relationName, $currentForeignKey);
 
-                if ($currentForeignKey !== null) {
-                    $relatedEntity->save(
-                    //TODO: is this always $relatedObject? if yes, this be null
-                        $relation->get($object)
-                    );
+                if ($relatedObject !== null) {
+                    $relatedEntity->save($relatedObject);
                 }
             }
         }

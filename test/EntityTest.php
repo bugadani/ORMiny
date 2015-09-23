@@ -103,7 +103,7 @@ class EntityTest extends \PHPUnit_Framework_TestCase
 
     public function testCreate()
     {
-        $entity   = new Entity($this->entityManager, 'ORMiny\\TestEntity');
+        $entity = new Entity($this->entityManager, 'ORMiny\\TestEntity');
         $entity->setTable('test');
         $entity->addField('key', new Field(new PropertySetter($entity, 'field'), new PropertyGetter($entity, 'field')));
         $entity->setPrimaryKey('key');
@@ -953,6 +953,39 @@ class EntityTest extends \PHPUnit_Framework_TestCase
                 $entityFinder->parameter(1)
             )
         )->update(['foreignKey' => 2]);
+
+        $this->entityManager->commit();
+    }
+
+    public function testSettingBelongsToRelationObjectUpdatesForeignKey()
+    {
+        $this->expectQueries(
+            [
+                [
+                    'SELECT primaryKey, foreignKey FROM related WHERE primaryKey=?',
+                    [2],
+                    [
+                        [
+                            'primaryKey' => 2,
+                            'foreignKey' => null
+                        ]
+                    ]
+                ],
+                [
+                    'UPDATE related SET foreignKey=? WHERE primaryKey=?',
+                    [1, 2]
+                ]
+            ]
+        );
+
+        $entity         = $this->entityManager->get('HasManyTargetEntity');
+        $relationEntity = $this->entityManager->get('HasManyRelationEntity');
+        /** @var HasManyTargetEntity $object */
+        $object = $entity->get(2);
+
+        $object->belongs = $relationEntity->create(['pk' => 1], true);
+
+        $entity->save($object);
 
         $this->entityManager->commit();
     }
