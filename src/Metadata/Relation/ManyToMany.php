@@ -6,6 +6,7 @@ use Modules\DBAL\QueryBuilder\Expression;
 use Modules\DBAL\QueryBuilder\Select;
 use ORMiny\EntityManager;
 use ORMiny\Metadata\Relation;
+use ORMiny\PendingQuery;
 
 class ManyToMany extends Relation
 {
@@ -21,16 +22,22 @@ class ManyToMany extends Relation
         $table        = $this->entity->getTable();
 
         $manager->postPendingQuery(
-            $queryBuilder
-                ->delete($this->getJoinTable())
-                ->where(
-                    $queryBuilder->expression()->eq(
-                        $table . '_' . $this->getForeignKey(),
-                        $queryBuilder->createPositionalParameter($this->entity
-                            ->getField($this->getForeignKey())
-                            ->get($object))
+            new PendingQuery(
+                $this->entity,
+                PendingQuery::TYPE_DELETE,
+                $queryBuilder
+                    ->delete($this->getJoinTable())
+                    ->where(
+                        $queryBuilder->expression()->eq(
+                            $table . '_' . $this->getForeignKey(),
+                            $queryBuilder->createPositionalParameter(
+                                $this->entity
+                                    ->getField($this->getForeignKey())
+                                    ->get($object)
+                            )
+                        )
                     )
-                )
+            )
         );
     }
 

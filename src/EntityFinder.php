@@ -38,7 +38,7 @@ class EntityFinder
     private $alias;
     private $parameters = [];
     private $where;
-    private $with       = [];
+    private $with = [];
 
     private $limit;
     private $offset;
@@ -259,10 +259,10 @@ class EntityFinder
     }
 
     /**
-     * @param string       $table The table name
+     * @param string $table The table name
      * @param string|array $fields Fields to select
-     * @param string       $fieldName The key field
-     * @param mixed|array  $keys The key value(s)
+     * @param string $fieldName The key field
+     * @param mixed|array $keys The key value(s)
      *
      * @return Select
      */
@@ -336,7 +336,7 @@ class EntityFinder
     /**
      * @param Entity $entity
      * @param Select $query
-     * @param array  $with
+     * @param array $with
      * @param string $prefix
      *
      * @return Select
@@ -521,7 +521,7 @@ class EntityFinder
      *
      * Note: previous WHERE clauses are preserved
      *
-     * @param string      $fieldName
+     * @param string $fieldName
      * @param array|mixed $keys
      *
      * @return array
@@ -563,7 +563,7 @@ class EntityFinder
     /**
      * Fetch a single record from the database by field
      *
-     * @param string      $fieldName
+     * @param string $fieldName
      * @param array|mixed $key
      *
      * @return mixed The record object or false on failure
@@ -581,7 +581,7 @@ class EntityFinder
      * Note: previous WHERE clauses are preserved
      *
      * @param string $fieldName
-     * @param mixed  $key
+     * @param mixed $key
      *
      * @return bool
      */
@@ -636,10 +636,14 @@ class EntityFinder
 
         if (empty($relations)) {
             $this->manager->postPendingQuery(
-                $this->applyFilters(
-                    $this->queryBuilder->delete($this->entity->getTable())
-                ),
-                $this->parameters
+                new PendingQuery(
+                    $this->entity,
+                    PendingQuery::TYPE_UPDATE,
+                    $this->applyFilters(
+                        $this->queryBuilder->delete($this->entity->getTable())
+                    ),
+                    $this->parameters
+                )
             );
         } else {
             $this->deleteRecords(
@@ -654,7 +658,7 @@ class EntityFinder
      *
      * Note: previous WHERE clauses are preserved
      *
-     * @param string      $fieldName
+     * @param string $fieldName
      * @param mixed|array $keys
      */
     public function deleteByField($fieldName, $keys)
@@ -672,10 +676,14 @@ class EntityFinder
         );
         if (empty($relations)) {
             $this->manager->postPendingQuery(
-                $this->queryBuilder
-                    ->delete($this->entity->getTable())
-                    ->where($this->equalsExpression($fieldName, $keys)),
-                $this->parameters
+                new PendingQuery(
+                    $this->entity,
+                    PendingQuery::TYPE_DELETE,
+                    $this->queryBuilder
+                        ->delete($this->entity->getTable())
+                        ->where($this->equalsExpression($fieldName, $keys)),
+                    $this->parameters
+                )
             );
         } else {
             $this->deleteRecords(
@@ -705,8 +713,12 @@ class EntityFinder
     public function update(array $data)
     {
         $this->manager->postPendingQuery(
-            $this->getUpdateQuery($data),
-            $this->parameters
+            new PendingQuery(
+                $this->entity,
+                PendingQuery::TYPE_UPDATE,
+                $this->getUpdateQuery($data),
+                $this->parameters
+            )
         );
     }
 
@@ -715,18 +727,22 @@ class EntityFinder
      *
      * Note: previous WHERE clauses are preserved
      *
-     * @param string      $fieldName
+     * @param string $fieldName
      * @param mixed|array $fieldValue
-     * @param array       $data
+     * @param array $data
      */
     public function updateByField($fieldName, $fieldValue, array $data)
     {
         $this->manager->postPendingQuery(
-            $this->getUpdateQuery($data)
-                 ->where(
-                     $this->equalsExpression($fieldName, $fieldValue)
-                 ),
-            $this->parameters
+            new PendingQuery(
+                $this->entity,
+                PendingQuery::TYPE_UPDATE,
+                $this->getUpdateQuery($data)
+                     ->where(
+                         $this->equalsExpression($fieldName, $fieldValue)
+                     ),
+                $this->parameters
+            )
         );
     }
 
@@ -736,7 +752,7 @@ class EntityFinder
      * Note: previous WHERE clauses are preserved
      *
      * @param mixed|array $key
-     * @param array       $data
+     * @param array $data
      */
     public function updateByPrimaryKey($key, array $data)
     {

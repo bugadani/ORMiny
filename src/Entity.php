@@ -40,7 +40,7 @@ class Entity
     private $tableName;
 
     private $primaryKey;
-    private $fieldNames    = [];
+    private $fieldNames = [];
     private $relationNames = [];
 
     /**
@@ -396,16 +396,20 @@ class Entity
 
         if ($this->isPrimaryKeySet($object)) {
             $this->manager->postPendingQuery(
-                $queryBuilder
-                    ->delete($table)
-                    ->where(
-                        $queryBuilder->expression()->eq(
-                            $this->getPrimaryKey(),
-                            $queryBuilder->createPositionalParameter(
-                                $this->getPrimaryKeyValue($object)
+                new PendingQuery(
+                    $this,
+                    PendingQuery::TYPE_DELETE,
+                    $queryBuilder
+                        ->delete($table)
+                        ->where(
+                            $queryBuilder->expression()->eq(
+                                $this->getPrimaryKey(),
+                                $queryBuilder->createPositionalParameter(
+                                    $this->getPrimaryKeyValue($object)
+                                )
                             )
                         )
-                    )
+                )
             );
             unset($this->entityStates[ $object ]);
         }
@@ -532,17 +536,21 @@ class Entity
             $primaryKey   = $this->getPrimaryKey();
 
             $this->manager->postPendingQuery(
-                $queryBuilder
-                    ->update($this->getTable())
-                    ->values($queryBuilder->createPositionalParameter($data))
-                    ->where(
-                        $queryBuilder->expression()->eq(
-                            $primaryKey,
-                            $queryBuilder->createPositionalParameter(
-                                $this->getState($object)->getOriginalFieldData($primaryKey)
+                new PendingQuery(
+                    $this,
+                    PendingQuery::TYPE_UPDATE,
+                    $queryBuilder
+                        ->update($this->getTable())
+                        ->values($queryBuilder->createPositionalParameter($data))
+                        ->where(
+                            $queryBuilder->expression()->eq(
+                                $primaryKey,
+                                $queryBuilder->createPositionalParameter(
+                                    $this->getState($object)->getOriginalFieldData($primaryKey)
+                                )
                             )
                         )
-                    )
+                )
             );
         }
 

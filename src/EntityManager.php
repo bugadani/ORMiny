@@ -45,7 +45,7 @@ class EntityManager
     private $metadataDriver;
 
     /**
-     * @var array Pending queries whit the structure of [query, parameters]
+     * @var PendingQuery[] Pending queries
      */
     private $pendingQueries = [];
 
@@ -114,7 +114,7 @@ class EntityManager
     private function getEntityByClass($className)
     {
         if (!isset($this->entities[ $className ])) {
-            $entity = new Entity($this, $className);
+            $entity                       = new Entity($this, $className);
             $this->entities[ $className ] = $entity;
 
             $this->metadataDriver->readEntityMetadata($entity);
@@ -153,9 +153,9 @@ class EntityManager
         return $this->get($entityName)->find($alias);
     }
 
-    public function postPendingQuery(AbstractQueryBuilder $query, array $params = [])
+    public function postPendingQuery(PendingQuery $query)
     {
-        $this->pendingQueries[] = [$query, $params];
+        $this->pendingQueries[] = $query;
     }
 
     /**
@@ -177,10 +177,9 @@ class EntityManager
     {
         $this->driver->inTransaction(
             function (Driver $driver, array $pendingQueries) {
+                /** @var PendingQuery[] $pendingQueries */
                 foreach ($pendingQueries as $item) {
-                    list($query, $params) = $item;
-                    /** @var AbstractQueryBuilder $query */
-                    $query->query($params);
+                    $item->execute();
                 }
             },
             $this->pendingQueries
