@@ -395,6 +395,25 @@ class EntityFinder
     }
 
     /**
+     * @return bool
+     */
+    private function statementIteratorRequired()
+    {
+        //Special statement iterator is needed when relations are loaded _and_ there is a limit and/or an offset
+        if (empty($this->with)) {
+            return false;
+        }
+
+        //TODO: actually, this is only needed when there is at least one 1:N or N:N relation
+
+        if (isset($this->limit) || (isset($this->offset) && $this->offset > 0)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * @param Statement $statement
      * @param           $pkField
      *
@@ -402,9 +421,7 @@ class EntityFinder
      */
     private function fetchResults(Statement $statement, $pkField)
     {
-        //Special statement iterator is needed when relations are loaded _and_ there is a limit and/or an offset
-        //TODO: actually, this is only needed when there is at least one 1:N or N:N relation
-        if (!empty($this->with) && (isset($this->limit) || (isset($this->offset) && $this->offset > 0))) {
+        if ($this->statementIteratorRequired()) {
             return new StatementIterator($statement, $pkField, $this->offset, $this->limit);
         }
 
