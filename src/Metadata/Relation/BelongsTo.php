@@ -2,7 +2,6 @@
 
 namespace ORMiny\Metadata\Relation;
 
-use ORMiny\EntityManager;
 use ORMiny\Metadata\Relation;
 
 class BelongsTo extends Relation
@@ -20,7 +19,7 @@ class BelongsTo extends Relation
         return null;
     }
 
-    public function delete(EntityManager $manager, $foreignKey)
+    public function delete($foreignKey)
     {
         // Nothing to do
     }

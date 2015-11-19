@@ -65,6 +65,14 @@ class Entity
         $this->entityStates = new \SplObjectStorage();
     }
 
+    /**
+     * @return EntityManager
+     */
+    public function getManager()
+    {
+        return $this->manager;
+    }
+
     //Metadata related methods
     /**
      * @param $object
@@ -387,20 +395,18 @@ class Entity
 
     public function delete($object)
     {
-        $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-        $table        = $this->getTable();
-
         foreach ($this->getRelations() as $relation) {
-            $relation->delete($this->manager, $object);
+            $relation->delete($object);
         }
 
         if ($this->isPrimaryKeySet($object)) {
+            $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
             $this->manager->postPendingQuery(
                 new PendingQuery(
                     $this,
                     PendingQuery::TYPE_DELETE,
                     $queryBuilder
-                        ->delete($table)
+                        ->delete($this->getTable())
                         ->where(
                             $queryBuilder->expression()->eq(
                                 $this->getPrimaryKey(),

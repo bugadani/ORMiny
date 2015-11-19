@@ -2,7 +2,6 @@
 
 namespace ORMiny\Metadata\Relation;
 
-use ORMiny\EntityManager;
 use ORMiny\Metadata\Relation;
 
 class HasOne extends Relation
@@ -20,7 +19,7 @@ class HasOne extends Relation
         return null;
     }
 
-    public function delete(EntityManager $manager, $object)
+    public function delete($foreignKey)
     {
         $this->getEntity()
              ->find()
@@ -28,7 +27,7 @@ class HasOne extends Relation
                  $this->getTargetKey(),
                  $this->entity
                      ->getField($this->getForeignKey())
-                     ->get($object)
+                     ->get($foreignKey)
              );
     }
 

@@ -2,7 +2,7 @@
 
 /**
  * This file is part of the ORMiny library.
- * (c) Dániel Buga <bugadani@gmail.com>
+ * (c) Dï¿½niel Buga <bugadani@gmail.com>
  *
  * For licensing information see the LICENSE file.
  */
@@ -13,7 +13,6 @@ use Modules\DBAL\QueryBuilder\Expression;
 use Modules\DBAL\QueryBuilder\Select;
 use ORMiny\Annotations\Relation as RelationAnnotation;
 use ORMiny\Entity;
-use ORMiny\EntityManager;
 use ORMiny\Metadata\Relation\BelongsTo;
 use ORMiny\Metadata\Relation\HasMany;
 use ORMiny\Metadata\Relation\HasOne;
@@ -67,6 +66,8 @@ abstract class Relation implements Setter, Getter
             case RelationAnnotation::MANY_MANY:
                 return new ManyToMany($metadata, $related, $relationAnnotation, $setter, $getter);
         }
+
+        throw new \InvalidArgumentException("Unknown relation type: {$relationAnnotation->type}");
     }
 
     /**
@@ -149,5 +150,5 @@ abstract class Relation implements Setter, Getter
      */
     abstract public function getEmptyValue();
 
-    abstract public function delete(EntityManager $manager, $foreignKey);
+    abstract public function delete($foreignKey);
 }
