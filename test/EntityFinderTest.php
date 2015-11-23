@@ -2,7 +2,7 @@
 
 namespace ORMiny;
 
-use Modules\Annotation\AnnotationReader;
+use Annotiny\AnnotationReader;
 use Modules\DBAL\Driver;
 use Modules\DBAL\Platform\MySQL;
 use ORMiny\Drivers\AnnotationMetadataDriver;
