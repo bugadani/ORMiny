@@ -2,7 +2,7 @@
 
 namespace ORMiny;
 
-use Modules\DBAL\AbstractQueryBuilder;
+use DBTiny\AbstractQueryBuilder;
 
 class PendingQuery
 {

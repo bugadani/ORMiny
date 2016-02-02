@@ -2,9 +2,8 @@
 
 namespace ORMiny\Metadata\Relation;
 
-use Modules\DBAL\QueryBuilder\Expression;
-use Modules\DBAL\QueryBuilder\Select;
-use ORMiny\EntityManager;
+use DBTiny\QueryBuilder\Expression;
+use DBTiny\QueryBuilder\Select;
 use ORMiny\Metadata\Relation;
 use ORMiny\PendingQuery;
 
