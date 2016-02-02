@@ -3,22 +3,15 @@
 namespace ORMiny;
 
 use DBTiny\Driver\Statement;
+use Traversable;
 
-class StatementIterator implements \Iterator
+class StatementIterator implements \IteratorAggregate
 {
     private $statement;
     private $pkField;
 
-    private $currentKey;
-    private $currentRecord;
-
-    private $fetchedRecordCount = 0;
-
     private $offset = 0;
     private $limit  = PHP_INT_MAX;
-
-    private $iterationStarted = false;
-    private $cursorClosed     = false;
 
     public function __construct(Statement $statement, $pkField, $offset, $limit)
     {
@@ -30,57 +23,21 @@ class StatementIterator implements \Iterator
         }
     }
 
-    public function current()
-    {
-        return $this->currentRecord;
-    }
-
-    public function next()
-    {
-        $this->currentRecord = $this->statement->fetch();
-        if (!empty($this->currentRecord)) {
-            $recordKey = $this->currentRecord[ $this->pkField ];
-            if ($recordKey !== $this->currentKey) {
-                $this->currentKey = $recordKey;
-                $this->fetchedRecordCount++;
-            }
-        }
-    }
-
-    public function key()
-    {
-        return $this->currentKey;
-    }
-
-    public function valid()
-    {
-        if (!empty($this->currentRecord) && $this->fetchedRecordCount <= $this->limit) {
-            return true;
-        }
-
-        if (!$this->cursorClosed) {
-            $this->statement->closeCursor();
-            $this->cursorClosed = true;
-        }
-
-        return false;
-    }
-
     /**
-     * StatementIterator cannot be rewound
+     * Retrieve an external iterator
+     *
+     * @link  http://php.net/manual/en/iteratoraggregate.getiterator.php
+     * @return Traversable An instance of an object implementing <b>Iterator</b> or
+     *        <b>Traversable</b>
+     * @since 5.0.0
      */
-    public function rewind()
+    public function getIterator()
     {
-        if ($this->iterationStarted) {
-            return;
-        }
-        $this->iterationStarted = true;
-
         if ($this->offset > 0) {
             $key   = null;
             $index = 0;
             //Skip the first N
-            while ($record = $this->statement->fetch()) {
+            while (false !== ($record = $this->statement->fetch())) {
                 if ($key === $record[ $this->pkField ]) {
                     continue;
                 }
@@ -89,10 +46,27 @@ class StatementIterator implements \Iterator
                     break;
                 }
             }
-            $this->currentRecord = $record;
+            $current = $record;
         } else {
-            $this->currentRecord = $this->statement->fetch();
+            $current = $this->statement->fetch();
         }
-        $this->fetchedRecordCount = 1;
+
+        $currentKey = $current[ $this->pkField ];
+
+        $fetchedRecordCount = 1;
+        do {
+            yield $currentKey => $current;
+
+            $current = $this->statement->fetch();
+            if (empty($current)) {
+                break;
+            }
+            if ($currentKey !== $current[ $this->pkField ]) {
+                $currentKey = $current[ $this->pkField ];
+                $fetchedRecordCount++;
+            }
+        } while ($fetchedRecordCount <= $this->limit);
+
+        $this->statement->closeCursor();
     }
 }
