@@ -960,6 +960,39 @@ class EntityTest extends \PHPUnit_Framework_TestCase
         $this->entityManager->commit();
     }
 
+    public function testSettingBelongsToRelationObjectUpdatesForeignKey()
+    {
+        $this->expectQueries(
+            [
+                [
+                    'SELECT primaryKey, foreignKey FROM related WHERE primaryKey=?',
+                    [2],
+                    [
+                        [
+                            'primaryKey' => 2,
+                            'foreignKey' => null
+                        ]
+                    ]
+                ],
+                [
+                    'UPDATE related SET foreignKey=? WHERE primaryKey=?',
+                    [1, 2]
+                ]
+            ]
+        );
+
+        $entity         = $this->entityManager->get('HasManyTargetEntity');
+        $relationEntity = $this->entityManager->get('HasManyRelationEntity');
+        /** @var HasManyTargetEntity $object */
+        $object = $entity->get(2);
+
+        $object->belongs = $relationEntity->create(['pk' => 1], true);
+
+        $entity->save($object);
+
+        $this->entityManager->commit();
+    }
+
     public function testEntityWithMultipleRelations()
     {
         $this->expectQueries(

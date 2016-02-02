@@ -2,10 +2,11 @@
 
 namespace ORMiny\Metadata\Relation;
 
-use DBTiny\QueryBuilder\Expression;
-use DBTiny\QueryBuilder\Select;
+use Modules\DBAL\QueryBuilder\Expression;
+use Modules\DBAL\QueryBuilder\Select;
 use ORMiny\EntityManager;
 use ORMiny\Metadata\Relation;
+use ORMiny\PendingQuery;
 
 class ManyToMany extends Relation
 {
@@ -15,22 +16,29 @@ class ManyToMany extends Relation
         return [];
     }
 
-    public function delete(EntityManager $manager, $object)
+    public function delete($foreignKey)
     {
+        $manager      = $this->entity->getManager();
         $queryBuilder = $manager->getDriver()->getQueryBuilder();
         $table        = $this->entity->getTable();
 
         $manager->postPendingQuery(
-            $queryBuilder
-                ->delete($this->getJoinTable())
-                ->where(
-                    $queryBuilder->expression()->eq(
-                        $table . '_' . $this->getForeignKey(),
-                        $queryBuilder->createPositionalParameter($this->entity
-                            ->getField($this->getForeignKey())
-                            ->get($object))
+            new PendingQuery(
+                $this->entity,
+                PendingQuery::TYPE_DELETE,
+                $queryBuilder
+                    ->delete($this->getJoinTable())
+                    ->where(
+                        $queryBuilder->expression()->eq(
+                            $table . '_' . $this->getForeignKey(),
+                            $queryBuilder->createPositionalParameter(
+                                $this->entity
+                                    ->getField($this->getForeignKey())
+                                    ->get($foreignKey)
+                            )
+                        )
                     )
-                )
+            )
         );
     }
 

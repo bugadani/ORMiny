@@ -40,7 +40,7 @@ class Entity
     private $tableName;
 
     private $primaryKey;
-    private $fieldNames    = [];
+    private $fieldNames = [];
     private $relationNames = [];
 
     /**
@@ -63,6 +63,14 @@ class Entity
         $this->manager      = $manager;
         $this->className    = $className;
         $this->entityStates = new \SplObjectStorage();
+    }
+
+    /**
+     * @return EntityManager
+     */
+    public function getManager()
+    {
+        return $this->manager;
     }
 
     //Metadata related methods
@@ -387,25 +395,27 @@ class Entity
 
     public function delete($object)
     {
-        $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
-        $table        = $this->getTable();
-
         foreach ($this->getRelations() as $relation) {
-            $relation->delete($this->manager, $object);
+            $relation->delete($object);
         }
 
         if ($this->isPrimaryKeySet($object)) {
+            $queryBuilder = $this->manager->getDriver()->getQueryBuilder();
             $this->manager->postPendingQuery(
-                $queryBuilder
-                    ->delete($table)
-                    ->where(
-                        $queryBuilder->expression()->eq(
-                            $this->getPrimaryKey(),
-                            $queryBuilder->createPositionalParameter(
-                                $this->getPrimaryKeyValue($object)
+                new PendingQuery(
+                    $this,
+                    PendingQuery::TYPE_DELETE,
+                    $queryBuilder
+                        ->delete($this->getTable())
+                        ->where(
+                            $queryBuilder->expression()->eq(
+                                $this->getPrimaryKey(),
+                                $queryBuilder->createPositionalParameter(
+                                    $this->getPrimaryKeyValue($object)
+                                )
                             )
                         )
-                    )
+                )
             );
             unset($this->entityStates[ $object ]);
         }
@@ -532,17 +542,21 @@ class Entity
             $primaryKey   = $this->getPrimaryKey();
 
             $this->manager->postPendingQuery(
-                $queryBuilder
-                    ->update($this->getTable())
-                    ->values($queryBuilder->createPositionalParameter($data))
-                    ->where(
-                        $queryBuilder->expression()->eq(
-                            $primaryKey,
-                            $queryBuilder->createPositionalParameter(
-                                $this->getState($object)->getOriginalFieldData($primaryKey)
+                new PendingQuery(
+                    $this,
+                    PendingQuery::TYPE_UPDATE,
+                    $queryBuilder
+                        ->update($this->getTable())
+                        ->values($queryBuilder->createPositionalParameter($data))
+                        ->where(
+                            $queryBuilder->expression()->eq(
+                                $primaryKey,
+                                $queryBuilder->createPositionalParameter(
+                                    $this->getState($object)->getOriginalFieldData($primaryKey)
+                                )
                             )
                         )
-                    )
+                )
             );
         }
 
@@ -757,7 +771,7 @@ class Entity
             $originalForeignKey = $state->getOriginalFieldData($foreignKey);
 
             if ($relatedObject !== null) {
-                //Related object has been set
+                //Related object is set
                 $targetKeyField    = $relatedEntity->getField($relation->getTargetKey());
                 $currentForeignKey = $targetKeyField->get($relatedObject);
             } else if ($state->isRelationLoaded($relationName)) {
@@ -778,14 +792,12 @@ class Entity
             //TODO: there are cases when this condition is not sufficient
             //e.g. a row should be saved because of a to-be-executed pending query changes a foreign key
             if ($currentForeignKey !== $originalForeignKey) {
+                //The related object has changed, update the foreign key
                 $foreignKeyField->set($object, $currentForeignKey);
                 $state->setRelationForeignKeys($relationName, $currentForeignKey);
 
-                if ($currentForeignKey !== null) {
-                    $relatedEntity->save(
-                    //TODO: is this always $relatedObject? if yes, this be null
-                        $relation->get($object)
-                    );
+                if ($relatedObject !== null) {
+                    $relatedEntity->save($relatedObject);
                 }
             }
         }
