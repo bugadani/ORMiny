@@ -1,11 +1,13 @@
 <?php
 
-namespace ORMiny;
+namespace ORMiny\Test;
 
-use Modules\Annotation\AnnotationReader;
-use Modules\DBAL\Driver;
-use Modules\DBAL\Platform\MySQL;
+use Annotiny\AnnotationReader;
+use DBTiny\Driver;
+use DBTiny\Driver\Statement;
+use DBTiny\Platform\MySQL;
 use ORMiny\Drivers\AnnotationMetadataDriver;
+use ORMiny\EntityManager;
 
 class EntityFinderTest extends \PHPUnit_Framework_TestCase
 {
@@ -27,7 +29,7 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
     public function setUp()
     {
         $platform     = new MySQL();
-        $this->driver = $this->getMockBuilder('Modules\\DBAL\\Driver')
+        $this->driver = $this->getMockBuilder(Driver::class)
                              ->disableOriginalConstructor()
                              ->setMethods(['getPlatform', 'query'])
                              ->getMockForAbstractClass();
@@ -39,18 +41,18 @@ class EntityFinderTest extends \PHPUnit_Framework_TestCase
         $driver = new AnnotationMetadataDriver(new AnnotationReader());
 
         $this->entityManager = new EntityManager($this->driver, $driver);
-        $this->entityManager->register('TestEntity', 'ORMiny\\TestEntity');
-        $this->entityManager->register('RelatedEntity', 'ORMiny\\RelatedEntity');
-        $this->entityManager->register('DeepRelationEntity', 'ORMiny\\DeepRelationEntity');
-        $this->entityManager->register('HasOneRelationEntity', 'ORMiny\\HasOneRelationEntity');
-        $this->entityManager->register('ManyManyRelationEntity', 'ORMiny\\ManyManyRelationEntity');
+        $this->entityManager->register('TestEntity', TestEntity::class);
+        $this->entityManager->register('RelatedEntity', RelatedEntity::class);
+        $this->entityManager->register('DeepRelationEntity', DeepRelationEntity::class);
+        $this->entityManager->register('HasOneRelationEntity', HasOneRelationEntity::class);
+        $this->entityManager->register('ManyManyRelationEntity', ManyManyRelationEntity::class);
 
         $this->entityFinder = $this->entityManager->find('TestEntity');
     }
 
     private function createMockStatement($return)
     {
-        $mockStatement = $this->getMockBuilder('Modules\\DBAL\\Driver\\Statement')
+        $mockStatement = $this->getMockBuilder(Statement::class)
                               ->disableOriginalConstructor()
                               ->setMethods(['fetchAll', 'fetch'])
                               ->getMockForAbstractClass();

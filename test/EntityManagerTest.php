@@ -1,11 +1,13 @@
 <?php
 
-namespace ORMiny;
+namespace ORMiny\Test;
 
-use Modules\Annotation\AnnotationReader;
-use Modules\DBAL\Driver;
-use Modules\DBAL\Platform\MySQL;
+use Annotiny\AnnotationReader;
+use DBTiny\Driver;
+use DBTiny\Platform\MySQL;
 use ORMiny\Drivers\AnnotationMetadataDriver;
+use ORMiny\Entity;
+use ORMiny\EntityManager;
 
 class EntityManagerTest extends \PHPUnit_Framework_TestCase
 {
@@ -22,7 +24,7 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase
     public function setUp()
     {
         $platform     = new MySQL();
-        $this->driver = $this->getMockBuilder('Modules\\DBAL\\Driver')
+        $this->driver = $this->getMockBuilder(Driver::class)
                              ->disableOriginalConstructor()
                              ->setMethods(['getPlatform', 'query'])
                              ->getMockForAbstractClass();
@@ -34,20 +36,20 @@ class EntityManagerTest extends \PHPUnit_Framework_TestCase
         $driver = new AnnotationMetadataDriver(new AnnotationReader());
 
         $this->entityManager = new EntityManager($this->driver, $driver);
-        $this->entityManager->register('TestEntity', 'ORMiny\\TestEntity');
-        $this->entityManager->register('RelatedEntity', 'ORMiny\\RelatedEntity');
-        $this->entityManager->register('DeepRelationEntity', 'ORMiny\\DeepRelationEntity');
-        $this->entityManager->register('MultipleRelationEntity', 'ORMiny\\MultipleRelationEntity');
-        $this->entityManager->register('HasOneRelationEntity', 'ORMiny\\HasOneRelationEntity');
-        $this->entityManager->register('HasManyRelationEntity', 'ORMiny\\HasManyRelationEntity');
-        $this->entityManager->register('HasManyTargetEntity', 'ORMiny\\HasManyTargetEntity');
-        $this->entityManager->register('ManyManyRelationEntity', 'ORMiny\\ManyManyRelationEntity');
+        $this->entityManager->register('TestEntity', TestEntity::class);
+        $this->entityManager->register('RelatedEntity', RelatedEntity::class);
+        $this->entityManager->register('DeepRelationEntity', DeepRelationEntity::class);
+        $this->entityManager->register('HasOneRelationEntity', HasOneRelationEntity::class);
+        $this->entityManager->register('ManyManyRelationEntity', ManyManyRelationEntity::class);
+        $this->entityManager->register('MultipleRelationEntity', MultipleRelationEntity::class);
+        $this->entityManager->register('HasManyRelationEntity', HasManyRelationEntity::class);
+        $this->entityManager->register('HasManyTargetEntity', HasManyTargetEntity::class);
     }
 
     public function testThatTheAppropriateEntityIsReturned()
     {
         $entity = $this->entityManager->getEntityForObject(new RelatedEntity());
-        $this->assertInstanceOf('ORMiny\\Entity', $entity);
-        $this->assertEquals('ORMiny\\RelatedEntity', $entity->getClassName());
+        $this->assertInstanceOf(Entity::class, $entity);
+        $this->assertEquals(RelatedEntity::class, $entity->getClassName());
     }
 }

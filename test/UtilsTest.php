@@ -1,6 +1,8 @@
 <?php
 
-namespace ORMiny;
+namespace ORMiny\Test;
+
+use ORMiny\Utils;
 
 class UtilsTest extends \PHPUnit_Framework_TestCase
 {

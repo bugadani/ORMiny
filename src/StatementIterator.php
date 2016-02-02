@@ -2,7 +2,7 @@
 
 namespace ORMiny;
 
-use Modules\DBAL\Driver\Statement;
+use DBTiny\Driver\Statement;
 
 class StatementIterator implements \Iterator
 {

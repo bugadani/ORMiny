@@ -9,8 +9,8 @@
 
 namespace ORMiny\Drivers;
 
-use Modules\Annotation\Comment;
-use Modules\Annotation\Reader;
+use Annotiny\Comment;
+use Annotiny\Reader;
 use ORMiny\Entity;
 use ORMiny\EntityManager;
 use ORMiny\Exceptions\EntityDefinitionException;

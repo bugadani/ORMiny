@@ -1,6 +1,6 @@
 <?php
 
-namespace ORMiny;
+namespace ORMiny\Test;
 
 use ORMiny\Annotations\Field;
 use ORMiny\Annotations\Relation;

@@ -9,8 +9,8 @@
 
 namespace ORMiny;
 
-use Modules\DBAL\AbstractQueryBuilder;
-use Modules\DBAL\Driver;
+use DBTiny\AbstractQueryBuilder;
+use DBTiny\Driver;
 
 class EntityManager
 {

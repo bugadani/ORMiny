@@ -2,15 +2,15 @@
 
 /**
  * This file is part of the ORMiny library.
- * (c) Dániel Buga <bugadani@gmail.com>
+ * (c) Dï¿½niel Buga <bugadani@gmail.com>
  *
  * For licensing information see the LICENSE file.
  */
 
 namespace ORMiny\Metadata;
 
-use Modules\DBAL\QueryBuilder\Expression;
-use Modules\DBAL\QueryBuilder\Select;
+use DBTiny\QueryBuilder\Expression;
+use DBTiny\QueryBuilder\Select;
 use ORMiny\Annotations\Relation as RelationAnnotation;
 use ORMiny\Entity;
 use ORMiny\EntityManager;

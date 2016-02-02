@@ -9,13 +9,12 @@
 
 namespace ORMiny;
 
-use Modules\DBAL\AbstractQueryBuilder;
-use Modules\DBAL\Driver;
-use Modules\DBAL\Driver\Statement;
-use Modules\DBAL\QueryBuilder;
-use Modules\DBAL\QueryBuilder\Expression;
-use Modules\DBAL\QueryBuilder\Select;
-use Modules\DBAL\QueryBuilder\Update;
+use DBTiny\AbstractQueryBuilder;
+use DBTiny\Driver;
+use DBTiny\Driver\Statement;
+use DBTiny\QueryBuilder;
+use DBTiny\QueryBuilder\Select;
+use DBTiny\QueryBuilder\Update;
 use ORMiny\Annotations\Relation as RelationAnnotation;
 use ORMiny\Metadata\Relation;
 
