@@ -11,6 +11,8 @@ namespace ORMiny\Drivers;
 
 use Annotiny\Comment;
 use Annotiny\Reader;
+use ORMiny\Annotations\Field as FieldAnnotation;
+use ORMiny\Annotations\Relation as RelationAnnotation;
 use ORMiny\Entity;
 use ORMiny\EntityManager;
 use ORMiny\Exceptions\EntityDefinitionException;
@@ -24,11 +26,13 @@ use ORMiny\Metadata\Setter\MethodSetter;
 use ORMiny\Metadata\Setter\PropertySetter;
 use ORMiny\MetadataDriverInterface;
 
+/**
+ * Class AnnotationMetadataDriver
+ *
+ * @package ORMiny\Drivers
+ */
 class AnnotationMetadataDriver implements MetadataDriverInterface
 {
-    const RELATION_ANNOTATION = 'ORMiny\\Annotations\\Relation';
-    const FIELD_ANNOTATION    = 'ORMiny\\Annotations\\Field';
-
     /**
      * @var Reader
      */
@@ -44,11 +48,19 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
      */
     private $manager;
 
+    /**
+     * AnnotationMetadataDriver constructor.
+     *
+     * @param Reader $annotationReader
+     */
     public function __construct(Reader $annotationReader)
     {
         $this->annotationReader = $annotationReader;
     }
 
+    /**
+     * @param EntityManager $manager
+     */
     public function setEntityManager(EntityManager $manager)
     {
         $this->manager = $manager;
@@ -75,9 +87,9 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
 
             try {
                 foreach ($properties as $property => $comment) {
-                    if ($comment->hasAnnotationType(self::FIELD_ANNOTATION)) {
+                    if ($comment->hasAnnotationType(FieldAnnotation::class)) {
                         $this->processField($comment, $property, $entity);
-                    } else if ($comment->hasAnnotationType(self::RELATION_ANNOTATION)) {
+                    } else if ($comment->hasAnnotationType(RelationAnnotation::class)) {
                         $this->processRelation($comment, $property, $entity);
                     }
                 }
@@ -100,7 +112,7 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
     private function processField(Comment $comment, $property, Entity $entity)
     {
         /** @var \ORMiny\Annotations\Field $fieldAnnotation */
-        $fieldAnnotation = current($comment->getAnnotationType(self::FIELD_ANNOTATION));
+        $fieldAnnotation = current($comment->getAnnotationType(FieldAnnotation::class));
 
         if ($fieldAnnotation->name === null) {
             $fieldAnnotation->name = $property;
@@ -129,7 +141,7 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
     private function processRelation(Comment $comment, $property, Entity $entity)
     {
         /** @var \ORMiny\Annotations\Relation $relationAnnotation */
-        $relationAnnotation = current($comment->getAnnotationType(self::RELATION_ANNOTATION));
+        $relationAnnotation = current($comment->getAnnotationType(RelationAnnotation::class));
 
         $relation = Relation::create(
             $entity,
@@ -142,6 +154,9 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
         $entity->addRelation($relationAnnotation->name, $relationAnnotation->foreignKey, $relation);
     }
 
+    /**
+     * @param Entity $entity
+     */
     private function readTableName(Entity $entity)
     {
         $className = $entity->getClassName();
@@ -157,6 +172,7 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
      * @param Entity $entity
      * @param        $property
      * @param        $annotation
+     *
      * @return Setter
      */
     private function createSetter(Entity $entity, $property, $annotation)
@@ -179,6 +195,7 @@ class AnnotationMetadataDriver implements MetadataDriverInterface
      * @param Entity $entity
      * @param        $property
      * @param        $annotation
+     *
      * @return Getter
      */
     private function createGetter(Entity $entity, $property, $annotation)

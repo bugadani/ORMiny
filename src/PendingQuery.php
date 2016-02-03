@@ -4,6 +4,11 @@ namespace ORMiny;
 
 use DBTiny\AbstractQueryBuilder;
 
+/**
+ * Class PendingQuery
+ *
+ * @package ORMiny
+ */
 class PendingQuery
 {
     const TYPE_INSERT = 0;
@@ -30,6 +35,14 @@ class PendingQuery
      */
     public $parameters;
 
+    /**
+     * PendingQuery constructor.
+     *
+     * @param Entity               $entity
+     * @param                      $type
+     * @param AbstractQueryBuilder $query
+     * @param array                $parameters
+     */
     public function __construct(Entity $entity, $type, AbstractQueryBuilder $query, array $parameters = [])
     {
         $this->entity     = $entity;

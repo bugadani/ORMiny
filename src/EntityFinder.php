@@ -15,9 +15,13 @@ use DBTiny\Driver\Statement;
 use DBTiny\QueryBuilder;
 use DBTiny\QueryBuilder\Select;
 use DBTiny\QueryBuilder\Update;
-use ORMiny\Annotations\Relation as RelationAnnotation;
 use ORMiny\Metadata\Relation;
 
+/**
+ * Class EntityFinder
+ *
+ * @package ORMiny
+ */
 class EntityFinder
 {
     /**
@@ -37,7 +41,7 @@ class EntityFinder
     private $alias;
     private $parameters = [];
     private $where;
-    private $with = [];
+    private $with       = [];
 
     private $limit;
     private $offset;
@@ -47,6 +51,13 @@ class EntityFinder
 
     private $readOnly = false;
 
+    /**
+     * EntityFinder constructor.
+     *
+     * @param EntityManager $manager
+     * @param Driver        $driver
+     * @param Entity        $entity
+     */
     public function __construct(EntityManager $manager, Driver $driver, Entity $entity)
     {
         $this->manager      = $manager;
@@ -54,6 +65,11 @@ class EntityFinder
         $this->queryBuilder = $driver->getQueryBuilder();
     }
 
+    /**
+     * @param $alias
+     *
+     * @return $this
+     */
     public function alias($alias)
     {
         $alias = (string)$alias;
@@ -258,10 +274,10 @@ class EntityFinder
     }
 
     /**
-     * @param string $table The table name
-     * @param string|array $fields Fields to select
-     * @param string $fieldName The key field
-     * @param mixed|array $keys The key value(s)
+     * @param string       $table     The table name
+     * @param string|array $fields    Fields to select
+     * @param string       $fieldName The key field
+     * @param mixed|array  $keys      The key value(s)
      *
      * @return Select
      */
@@ -303,6 +319,11 @@ class EntityFinder
         return $query;
     }
 
+    /**
+     * @param AbstractQueryBuilder $query
+     *
+     * @return AbstractQueryBuilder
+     */
     private function applyFilters(AbstractQueryBuilder $query)
     {
         //GroupBy is only applicable to Select
@@ -335,7 +356,7 @@ class EntityFinder
     /**
      * @param Entity $entity
      * @param Select $query
-     * @param array $with
+     * @param array  $with
      * @param string $prefix
      *
      * @return Select
@@ -373,11 +394,22 @@ class EntityFinder
         return $query;
     }
 
+    /**
+     * @param       $field
+     * @param array $values
+     *
+     * @return QueryBuilder\Expression
+     */
     private function equalsExpression($field, array $values)
     {
         return $this->queryBuilder->expression()->eq($field, $this->parameter($values));
     }
 
+    /**
+     * @param Statement $results
+     *
+     * @return array
+     */
     private function process(Statement $results)
     {
         return $this->manager
@@ -424,13 +456,22 @@ class EntityFinder
             return new StatementIterator($statement, $pkField, $this->offset, $this->limit);
         }
 
-        if (!$statement instanceof \Traversable) {
-            $statement = new \ArrayIterator($statement->fetchAll());
+        if ($statement instanceof \Traversable) {
+            return $statement;
         }
 
-        return $statement;
+        $generator = function (Statement $statement) {
+            while ($row = $statement->fetch()) {
+                yield $row;
+            }
+        };
+
+        return $generator($statement);
     }
 
+    /**
+     * @param $records
+     */
     private function deleteRecords($records)
     {
         if ($records !== false) {
@@ -537,7 +578,7 @@ class EntityFinder
      *
      * Note: previous WHERE clauses are preserved
      *
-     * @param string $fieldName
+     * @param string      $fieldName
      * @param array|mixed $keys
      *
      * @return array
@@ -579,7 +620,7 @@ class EntityFinder
     /**
      * Fetch a single record from the database by field
      *
-     * @param string $fieldName
+     * @param string      $fieldName
      * @param array|mixed $key
      *
      * @return mixed The record object or false on failure
@@ -597,7 +638,7 @@ class EntityFinder
      * Note: previous WHERE clauses are preserved
      *
      * @param string $fieldName
-     * @param mixed $key
+     * @param mixed  $key
      *
      * @return bool
      */
@@ -674,7 +715,7 @@ class EntityFinder
      *
      * Note: previous WHERE clauses are preserved
      *
-     * @param string $fieldName
+     * @param string      $fieldName
      * @param mixed|array $keys
      */
     public function deleteByField($fieldName, $keys)
@@ -743,9 +784,9 @@ class EntityFinder
      *
      * Note: previous WHERE clauses are preserved
      *
-     * @param string $fieldName
+     * @param string      $fieldName
      * @param mixed|array $fieldValue
-     * @param array $data
+     * @param array       $data
      */
     public function updateByField($fieldName, $fieldValue, array $data)
     {
@@ -768,7 +809,7 @@ class EntityFinder
      * Note: previous WHERE clauses are preserved
      *
      * @param mixed|array $key
-     * @param array $data
+     * @param array       $data
      */
     public function updateByPrimaryKey($key, array $data)
     {

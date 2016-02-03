@@ -2,18 +2,28 @@
 
 /**
  * This file is part of the ORMiny library.
- * (c) Dániel Buga <bugadani@gmail.com>
+ * (c) Dï¿½niel Buga <bugadani@gmail.com>
  *
  * For licensing information see the LICENSE file.
  */
 
 namespace ORMiny;
 
+/**
+ * Class Utils
+ *
+ * @package ORMiny
+ */
 class Utils
 {
     const FILTER_USE_KEYS      = 1;
     const FILTER_REMOVE_PREFIX = 2;
 
+    /**
+     * @param $withPrefix
+     *
+     * @return \Closure
+     */
     public static function createStartWithFunction($withPrefix)
     {
         return function ($relationName) use ($withPrefix) {
@@ -21,6 +31,13 @@ class Utils
         };
     }
 
+    /**
+     * @param array $unfiltered
+     * @param       $prefix
+     * @param int   $flag
+     *
+     * @return array
+     */
     public static function filterPrefixedElements(array $unfiltered, $prefix, $flag = 0)
     {
         $useKeys      = $flag & Utils::FILTER_USE_KEYS;
@@ -59,6 +76,11 @@ class Utils
         return $filteredAndStripped;
     }
 
+    /**
+     * @param $value
+     *
+     * @return bool
+     */
     public static function notNull($value)
     {
         return $value !== null;

@@ -20,9 +20,13 @@
     ],
     "autoload": {
         "psr-4": {
-            "ORMiny\\": "src/",
+            "ORMiny\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "classmap": ["test/Mocks.php"],
+        "psr-4": {
             "ORMiny\\Test\\": "test/"
-        },
-        "classmap": ["test/Mocks.php"]
+        }
     }
 }

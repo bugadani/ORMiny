@@ -9,9 +9,8 @@
 
 namespace ORMiny;
 
-use Modules\DBAL\Driver;
-use Modules\DBAL\QueryBuilder;
-use Modules\DBAL\QueryBuilder\Expression;
+use DBTiny\Driver;
+use DBTiny\QueryBuilder\Expression;
 use ORMiny\Metadata\Field;
 use ORMiny\Metadata\Getter;
 use ORMiny\Metadata\Relation;
@@ -58,6 +57,12 @@ class Entity
      */
     private $relationsByForeignKey = [];
 
+    /**
+     * Entity constructor.
+     *
+     * @param EntityManager $manager
+     * @param               $className
+     */
     public function __construct(EntityManager $manager, $className)
     {
         $this->manager      = $manager;
@@ -91,6 +96,12 @@ class Entity
         }
     }
 
+    /**
+     * @param array $data
+     * @param bool  $fromDatabase
+     *
+     * @return mixed
+     */
     public function create(array $data = [], $fromDatabase = false)
     {
         $className = $this->getClassName();
@@ -104,6 +115,11 @@ class Entity
         return $object;
     }
 
+    /**
+     * @param $object
+     *
+     * @return array
+     */
     public function toArray($object)
     {
         $this->assertObjectInstance($object);
@@ -116,21 +132,33 @@ class Entity
         );
     }
 
+    /**
+     * @return string
+     */
     public function getClassName()
     {
         return $this->className;
     }
 
+    /**
+     * @param $tableName
+     */
     public function setTable($tableName)
     {
         $this->tableName = $tableName;
     }
 
+    /**
+     * @return string
+     */
     public function getTable()
     {
         return $this->tableName;
     }
 
+    /**
+     * @param $field
+     */
     public function setPrimaryKey($field)
     {
         if (!isset($this->fields[ $field ])) {
@@ -144,6 +172,12 @@ class Entity
         return $this->primaryKey;
     }
 
+    /**
+     * @param       $fieldName
+     * @param Field $field
+     *
+     * @return mixed
+     */
     public function addField($fieldName, Field $field)
     {
         $this->fieldNames[ $fieldName ] = $fieldName;
@@ -152,6 +186,11 @@ class Entity
         return $fieldName;
     }
 
+    /**
+     * @param          $relationName
+     * @param          $foreignKey
+     * @param Relation $relation
+     */
     public function addRelation($relationName, $foreignKey, Relation $relation)
     {
         $this->relationNames[]                      = $relationName;
@@ -173,6 +212,9 @@ class Entity
         return $this->relations[ $name ];
     }
 
+    /**
+     * @return array
+     */
     public function getRelationNames()
     {
         return $this->relationNames;
@@ -309,6 +351,12 @@ class Entity
         return $this->getField($field)->get($object);
     }
 
+    /**
+     * @param $object
+     * @param $relationName
+     *
+     * @return mixed
+     */
     public function getRelationValue($object, $relationName)
     {
         $this->assertObjectInstance($object);
@@ -316,6 +364,13 @@ class Entity
         return $this->getRelation($relationName)->get($object);
     }
 
+    /**
+     * @param $object
+     * @param $relationName
+     * @param $value
+     *
+     * @return mixed
+     */
     public function setRelationValue($object, $relationName, $value)
     {
         $this->assertObjectInstance($object);
@@ -332,6 +387,12 @@ class Entity
 
     //Entity API
 
+    /**
+     * @param      $object
+     * @param bool $fromDatabase
+     *
+     * @return mixed
+     */
     public function handle($object, $fromDatabase = true)
     {
         if (!$this->entityStates->contains($object)) {
@@ -388,11 +449,19 @@ class Entity
         return $this->find()->getByPrimaryKey($primaryKey);
     }
 
+    /**
+     * @param $primaryKey
+     *
+     * @return bool
+     */
     public function exists($primaryKey)
     {
         return $this->find()->existsByPrimaryKey($primaryKey);
     }
 
+    /**
+     * @param $object
+     */
     public function delete($object)
     {
         foreach ($this->getRelations() as $relation) {
@@ -508,6 +577,11 @@ class Entity
         return $primaryKey;
     }
 
+    /**
+     * @param $object
+     *
+     * @return mixed
+     */
     private function insert($object)
     {
         //TODO: this should only be done if there is a Delete query pending for the same entity table
@@ -522,7 +596,7 @@ class Entity
             $query->createPositionalParameter(
                 array_filter(
                     $this->toArray($object),
-                    '\\ORMiny\\Utils::notNull'
+                    [Utils::class, 'notNull']
                 )
             )
         );
@@ -534,6 +608,12 @@ class Entity
         );
     }
 
+    /**
+     * @param       $object
+     * @param array $data
+     *
+     * @return mixed
+     */
     private function update($object, array $data)
     {
         //only save when a change is detected
@@ -615,6 +695,10 @@ class Entity
         }
     }
 
+    /**
+     * @param      $object
+     * @param bool $readOnly
+     */
     public function setReadOnly($object, $readOnly = true)
     {
         $this->assertObjectInstance($object);
@@ -622,6 +706,11 @@ class Entity
         $this->getState($object)->setReadOnly($readOnly);
     }
 
+    /**
+     * @param            $object
+     * @param            $relationName
+     * @param array|null $with
+     */
     public function loadRelation($object, $relationName, array $with = null)
     {
         $this->assertObjectInstance($object);

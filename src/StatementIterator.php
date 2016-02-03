@@ -5,6 +5,11 @@ namespace ORMiny;
 use DBTiny\Driver\Statement;
 use Traversable;
 
+/**
+ * Class StatementIterator
+ *
+ * @package ORMiny
+ */
 class StatementIterator implements \IteratorAggregate
 {
     private $statement;

@@ -9,6 +9,11 @@
 
 namespace ORMiny;
 
+/**
+ * Interface MetadataDriverInterface
+ *
+ * @package ORMiny
+ */
 interface MetadataDriverInterface
 {
     /**

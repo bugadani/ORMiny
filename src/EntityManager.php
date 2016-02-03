@@ -9,7 +9,6 @@
 
 namespace ORMiny;
 
-use DBTiny\AbstractQueryBuilder;
 use DBTiny\Driver;
 
 class EntityManager
@@ -49,6 +48,12 @@ class EntityManager
      */
     private $pendingQueries = [];
 
+    /**
+     * EntityManager constructor.
+     *
+     * @param Driver                  $driver
+     * @param MetadataDriverInterface $metadataDriver
+     */
     public function __construct(Driver $driver, MetadataDriverInterface $metadataDriver)
     {
         $metadataDriver->setEntityManager($this);
@@ -73,11 +78,18 @@ class EntityManager
         return $this->driver;
     }
 
+    /**
+     * @param $namespace
+     */
     public function setDefaultNamespace($namespace)
     {
         $this->defaultNamespace = $namespace;
     }
 
+    /**
+     * @param $entityName
+     * @param $className
+     */
     public function register($entityName, $className)
     {
         $this->entityClassMap[ $entityName ] = $className;
@@ -111,6 +123,11 @@ class EntityManager
         return $this->entityClassMap[ $entityName ];
     }
 
+    /**
+     * @param $className
+     *
+     * @return Entity
+     */
     private function getEntityByClass($className)
     {
         if (!isset($this->entities[ $className ])) {
@@ -123,6 +140,11 @@ class EntityManager
         return $this->entities[ $className ];
     }
 
+    /**
+     * @param $object
+     *
+     * @return Entity
+     */
     public function getEntityForObject($object)
     {
         return $this->getEntityByClass(
@@ -153,6 +175,9 @@ class EntityManager
         return $this->get($entityName)->find($alias);
     }
 
+    /**
+     * @param PendingQuery $query
+     */
     public function postPendingQuery(PendingQuery $query)
     {
         $this->pendingQueries[] = $query;

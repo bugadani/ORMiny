@@ -2,6 +2,11 @@
 
 namespace ORMiny;
 
+/**
+ * Class EntityState
+ *
+ * @package ORMiny
+ */
 class EntityState
 {
     const STATE_NEW                  = 1;
@@ -43,6 +48,13 @@ class EntityState
      */
     private $object;
 
+    /**
+     * EntityState constructor.
+     *
+     * @param        $object
+     * @param Entity $metadata
+     * @param bool   $fromDatabase
+     */
     public function __construct($object, Entity $metadata, $fromDatabase = false)
     {
         $isPrimaryKeySet = $metadata->getPrimaryKeyField()->get($object) !== null;
@@ -89,6 +101,11 @@ class EntityState
         $this->readOnly = $readOnly;
     }
 
+    /**
+     * @param $relationName
+     *
+     * @return mixed
+     */
     public function isRelationLoaded($relationName)
     {
         if (!isset($this->loadedRelations[ $relationName ])) {
@@ -98,6 +115,10 @@ class EntityState
         return $this->loadedRelations[ $relationName ];
     }
 
+    /**
+     * @param      $relationName
+     * @param bool $isLoaded
+     */
     public function setRelationLoaded($relationName, $isLoaded = true)
     {
         if (!isset($this->loadedRelations[ $relationName ])) {
@@ -106,6 +127,11 @@ class EntityState
         $this->loadedRelations[ $relationName ] = $isLoaded;
     }
 
+    /**
+     * @param $relationName
+     *
+     * @return mixed
+     */
     public function getRelationForeignKeys($relationName)
     {
         if (!isset($this->relationForeignKeys[ $relationName ])) {
@@ -115,6 +141,10 @@ class EntityState
         return $this->relationForeignKeys[ $relationName ];
     }
 
+    /**
+     * @param $relationName
+     * @param $data
+     */
     public function setRelationForeignKeys($relationName, $data)
     {
         $this->relationForeignKeys[ $relationName ] = $data;
@@ -144,16 +174,27 @@ class EntityState
         );
     }
 
+    /**
+     * @return object
+     */
     public function getObject()
     {
         return $this->object;
     }
 
+    /**
+     * @param $state
+     */
     public function setState($state)
     {
         $this->objectState = $state;
     }
 
+    /**
+     * @param $field
+     *
+     * @return null
+     */
     public function getOriginalFieldData($field)
     {
         if (isset($this->originalData[ $field ])) {

@@ -9,6 +9,11 @@
 
 namespace ORMiny;
 
+/**
+ * Class ResultProcessor
+ *
+ * @package ORMiny
+ */
 class ResultProcessor
 {
     /**
@@ -16,11 +21,24 @@ class ResultProcessor
      */
     private $manager;
 
+    /**
+     * ResultProcessor constructor.
+     *
+     * @param EntityManager $manager
+     */
     public function __construct(EntityManager $manager)
     {
         $this->manager = $manager;
     }
 
+    /**
+     * @param Entity $entity
+     * @param array  $with
+     * @param        $records
+     * @param        $readOnly
+     *
+     * @return array
+     */
     public function processRecords(Entity $entity, array $with, $records, $readOnly)
     {
         $pkField = $entity->getPrimaryKey();
@@ -115,7 +133,7 @@ class ResultProcessor
             return;
         }
         foreach ($relations as $relation) {
-            $relationName  = $relation->getRelationName();
+            $relationName = $relation->getRelationName();
 
             $value = $this->processRecords(
                 $relation->getEntity(),
@@ -143,16 +161,12 @@ class ResultProcessor
     private function stripRelationPrefix(array $records, $prefix)
     {
         //Strip the relation prefix from the columns
-
-        return array_map(
-            function ($rawRecord) use ($prefix) {
-                return Utils::filterPrefixedElements(
-                    $rawRecord,
-                    $prefix,
-                    Utils::FILTER_REMOVE_PREFIX | Utils::FILTER_USE_KEYS
-                );
-            },
-            $records
-        );
+        foreach ($records as $record) {
+            yield Utils::filterPrefixedElements(
+                $record,
+                $prefix,
+                Utils::FILTER_REMOVE_PREFIX | Utils::FILTER_USE_KEYS
+            );
+        }
     }
 }

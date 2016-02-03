@@ -7,6 +7,7 @@ use DBTiny\Driver;
 use DBTiny\Driver\Statement;
 use DBTiny\Platform\MySQL;
 use ORMiny\Drivers\AnnotationMetadataDriver;
+use ORMiny\EntityFinder;
 use ORMiny\EntityManager;
 
 class EntityFinderTest extends \PHPUnit_Framework_TestCase

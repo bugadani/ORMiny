@@ -9,7 +9,7 @@
 
 namespace ORMiny\Annotations;
 
-use Modules\Annotation\Exceptions\AnnotationException;
+use Annotiny\Exceptions\AnnotationException;
 
 /**
  * @Annotation
